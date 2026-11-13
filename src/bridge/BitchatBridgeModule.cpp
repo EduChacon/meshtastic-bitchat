@@ -28,10 +28,14 @@ BitchatBridgeModule::BitchatBridgeModule() : MeshModule("bitchat"), OSThread("bi
             storageReady = false;
         }
     }
-    if (storageReady && storage.isKey("journal") &&
-        (storage.getBytesLength("journal") != sizeof(journal) ||
-         storage.getBytes("journal", journal.data(), sizeof(journal)) != sizeof(journal)))
-        storageReady = false;
+    for (size_t i = 0; storageReady && i < journal.size(); ++i) {
+        char key[8];
+        snprintf(key, sizeof(key), "j%02u", unsigned(i));
+        auto &entry = journal[i];
+        if (storage.isKey(key) &&
+            (storage.getBytesLength(key) != sizeof(entry) || storage.getBytes(key, &entry, sizeof(entry)) != sizeof(entry)))
+            storageReady = false;
+    }
     bootId = esp_random();
     if (settings.enabled)
         initIdentity();
@@ -161,6 +165,10 @@ void BitchatBridgeModule::refreshChannels()
     Digest current;
     textReady = binding(settings.textChannel, current) && current == settings.textBinding;
     tunnelReady = binding(settings.tunnelChannel, current) && current == settings.tunnelBinding;
+    if (settings.textChannel == settings.tunnelChannel) {
+        textReady = false;
+        tunnelReady = false;
+    }
     if (textReady) {
         const auto &s = channels.getByIndex(settings.textChannel).settings;
         static const char info[] = "meshtastic-bitchat/text/v1";
@@ -232,11 +240,14 @@ bool BitchatBridgeModule::record(const Digest &id)
 {
     if (!storageReady || !utc() || seen(id))
         return false;
-    for (auto &entry : journal) {
+    for (size_t i = 0; i < journal.size(); ++i) {
+        auto &entry = journal[i];
         if (!entry.utc || (utc() >= entry.utc && utc() - entry.utc >= JOURNAL_MS)) {
             std::copy_n(id.begin(), entry.id.size(), entry.id.begin());
             entry.utc = utc();
-            if (storage.putBytes("journal", journal.data(), sizeof(journal)) == sizeof(journal))
+            char key[8];
+            snprintf(key, sizeof(key), "j%02u", unsigned(i));
+            if (storage.putBytes(key, &entry, sizeof(entry)) == sizeof(entry))
                 return true;
             storageReady = false;
             advertisingChanged = true;
@@ -315,7 +326,7 @@ bool BitchatBridgeModule::queueRadio(Bytes payload, uint16_t port, uint8_t chann
     return false;
 }
 
-void BitchatBridgeModule::queueTunnel(Bytes frame)
+void BitchatBridgeModule::queueTunnel(Bytes frame, const Digest &id, bool persistent)
 {
     // Larger frames cannot finish within current freshness and airtime limits.
     if (frame.size > 512) {
@@ -327,6 +338,8 @@ void BitchatBridgeModule::queueTunnel(Bytes frame)
         reject(Result::Full);
         return;
     }
+    if (persistent && !record(id))
+        return;
     TunnelIdentity envelope;
     envelope.domain = tunnelDomain;
     envelope.origin = nodeDB->getNodeNum();
@@ -426,8 +439,8 @@ void BitchatBridgeModule::handleFrame(Bytes frame, uint16_t source, bool fromTun
                                                        packet.type == 0x24 || packet.type == 0x26 || packet.type == 0x27);
         const bool presence = packet.type == 1 && peer->presence.admit(millis(), 30000);
         if (presence || ((publicText || opaque) && peer->lora.admit(millis(), opaque ? 1000 : 30000))) {
-            if (relay(frame, working) == Result::Ok && (presence || (!seen(id) && record(id))))
-                queueTunnel(working.bytes());
+            if (relay(frame, working) == Result::Ok && (presence || !seen(id)))
+                queueTunnel(working.bytes(), id, !presence);
         }
     }
 }
@@ -474,6 +487,8 @@ ProcessMessage BitchatBridgeModule::handleReceived(const meshtastic_MeshPacket &
                packet.decoded.portnum == meshtastic_PortNum_PRIVATE_APP) {
         TunnelFragment view;
         Result result = decodeTunnelFragment(crypto, payload, tunnelDomain, tunnelKey.data(), view);
+        if (result == Result::Ok && view.total > 512)
+            result = Result::Oversize;
         if (result == Result::Ok && view.identity.origin != packet.from)
             result = Result::Unauthenticated;
         if (result == Result::Ok)
@@ -481,7 +496,9 @@ ProcessMessage BitchatBridgeModule::handleReceived(const meshtastic_MeshPacket &
         if (result == Result::Ok) {
             Packet inner;
             if (decode(assembled.bytes(), inner) == Result::Ok &&
-                (inner.type == 1 || (inner.type == 2 && !inner.directed() && startsWith(inner.payload, "!bctun ")) ||
+                (inner.type == 1 ||
+                 (inner.type == 2 && !inner.directed() && !inner.compressed() && startsWith(inner.payload, "!bctun ") &&
+                  inner.payload.size <= TEXT_LIMIT + 7 && validUtf8(inner.payload)) ||
                  (settings.privateTunnel && (inner.type == 0x10 || inner.type == 0x11 || inner.type == 0x25 ||
                                              inner.type == 0x24 || inner.type == 0x26 || inner.type == 0x27))))
                 handleFrame(assembled.bytes(), NO_LINK, true);

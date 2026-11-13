@@ -97,7 +97,7 @@ class BitchatBridgeModule : public MeshModule, private concurrency::OSThread
     bool record(const bitchat::Digest &id);
     bool seen(const bitchat::Digest &id) const;
     bool queueRadio(bitchat::Bytes payload, uint16_t port, uint8_t channel);
-    void queueTunnel(bitchat::Bytes frame);
+    void queueTunnel(bitchat::Bytes frame, const bitchat::Digest &id, bool persistent);
     void sendRadio();
     void reject(bitchat::Result result);
     uint64_t utc() const;

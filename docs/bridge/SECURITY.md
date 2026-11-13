@@ -38,7 +38,10 @@ própria, telemetria externa da ponte ou execução de comandos recebidos por me
 | Mudança de canal/PSK                | Vínculo de configuração por digest, validação repetida                               | Mudar índice, nome, PSK, MQTT ou papel com filas cheias: deve bloquear                                       |
 | Queda de tensão, firmware incorreto | Sem erase/bootloader/partições no pacote, preflight e confirmação física             | Nenhuma gravação é livre de risco; recuperação e preservação ainda não testadas                              |
 
-O diário guarda IDs e horários, sem corpo de mensagem. Presenças C usam dedup em RAM para não
+O diário guarda IDs e horários, sem corpo de mensagem. Cada atualização grava somente um
+registro de 24 bytes em uma chave NVS própria, não toda a tabela; o desgaste real depende
+do gerenciamento NVS e da flash e ainda precisa ser medido. O túnel verifica espaço antes
+de persistir. Presenças C usam dedup em RAM para não
 consumir o diário de mensagens. IDs truncados do diário/envelope têm 128 bits; colisão é
 extremamente improvável, não impossível. Colisões e saturação causam descarte, nunca
 substituição silenciosa de identidade ou abertura de canal.

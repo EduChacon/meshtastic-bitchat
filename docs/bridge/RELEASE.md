@@ -1,56 +1,88 @@
-# Meshtastic ↔ Bitchat 0.1.0-experimental.3
+# Meshtastic ↔ Bitchat 0.1.0-experimental.4
 
-**Pré-release para teste. Boot e funcionamento em hardware ainda não validados.**
-As versões anteriores foram retiradas dos downloads. Os binários desta `.3` permanecem
-inalterados: fonte `d15a403fe9bb50b28a4c025330008ce11636da9b`.
+**Integração pública ativa por padrão e correção do menu. Pré-release sem aceite físico.**
+
+A confirmação de canal na `.3` podia desaparecer ao selecionar o canal. O teste host reproduz
+esse defeito com o código anterior; a `.4` apresenta o aviso depois de encerrar a seleção.
+Cancelar não habilita a tradução. Esta correção não demonstra que toda ausência de entrega
+no iPhone tenha a mesma causa.
 
 ## Baixar para instalar
 
-| Aparelho                      | Download                                                                                                                                                                                    |
-| ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Heltec V3**                 | [**ZIP para Heltec V3**](https://github.com/EduChacon/meshtastic-bitchat/releases/download/v0.1.0-experimental.3/meshtastic-bitchat-heltec-v3-0.1.0-experimental.3-d15a403.zip)             |
-| Cardputer ADV + Cap LoRa-1262 | [ZIP para Cardputer ADV](https://github.com/EduChacon/meshtastic-bitchat/releases/download/v0.1.0-experimental.3/meshtastic-bitchat-m5stack-cardputer-adv-0.1.0-experimental.3-d15a403.zip) |
+Nos anexos abaixo, escolher o ZIP do modelo exato:
 
-Faça o backup privado e o preflight pelo [roteiro Windows](https://github.com/EduChacon/meshtastic-bitchat/blob/main/docs/bridge/WINDOWS_RECOVERY.md).
-Depois, no [Web Flasher oficial](https://flasher.meshtastic.org/), use **Atualizar / Update**.
-**Não use Apagar Flash e Instalar.** A ponte vem OFF por padrão. Não é preciso fazer merge.
+- **Heltec V3:** `meshtastic-bitchat-heltec-v3-0.1.0-experimental.4-<commit>.zip`.
+- **Cardputer ADV + Cap LoRa-1262:** `meshtastic-bitchat-m5stack-cardputer-adv-0.1.0-experimental.4-<commit>.zip`.
 
-O ZIP contém somente a aplicação específica da placa. Há um `-update.bin` equivalente
-para cada alvo, caso o upload ZIP não seja aceito. Não existe binário genérico ESP32.
-Nenhum desses arquivos serve para T1000-E, T-Deck, Cardputer original ou Heltec V2/V4.
+Fazer backup privado e preflight pelo [roteiro Windows desta versão](https://github.com/EduChacon/meshtastic-bitchat/blob/v0.1.0-experimental.4/docs/bridge/WINDOWS_RECOVERY.md).
+No [flasher oficial](https://flasher.meshtastic.org/), selecionar o modelo, carregar o ZIP e
+usar **Atualizar / Update**. Não usar **Apagar Flash e Instalar**. Não é necessário merge.
+O ZIP contém só a aplicação; o `-update.bin` do mesmo modelo é a alternativa. Não usar em
+Heltec V2/V4, T1000-E, T-Deck ou Cardputer original. Conferir os hashes em `SHA256SUMS`.
 
-## Arquivos de apoio
+## Usar
 
-- [prepare_flash.py](https://github.com/EduChacon/meshtastic-bitchat/releases/download/v0.1.0-experimental.3/prepare_flash.py) e [verify_artifact.py](https://github.com/EduChacon/meshtastic-bitchat/releases/download/v0.1.0-experimental.3/verify_artifact.py):
-  backup/preflight; não gravam nem apagam flash. O primeiro usa esptool oficial e requer
-  autorização explícita de leitura e reinício temporário em modo ROM.
-- [WINDOWS_RECOVERY.md](https://github.com/EduChacon/meshtastic-bitchat/releases/download/v0.1.0-experimental.3/WINDOWS_RECOVERY.md): procedimento para Windows/COM3.
-- [SHA256SUMS](https://github.com/EduChacon/meshtastic-bitchat/releases/download/v0.1.0-experimental.3/SHA256SUMS): integridade dos downloads atuais.
-- [Pacote técnico](https://github.com/EduChacon/meshtastic-bitchat/releases/download/v0.1.0-experimental.3/technical-package-0.1.0-experimental.3.tar.gz): fontes, dependências, licenças, símbolos, manifestos,
-  testes e todos os anexos originais da `.3`. **Não enviar esse pacote ao flasher.**
+Após o primeiro boot, conectar Meshtastic para fornecer a hora. Sem hora confiável, o rádio
+anuncia Meshtastic automaticamente; com hora válida, volta a anunciar Bitchat. BLE e texto
+dedicado são ativados no primeiro boot desta revisão, inclusive ao atualizar. Um canal de
+texto já autorizado é preservado; caso contrário, cria-se **Bitchat**, secundário e público,
+somente em posição vazia. Nenhum canal existente é escolhido por nome ou sobrescrito.
 
-## Correções e verificação
+**A chave desse canal é pública; seu texto será publicado no `#mesh` local.**
+[Ler o início rápido, chave e limites antes de instalar](https://github.com/EduChacon/meshtastic-bitchat/blob/v0.1.0-experimental.4/docs/bridge/DEFAULTS.md).
+Adicionar somente esse canal no rádio remoto stock, mantendo suas demais configurações.
+O canal primário continua excluído. Escolhas posteriores de OFF/BLE-only persistem.
 
-A versão adia os buffers grandes até a ativação da ponte; limita a espera de sincronização
-BLE; trata falhas de inicialização sem repetição sobre estado parcial nem apagamento de
-NVS nessa etapa; e mantém o estado das conexões protegido entre tarefas.
-O watchdog continua ativo. Base oficial Meshtastic 2.7.26.54e0d8d.
+Para mudar o padrão, abrir **System → Bitchat bridge**:
 
-A [CI](https://github.com/EduChacon/meshtastic-bitchat/actions/runs/43482990039) passou para os dois alvos:
-compilação, recompilação idêntica, protocolo, sanitizers, entradas inválidas, adaptador BLE,
-falhas de inicialização, preflight e análise estática; o Heltec stock também compilou.
-Esses resultados não substituem teste físico nem garantem risco zero.
-[Investigação, hashes e lacunas](https://github.com/EduChacon/meshtastic-bitchat/blob/main/docs/bridge/BOOT_INCIDENT.md).
+1. **Local Bitchat:** somente relé Bluetooth, sem tradução/túnel LoRa da ponte.
+2. **Bitchat + LoRa:** selecionar canal secundário e confirmar que seu texto será público
+   no Bitchat local. Aguardar 30 segundos antes do primeiro teste.
+
+No Meshtastic remoto stock, enviar texto normal **no canal selecionado**. No Bitchat público,
+enviar `!lora texto` para o sentido contrário. Manter Bitchat aberto perto da ponte e conferir
+as conexões BLE. Contadores não comprovam entrega no iPhone.
+
+**More options** reúne perfil fixo/econômico, alternância de descoberta entre os apps, estado,
+ajuda e túnel de laboratório. O perfil atual é explícito. Os modos básicos desativam o túnel
+privado; ele exige ativação separada. O modo local desliga B/C sem apagar os canais Meshtastic.
+
+[Detalhes e teste do menu](https://github.com/EduChacon/meshtastic-bitchat/blob/v0.1.0-experimental.4/docs/bridge/MENU_FIX.md).
+**Heltec sem tela:** a ativação padrão não exige menu, mas o pareamento e a hora fornecida
+por Meshtastic ainda são necessários. Não há configurador USB próprio. A placa sem OLED
+continua sem aceite físico. Após corte de energia, pode ser necessário fornecer a hora novamente.
+
+## Verificação e arquivos técnicos
+
+A publicação depende dos dois builds, reconstrução idêntica, testes de protocolo/entradas
+inválidas, BLE, inicialização, menu, configuração padrão, artefatos e análise estática, mais compilação stock Heltec.
+A suíte do menu usa código real com fakes de tela/transporte/armazenamento e ASan/UBSan;
+não equivale a teste OLED/iOS. A `.4` ainda exige boot, preservação, entrega, estabilidade e
+rollback físicos. Não há garantia de risco zero.
+
+`technical-package-0.1.0-experimental.4.tar.gz` reúne fontes correspondentes, dependências,
+licenças, símbolos, manifestos e resultados dos testes. Não é arquivo para o flasher.
+`prepare_flash.py`, `verify_artifact.py` e `WINDOWS_RECOVERY.md` apoiam backup/preflight.
+A base permanece Meshtastic 2.7.26.54e0d8d, com as correções de boot da `.3`.
 
 ## English
 
-**Experimental testing release; real-device boot and operation remain unverified.**
-Older prereleases and their installable downloads have been removed. The `.3` firmware
-bytes are unchanged. Use the board-specific ZIP above, private backup and preflight, then
-**Update** in the official Meshtastic Web Flasher. Do not erase flash or install another
-board's image. No merge is needed to use these assets.
+**Public integration defaults and menu fix; no hardware acceptance for .4.** The old channel-selection callback
+could erase its own confirmation. A host negative control reproduces that defect. The revised
+menu queues transitions and requires explicit consent before selecting another shared channel.
 
-The technical package consolidates all original `.3` assets, including corresponding
-source, dependencies, licenses, debug symbols, manifests and test evidence. It is not
-flasher input. Source history and historical tags are retained. Software CI passed;
-hardware acceptance remains pending.
+Choose the board-specific `.4` ZIP above, perform private backup/preflight, and use **Update**
+in the official flasher. Do not erase flash. No merge is required. Set the clock through
+Meshtastic. Local BLE plus dedicated public text are enabled once on first boot, including
+upgrade; a new **Bitchat** secondary channel is created only in an empty slot when no text
+channel was already authorized. Its key is public and its text is exported to local **#mesh**.
+Add only that channel to the remote stock radio. Later OFF/BLE-only choices persist.
+See the [English quick start](https://github.com/EduChacon/meshtastic-bitchat/blob/v0.1.0-experimental.4/docs/bridge/DEFAULTS.md#english).
+Wait 30 seconds; send ordinary text on that Meshtastic
+channel, or `!lora text` in public Bitchat for the opposite direction. Both basic choices
+disable lab tunneling. Power, app discovery, status and lab settings are under **More options**.
+
+Software checks do not prove phone delivery. Automatic setup does not require an OLED,
+but native pairing and clock setup still do; screenless hardware is not physically validated.
+The technical archive contains corresponding source, dependency licenses, debug symbols
+and test evidence. It is not flasher input. The base and startup safeguards remain unchanged.

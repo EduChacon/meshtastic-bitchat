@@ -35,6 +35,7 @@ stock se o operador não o desativar no controle negativo.
 | `BridgeTunnel.*`                 | Envelope versionado, MAC, fragmentação e remontagem limitada                    |
 | `BitchatBridgeModule.*`          | MeshModule/Router, perfis, NVS, relógio e contadores                            |
 | `BridgeMenu.cpp`                 | Controles locais e avisos antes da exportação                                   |
+| `BridgeDefaults.h`               | Nome e chave pública do canal dedicado de interoperabilidade                    |
 | `variants/bridge/platformio.ini` | Dois alvos separados; ambientes stock não habilitam a função                    |
 
 `TextMessageModule` continua recebendo texto normal. Não há campos protobuf customizados
@@ -52,6 +53,10 @@ O anúncio principal contém flags e UUID Bitchat; o nome fica em SCAN_RSP. A ad
 anuncia o UUID Meshtastic por cinco minutos. Não presume dois UUIDs de 128 bits no anúncio
 legado. Serviços simultâneos não comprovam descoberta/operação simultânea dos apps.
 O código separa a desconexão Bitchat da sessão nativa de outro identificador de conexão.
+Sem hora confiável, o anúncio Meshtastic é selecionado automaticamente; ao receber hora
+do telefone/GPS/RTC, volta a Bitchat. Não se usa hora recebida de peers como autoridade.
+O [padrão de instalação](DEFAULTS.md) habilita BLE/texto dedicado uma vez, preservando
+escolhas posteriores e canais existentes. Não depende de display, mas exige pareamento.
 
 Configuração: até três links, incluindo a eventual conexão nativa. Quantidade utilizável,
 MTU, justiça e reconexão não foram medidos. Há duas posições de recepção e duas de envio

@@ -1,7 +1,8 @@
 # Segurança e limites de confiança
 
 Esta é uma implementação experimental, não uma auditoria independente nem uma garantia de
-ausência de vulnerabilidades. A ponte começa desligada. Não há acesso a rádio, atualização
+ausência de vulnerabilidades. BLE e texto público dedicado começam ativos nesta revisão;
+ver [padrões, chave pública e migração](DEFAULTS.md). Não há atualização
 própria, telemetria externa da ponte ou execução de comandos recebidos por mensagem.
 
 ## Fronteiras
@@ -10,8 +11,10 @@ própria, telemetria externa da ponte ou execução de comandos recebidos por me
   As sessões Noise permanecem nos clientes. A ponte não termina sessões nem guarda chaves
   privadas de clientes. Sua identidade própria serve para presença e texto traduzido.
 - B exporta **texto público** autorizado para um canal secundário e vice-versa. A PSK protege
-  o transporte Meshtastic; não protege a cópia pública no Bitchat. A confirmação local é
-  obrigatória. Canal primário, PSK padrão, chave fora do tamanho aceito e MQTT são recusados.
+  o transporte Meshtastic somente quando a chave é secreta; não protege a cópia pública no
+  Bitchat. O canal automático `Bitchat` usa uma chave publicada e não oferece privacidade.
+  Exportar outro canal exige confirmação local. Canal primário, PSK curta/default stock,
+  chave fora do tamanho aceito e MQTT são recusados.
 - C acrescenta HMAC e domínio ao transporte de bytes. O HMAC autentica membros do domínio,
   não uma pessoa. Não substitui Noise/Ed25519. O modo privado é experimental e separado:
   conteúdo cifrado pode ser mídia; o gateway não consegue distingui-lo de texto.
@@ -21,6 +24,10 @@ própria, telemetria externa da ponte ou execução de comandos recebidos por me
 - Um participante que conhece a PSK pode produzir envelopes e marcadores válidos. Não
   tratamos usuários autorizados à chave como autoridades administrativas. NodeNum também
   não é identidade pessoal autenticada entre redes.
+- Na chave pública automática, qualquer pessoa pode produzir marcadores/provas de conflito.
+  Esses marcadores limitam ecos entre pontes cooperativas; não autenticam participantes como
+  confiáveis. DoS ou supressão por participante malicioso permanecem possíveis. A assinatura
+  Bitchat ainda é verificada; apelidos e texto de entrada nunca executam administração.
 
 ## Ameaças, defesa e como refutar
 

@@ -1,16 +1,17 @@
 # Heltec V3: preparação e novo teste no Windows
 
 Este roteiro é específico do Heltec WiFi LoRa 32 V3, ESP32-S3, flash de 8 MB.
-A pré-release `v0.1.0-experimental.3` corrige a reserva prematura de memória e limita
-a espera de sincronização do Bluetooth. **Boot físico desta versão ainda não validado.**
+A pré-release `v0.1.0-experimental.4` mantém as correções de inicialização da `.3` e corrige
+a confirmação de canais no menu. BLE/texto público dedicado são ativados no primeiro boot
+desta revisão; ler [o padrão antes de instalar](DEFAULTS.md). **Boot físico desta versão ainda não validado.**
 O firmware anterior `.2` permanece suspenso. Não há garantia de risco zero.
 
 ## 1. Baixar os arquivos
 
-Em [v0.1.0-experimental.3](https://github.com/EduChacon/meshtastic-bitchat/releases/tag/v0.1.0-experimental.3),
+Em [v0.1.0-experimental.4](https://github.com/EduChacon/meshtastic-bitchat/releases/tag/v0.1.0-experimental.4),
 baixar para a mesma pasta:
 
-- `meshtastic-bitchat-heltec-v3-0.1.0-experimental.3-<commit>.zip`;
+- `meshtastic-bitchat-heltec-v3-0.1.0-experimental.4-<commit>.zip`;
 - `prepare_flash.py` e `verify_artifact.py`;
 - `SHA256SUMS`.
 
@@ -38,8 +39,8 @@ No **PowerShell**, dentro da pasta dos arquivos baixados:
 ```powershell
 py -3 -m venv "$env:LOCALAPPDATA\MeshtasticBitchat\tools"
 & "$env:LOCALAPPDATA\MeshtasticBitchat\tools\Scripts\python.exe" -m pip install esptool==4.11.0
-$pacotes = @(Get-ChildItem .\meshtastic-bitchat-heltec-v3-0.1.0-experimental.3-*.zip)
-if ($pacotes.Count -ne 1) { throw "Mantenha somente um ZIP Heltec .3 nesta pasta" }
+$pacotes = @(Get-ChildItem .\meshtastic-bitchat-heltec-v3-0.1.0-experimental.4-*.zip)
+if ($pacotes.Count -ne 1) { throw "Mantenha somente um ZIP Heltec .4 nesta pasta" }
 & "$env:LOCALAPPDATA\MeshtasticBitchat\tools\Scripts\python.exe" .\prepare_flash.py $pacotes[0].FullName --model heltec-v3 --port COM3 --read-backup
 ```
 
@@ -71,7 +72,7 @@ Com backup `PASS`, arquivo conferido, modelo/banda/antena confirmados e firmware
 de retorno guardado, a decisão de iniciar a escrita é uma confirmação separada do operador:
 
 1. Abrir [flasher.meshtastic.org](https://flasher.meshtastic.org/) no Chrome/Edge do Windows.
-2. Selecionar **Heltec V3** e enviar o **novo ZIP `.3`**.
+2. Selecionar **Heltec V3** e enviar o **novo ZIP `.4`**.
 3. Escolher **Atualizar / Update**. Não usar **Apagar Flash e Instalar**.
 4. Selecionar **CP2102 … (COM3)** e conectar. Manter 115200 se foi a taxa estável anterior.
 5. Conferir que a escrita é apenas da aplicação em `0x10000`. Se forem propostos
@@ -85,14 +86,18 @@ sendo riscos. A opção Update não faz backup automaticamente.
 
 ## 4. Verificar o resultado
 
-O primeiro teste é boot com ponte **OFF**, conexão pelo app Meshtastic, canais/identidade
-preservados e funcionamento por pelo menos dez minutos. Conferir região/preset existentes;
-a correção não escolhe nem muda a configuração RF.
+No primeiro boot desta revisão, BLE e texto público dedicado são ativados uma vez,
+inclusive na atualização: [ler padrão e chave pública](DEFAULTS.md). O canal `Bitchat` é
+criado somente em espaço vazio quando não havia canal de texto autorizado. Conferir boot,
+conexão Meshtastic, canais/identidade anteriores preservados e funcionamento por pelo menos
+dez minutos. Região/preset/potência existentes não são alterados.
 
 Depois, no Heltec, abrir **System → Bitchat bridge**. Pressões curtas em USER avançam as
 telas/opções; pressão de aproximadamente 500 ms seleciona. Não manter pressionado por
-vários segundos. Conectar Meshtastic primeiro para fornecer a hora; iniciar o modo A
-antes de testar B. Os requisitos de canal e consentimento estão em [INSTALL](INSTALL.md).
+vários segundos. Conectar Meshtastic primeiro para fornecer a hora; sem hora, a descoberta
+Meshtastic é automática. Depois abrir Bitchat `#mesh` e seguir [DEFAULTS](DEFAULTS.md).
+Para isolar o teste BLE, selecionar `1. Local Bitchat`; depois usar `2. Bitchat + LoRa`
+para voltar ao canal compartilhado. O fluxo e o aviso de publicação estão em [MENU_FIX](MENU_FIX.md).
 
 Se o Bluetooth falhar na inicialização, o status mostra `BLE failed: restart` e o log
 informa `ble-init-failed-reboot-required`; não se tenta reiniciar um controlador parcialmente

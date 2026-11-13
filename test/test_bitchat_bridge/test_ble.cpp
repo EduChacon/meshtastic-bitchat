@@ -43,8 +43,9 @@ int main()
     assert(!bleReceive(received));
     assert(bleSubscribers() == 0);
     NimBLEServer server;
-    server.peers = {7};
     bleAttach(&server);
+    bleConnect(7);
+    bleConnect(7);
     bleConfigure(false, false, false);
     assert(!bleAdvertise());
     assert(!bleReceive(received));
@@ -112,7 +113,14 @@ int main()
     assert(bleAllocateBuffers());
     bleConfigure(true, false, false);
     assert(!bleReceive(received));
-    assert(bleSubscribers() == 0);
+    assert(bleSubscribers() == 2);
+    assert(bleBroadcast(frame.bytes()));
+    fakeNotifyResult = 0;
+    const auto sentBeforeResume = fakeSent.size();
+    blePoll();
+    assert(fakeSent.size() == sentBeforeResume + 2);
+    bleDisconnect(8);
+    assert(bleSubscribers() == 1);
     bleDetach();
     blePoll();
     assert(!bleAllocateBuffers());

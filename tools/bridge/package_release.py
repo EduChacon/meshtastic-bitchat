@@ -21,6 +21,17 @@ def sha256(data):
     return hashlib.sha256(data).hexdigest()
 
 
+def check_build_provenance(image, filename, environment, source):
+    marker = f"2.7.26.{source[:7]}"
+    if (
+        filename != f"firmware-{environment}-{marker}.bin"
+        or marker.encode() + b"\0" not in image
+    ):
+        raise ValueError(
+            "Stale or mismatched application; rebuild the current commit before packaging"
+        )
+
+
 def partitions(data):
     result = []
     for offset in range(0, len(data), 32):
@@ -80,6 +91,7 @@ def main():
     source = subprocess.check_output(
         ["git", "rev-parse", "HEAD"], cwd=root, text=True
     ).strip()
+    check_build_provenance(application, candidates[0].name, args.environment, source)
     epoch = int(os.environ["SOURCE_DATE_EPOCH"])
     core = Path(os.environ.get("PLATFORMIO_CORE_DIR", Path.home() / ".platformio"))
     boot_selection = (

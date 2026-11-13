@@ -3,6 +3,7 @@
 import hashlib
 import importlib.util
 import json
+import runpy
 import tempfile
 import unittest
 import zipfile
@@ -14,9 +15,23 @@ SPEC = importlib.util.spec_from_file_location(
 )
 PREFLIGHT = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(PREFLIGHT)
+PACKAGER = runpy.run_path(str(ROOT / "tools/bridge/package_release.py"))
 
 
 class PackageTests(unittest.TestCase):
+    def test_stale_local_build_rejected(self):
+        source = "1234567" + "0" * 33
+        filename = "firmware-heltec-v3-bitchat-2.7.26.1234567.bin"
+        check = PACKAGER["check_build_provenance"]
+        check(b"2.7.26.1234567\0", filename, "heltec-v3-bitchat", source)
+        for image, name in (
+            (b"2.7.26.abcdef0\0", filename),
+            (b"2.7.26.1234567\0", filename.replace("1234567", "abcdef0")),
+            (b"2.7.26.1234567-suffix\0", filename),
+        ):
+            with self.assertRaises(ValueError):
+                check(image, name, "heltec-v3-bitchat", source)
+
     def archive(
         self,
         directory,

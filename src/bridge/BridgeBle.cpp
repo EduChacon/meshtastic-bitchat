@@ -21,6 +21,11 @@ static NimBLEServer *server = nullptr;
 static NimBLECharacteristic *characteristic = nullptr;
 static std::atomic<bool> enabled{false}, nativeWindow{false}, economy{false}, announceNeeded{false};
 static std::atomic<uint32_t> dropped{0};
+struct Connection {
+    uint16_t handle = NO_LINK;
+    bool subscribed = false;
+};
+static std::array<Connection, LINKS> connections;
 struct Outgoing {
     Frame frame;
     size_t offset = 0;
@@ -91,7 +96,12 @@ class Callbacks : public NimBLECharacteristicCallbacks
     }
     void onSubscribe(NimBLECharacteristic *, ble_gap_conn_desc *desc, uint16_t value) override
     {
+        if (!desc)
+            return;
         concurrency::LockGuard guard(&lock);
+        for (auto &connection : connections)
+            if (connection.handle == desc->conn_handle)
+                connection.subscribed = (value & 1) != 0;
         if (auto *link = findLink(desc->conn_handle)) {
             link->subscribed = (value & 1) != 0;
             announceNeeded = true;
@@ -118,6 +128,7 @@ void bleDetach()
     server = nullptr;
     characteristic = nullptr;
     links.reset();
+    connections = {};
 }
 
 size_t bleBufferSize()
@@ -137,13 +148,11 @@ bool bleAllocateBuffers()
     links.reset(new (std::nothrow) Links);
     if (!links)
         return false;
-    for (auto &link : *links)
+    for (size_t index = 0; index < LINKS; ++index) {
+        auto &link = (*links)[index];
         link.generation = ++nextGeneration;
-    size_t index = 0;
-    for (auto handle : server->getPeerDevices()) {
-        if (index == LINKS)
-            break;
-        (*links)[index++].handle = handle;
+        link.handle = connections[index].handle;
+        link.subscribed = connections[index].subscribed;
     }
     nextReceive = 0;
     return true;
@@ -161,16 +170,21 @@ void bleConnect(uint16_t handle)
 {
     {
         concurrency::LockGuard guard(&lock);
-        if (!links)
-            return;
-        for (auto &link : *links) {
-            if (link.handle == NO_LINK) {
-                link.handle = handle;
-                link.subscribed = false;
-                link.generation = ++nextGeneration;
-                link.incoming.size = 0;
-                link.received.clear();
-                link.sent.clear();
+        for (const auto &connection : connections)
+            if (connection.handle == handle)
+                return;
+        for (size_t index = 0; index < LINKS; ++index) {
+            if (connections[index].handle == NO_LINK) {
+                connections[index] = {handle, false};
+                if (links) {
+                    auto &link = (*links)[index];
+                    link.handle = handle;
+                    link.subscribed = false;
+                    link.generation = ++nextGeneration;
+                    link.incoming.size = 0;
+                    link.received.clear();
+                    link.sent.clear();
+                }
                 break;
             }
         }
@@ -182,6 +196,9 @@ void bleConnect(uint16_t handle)
 void bleDisconnect(uint16_t handle)
 {
     concurrency::LockGuard guard(&lock);
+    for (auto &connection : connections)
+        if (connection.handle == handle)
+            connection = {};
     if (auto *link = findLink(handle)) {
         link->handle = NO_LINK;
         link->subscribed = false;

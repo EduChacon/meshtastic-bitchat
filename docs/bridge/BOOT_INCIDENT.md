@@ -184,3 +184,12 @@ A hipótese de boot será refutada se `.3` ainda parar após `setup-complete`, s
 mostrar que BLE terminou antes do bloqueio ou se a pilha do core 1 apontar outra chamada.
 O primeiro aceite físico continua sendo boot OFF, dez minutos estáveis, conexão Meshtastic,
 configuração preservada e retorno oficial sem apagamento integral.
+
+A revisão da alocação tardia eliminou também a cópia da lista mutável de conexões de
+NimBLE pela tarefa principal: um registro de três handles/assinaturas, protegido pelo
+lock da ponte, é mantido pelos callbacks. Ele ocupa poucos bytes mesmo com a ponte OFF.
+Assim, ativar/desativar não consulta um `std::vector` que outra tarefa pode modificar,
+e assinaturas de conexões ainda abertas sobrevivem à liberação dos buffers. O teste
+do adaptador cobre parada, retomada e desconexão, sem retenção dos payloads anteriores.
+O empacotador ainda verifica nome e marcador da revisão compilada para recusar binário
+local desatualizado, mesmo que o checkout atual esteja limpo.

@@ -6,12 +6,13 @@ Ponte embarcada experimental, derivada do firmware oficial Meshtastic. O objetiv
 os aplicativos originais Bitchat e Meshtastic, sem computador, MQTT, Nostr ou internet na
 operação. Computador continua necessário para compilar, instalar e diagnosticar.
 
-**Instalações suspensas: a pré-release `v0.1.0-experimental.2` apresentou travamento de boot
-em um Heltec V3, com reinício pelo watchdog.** Não instalar os pacotes publicados enquanto
-a causa e a recuperação não forem verificadas. O Cardputer permanece sem teste físico.
-Veja o [registro da falha e da investigação](docs/bridge/BOOT_INCIDENT.md).
+**A versão `.2` está suspensa por falha de boot no Heltec V3. A `.3` é uma pré-release
+para testar as correções de inicialização, ainda sem validação física.** Use somente o novo
+pacote após backup e conferência. O Cardputer permanece sem teste físico.
+Veja o [registro da investigação](docs/bridge/BOOT_INCIDENT.md) e o
+[roteiro de recuperação no Windows](docs/bridge/WINDOWS_RECOVERY.md).
 
-**Estado: validação de software concluída; primeiro boot físico reportado como falha.**
+**Estado: correção em teste; a falha física reportada foi na versão `.2`.**
 Uma compilação bem-sucedida não comprova descoberta BLE, entrega, consumo, boot, atualização
 ou recuperação. Esta versão não é um produto validado para uso de campo.
 Consulte os resultados efetivamente executados em [TESTING](docs/bridge/TESTING.md).
@@ -47,7 +48,8 @@ binário universal ESP32 ou nRF52; instalar um arquivo de outro modelo pode impe
 ## Download
 
 Os arquivos estão em [Releases](https://github.com/EduChacon/meshtastic-bitchat/releases).
-Os pacotes existentes permanecem disponíveis como evidência, **não para novas instalações**.
+As versões anteriores à `.3` permanecem como evidência, **não para novas instalações**.
+A `.3` destina-se a teste de recuperação após o preflight; uso de campo ainda não homologado.
 Os nomes abaixo identificam os artefatos:
 
 | Placa                         | Pacote para upload próprio no flasher                            |

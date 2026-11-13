@@ -6,12 +6,13 @@ An experimental embedded bridge derived from the official Meshtastic firmware. I
 for the unmodified Bitchat and Meshtastic apps, with no computer, MQTT, Nostr or internet in the
 operating path. A computer is used to build, install and diagnose the firmware.
 
-**Installations suspended: prerelease `v0.1.0-experimental.2` stalled during boot on a
-Heltec V3 and was reset by the watchdog.** Do not install the published packages while
-the cause and recovery remain unverified. Cardputer hardware remains untested.
-See the [failure and investigation record](docs/bridge/BOOT_INCIDENT.md).
+**Version `.2` is suspended after a Heltec V3 boot failure. Version `.3` is an experimental
+release for testing startup fixes; real-device boot is still unverified.** Use only the new
+package after private backup and preflight. Cardputer hardware remains untested.
+See the [investigation record](docs/bridge/BOOT_INCIDENT.md) and the
+[Windows recovery procedure](docs/bridge/WINDOWS_RECOVERY.md).
 
-**Status: software checks passed; the first reported physical boot failed.**
+**Status: startup correction under test; the reported physical failure affected `.2`.**
 A successful build does not establish BLE discovery, delivery, power consumption, boot,
 update preservation or recovery. This is not a field-validated product.
 See the executed checks and remaining gaps in [TESTING](docs/bridge/TESTING.md).
@@ -47,8 +48,9 @@ ESP32 or nRF52 image; installing another board's image can prevent booting.
 
 ## Downloads
 
-Existing packages in [Releases](https://github.com/EduChacon/meshtastic-bitchat/releases)
-remain available as evidence, **not for new installations**. Artifact names are:
+Packages before `.3` in [Releases](https://github.com/EduChacon/meshtastic-bitchat/releases)
+remain as evidence, **not for new installations**. Version `.3` is for recovery testing
+after private backup and preflight; field use remains unvalidated. Artifact names are:
 
 | Board                         | Package for the flasher's custom firmware upload                  |
 | ----------------------------- | ----------------------------------------------------------------- |

@@ -14,7 +14,7 @@ BOARDS = {
     "heltec-v3-bitchat": ("heltec-v3", 43),
     "m5stack-cardputer-adv-bitchat": ("m5stack-cardputer-adv", 112),
 }
-VERSION = "0.1.0-boot-candidate.1"
+VERSION = "0.1.0-experimental.3"
 
 
 def sha256(data):
@@ -141,7 +141,7 @@ def main():
             "EXPERIMENTAL. Nenhum ensaio em hardware. Ponte desativada por padrao.\n"
             f"Alvo exclusivo: {model}; ESP32-S3; 8 MB; app0 0x10000.\n"
             "Este ZIP contem somente atualizacao de aplicativo. Nao e instalacao de fabrica.\n"
-            "Nao apaga flash, mas falha de energia, alvo ou layout errado ainda pode impedir boot.\n"
+            "Nao inclui apagamento integral; atualiza os setores da aplicacao. Falhas ainda podem impedir boot.\n"
             "Confirme modelo, banda, antena, backup privado, particoes, slot ativo e rollback.\n"
             "Use tools/bridge/verify_artifact.py antes de abrir o flasher oficial.\n"
             "Leia docs/bridge/INSTALL.md. Nunca envie backups ao repositorio.\n"

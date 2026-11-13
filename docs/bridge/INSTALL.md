@@ -1,8 +1,9 @@
 # Instalação e recuperação
 
-**Instalações suspensas:** o primeiro boot reportado da pré-release `.2` no Heltec V3
-travou e reiniciou pelo watchdog. Consulte [BOOT_INCIDENT](BOOT_INCIDENT.md). Não repetir
-o flash nem apagar configurações como tentativa de correção. Rollback físico ainda não validado.
+**Pré-releases anteriores à `.3` suspensas:** o boot reportado da `.2` no Heltec V3
+travou e reiniciou pelo watchdog. A `.3` contém correções de inicialização para teste,
+sem boot físico validado. Consulte [BOOT_INCIDENT](BOOT_INCIDENT.md) e o
+[roteiro Windows com backup privado](WINDOWS_RECOVERY.md). Rollback físico ainda não validado.
 
 Não existe garantia de risco zero em uma gravação. Falta de
 energia, seleção errada, bootloader, partições e defeito físico podem impedir o boot.
@@ -51,7 +52,8 @@ Não apagar flash para “tentar resolver” seleção ou partições incompatí
    distinguindo atualização de instalação de fábrica e aceitando as consequências possíveis.
 
 Backup/flash dump contém segredos. Não colocar no Git, em release, issue, chat público ou CI.
-Os scripts de empacotamento não procuram portas USB nem fazem backup de dispositivos.
+Os scripts de empacotamento não procuram portas USB. O helper opcional `prepare_flash.py`
+faz somente leitura, com porta explícita e `--read-backup`; nunca grava ou apaga flash.
 
 A [CLI oficial](https://meshtastic.org/docs/software/python/cli/) documenta
 `meshtastic --export-config > backup.yaml` para exportar configuração e

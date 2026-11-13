@@ -7,7 +7,7 @@ Em 2026-11-13 foi reportada falha no primeiro boot de `v0.1.0-experimental.2`, c
 O logotipo permaneceu parado e o watchdog reiniciou o dispositivo. Trata-se de evidência
 fornecida pelo operador, não de um ensaio instrumentado executado pelo projeto.
 
-As instalações das pré-releases existentes estão suspensas. A versão anterior compartilha
+As instalações das pré-releases anteriores à `.3` estão suspensas. A versão inicial compartilha
 o código de inicialização sob investigação; não foi comprovado que apresente a mesma falha.
 Cardputer ADV não foi testado fisicamente. Não há imagem corrigida validada em hardware.
 
@@ -65,7 +65,7 @@ contém memória potencialmente sensível e não deve ser publicado nem enviado 
 
 ## Recuperação
 
-Não instalar outro pacote experimental para tentar destravar. Primeiro preservar a flash
+Antes de testar o pacote de correção `.3`, preservar a flash
 existente por leitura privada e identificar partições/slot, em sessão autorizada. O fato
 de o carregador ROM e a aplicação terem executado oferece uma via de recuperação por USB,
 mas não é garantia de ausência de dano ou de recuperação sem perda.
@@ -146,3 +146,41 @@ boot. O [limite de BUSY](https://github.com/meshtastic/firmware/pull/12105) redu
 [correção de DFU BLE](https://github.com/meshtastic/firmware/pull/12220) é específica de nRF52,
 não da escrita USB observada no ESP32-S3. Não há evidência suficiente para considerar a
 migração completa uma correção deste incidente; a base 2.7.26 permanece fixada.
+
+## Guarda de inicialização na versão experimental .3
+
+A espera de sincronização de NimBLE 1.4.3 foi limitada a cinco segundos, com bloqueio
+cooperativo de um tick entre consultas. A criação de `nimble_host` agora é conferida;
+falha não é anunciada como sucesso. Falhas NVS/controlador/HCI/nome GAP retornam sem
+criar serviços nem anúncio. A inicialização BLE deixa de apagar NVS automaticamente
+em caso de versão incompatível ou falta de páginas.
+
+Após uma falha, `NimbleBluetooth` retém `startupFailed` até reinício. Isso impede repetição
+sobre controlador parcialmente iniciado e evita deinit potencialmente bloqueante nesse
+estado. A UI da ponte mostra `BLE failed: restart`; USB/LoRa e o laço principal podem
+continuar. Não há desligamento ou alimentação artificial do watchdog. Não se promete
+limitar uma chamada interna diferente que eventualmente bloqueie no SDK.
+
+O patch só é aplicado nos dois ambientes da ponte, antes de compilar NimBLE. Os três
+arquivos originais têm SHA-256 verificado; versão inesperada ou patch parcial interrompe
+o build. A sincronização entre tarefas usa `std::atomic<bool>`. O código e os avisos de
+licença originais permanecem no pacote de dependências correspondente.
+
+`tools/bridge/test_startup.py` compila as funções reais extraídas do fonte que será
+compilado para o ESP32, substituindo apenas SDK/FreeRTOS/GATT por fakes. Injeta falha em
+seis etapas, falta/atraso de sync, passagem pelo limite de ticks, recuperação por novo
+boot e sucesso com os mesmos requisitos de autenticação. O controle negativo recompõe
+a função original a partir das alterações verificadas e confirma que continua presa
+sem sync ou tarefa host. **É uma reprodução simulada de um defeito do código, não uma
+reprodução em bancada da causa exata do relato.**
+
+O helper `prepare_flash.py` usa esptool oficial somente para `flash_id` e `read_flash`.
+Seu teste verifica comandos, logs privados, capacidade incorreta, erro de leitura,
+backup incompleto, partições e seleção OTA divergentes. O próprio helper não foi
+executado contra um rádio e não oferece escrita. O [roteiro Windows](WINDOWS_RECOVERY.md)
+separa backup da decisão posterior de atualizar no flasher oficial.
+
+A hipótese de boot será refutada se `.3` ainda parar após `setup-complete`, se o diagnóstico
+mostrar que BLE terminou antes do bloqueio ou se a pilha do core 1 apontar outra chamada.
+O primeiro aceite físico continua sendo boot OFF, dez minutos estáveis, conexão Meshtastic,
+configuração preservada e retorno oficial sem apagamento integral.

@@ -786,6 +786,8 @@ void NimbleBluetooth::deinit()
     isDeInit = true;
 #ifdef MESHTASTIC_ENABLE_BITCHAT
     bitchat::bleDetach();
+    if (startupFailed)
+        return;
 #endif
 
 #ifdef BLE_LED
@@ -805,7 +807,7 @@ bool NimbleBluetooth::isActive()
 
 bool NimbleBluetooth::isConnected()
 {
-    return bleServer->getConnectedCount() > 0;
+    return bleServer && bleServer->getConnectedCount() > 0;
 }
 
 int NimbleBluetooth::getRssi()
@@ -851,10 +853,19 @@ void NimbleBluetooth::setup()
     LOG_INFO("Init the NimBLE bluetooth module");
 
 #ifdef MESHTASTIC_ENABLE_BITCHAT
+    // A partial controller initialization requires a reboot, not a blind retry.
+    if (startupFailed)
+        return;
+    startupFailed = true;
     bitchat::bootDiagnostic("ble-init-begin");
 #endif
     NimBLEDevice::init(getDeviceName());
 #ifdef MESHTASTIC_ENABLE_BITCHAT
+    if (!NimBLEDevice::getInitialized()) {
+        bitchat::bootDiagnostic("ble-init-failed-reboot-required");
+        return;
+    }
+    startupFailed = false;
     bitchat::bootDiagnostic("ble-init-end");
 #endif
     NimBLEDevice::setPower(ESP_PWR_LVL_P9);

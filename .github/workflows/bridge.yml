@@ -64,6 +64,7 @@ jobs:
           set -o pipefail
           python tools/bridge/test_host.py --crypto-dir ".pio/libdeps/$BRIDGE_ENV/Crypto" 2>&1 | tee evidence/host.log
           python tools/bridge/test_ble.py 2>&1 | tee evidence/ble-adapter.log
+          python tools/bridge/test_startup.py --nimble-dir ".pio/libdeps/$BRIDGE_ENV/NimBLE-Arduino" 2>&1 | tee evidence/startup.log
           python -m unittest discover -s test/test_bitchat_bridge -p 'test_*.py' -v 2>&1 | tee evidence/packages.log
       - name: Static analysis
         env:
@@ -109,7 +110,9 @@ jobs:
 
   release:
     needs: verify
-    if: github.ref == 'refs/heads/main' && github.event_name == 'workflow_dispatch' && inputs.publish_release
+    if: >-
+      (github.ref == 'refs/heads/main' && github.event_name == 'workflow_dispatch' && inputs.publish_release) ||
+      (github.ref == 'refs/heads/fix/heltec-boot-memory' && github.event_name == 'push' && contains(github.event.head_commit.message, '[release-bootfix]'))
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     permissions:
@@ -140,16 +143,19 @@ jobs:
           cp docs/bridge/INSTALL.md release/INSTALL.md
           cp README.md README.en.md release/
           cp tools/bridge/verify_artifact.py release/verify_artifact.py
+          cp tools/bridge/prepare_flash.py release/prepare_flash.py
+          cp docs/bridge/WINDOWS_RECOVERY.md release/WINDOWS_RECOVERY.md
           cd release
           sha256sum * > SHA256SUMS
       - name: Publish experimental prerelease
         env:
           GH_TOKEN: ${{ github.token }}
+          RELEASE_BRANCH: ${{ github.ref_name }}
         run: |
           version="$(python -c 'import runpy; print(runpy.run_path("tools/bridge/package_release.py")["VERSION"])')"
-          current_head="$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq '.object.sha')"
+          current_head="$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/$RELEASE_BRANCH" --jq '.object.sha')"
           if [ "$current_head" != "$GITHUB_SHA" ]; then
-            echo "Refusing to publish a superseded main commit."
+            echo "Refusing to publish a superseded source commit."
             exit 1
           fi
           gh release create "v$version" release/* --target "$GITHUB_SHA" --prerelease --title "Bridge $version — hardware untested" --notes-file docs/bridge/RELEASE.md

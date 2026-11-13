@@ -15,6 +15,17 @@ def digest(value):
     return hashlib.sha256(value).hexdigest()
 
 
+def verify_dump(data, manifest):
+    if len(data) != 8388608 or manifest.get("partition_table_bytes") != 3072:
+        raise ValueError(
+            "Expected complete 8 MB backup and reviewed partition table size"
+        )
+    if digest(data[0x8000:0x8C00]) != manifest["partition_table_sha256"]:
+        raise ValueError("Partition layout differs; stop, do not erase")
+    if digest(data[0xE000:0x10000]) != manifest["factory_boot_selection_sha256"]:
+        raise ValueError("OTA selection differs; stop, do not overwrite boot metadata")
+
+
 def verify_package(archive, model):
     with zipfile.ZipFile(archive) as package:
         entries = package.infolist()

@@ -229,6 +229,8 @@ void BitchatBridgeModule::openNativeWindow()
 
 const char *BitchatBridgeModule::status() const
 {
+    if (nimbleBluetooth && nimbleBluetooth->startupFailed)
+        return "BLE failed: restart";
     if (!storageReady)
         return "Storage error: stopped";
     if (resourceError)

@@ -1,5 +1,7 @@
 # Meshtastic ↔ Bitchat
 
+[Português](README.md) | [English](README.en.md)
+
 Ponte embarcada experimental, derivada do firmware oficial Meshtastic. O objetivo é usar
 os aplicativos originais Bitchat e Meshtastic, sem computador, MQTT, Nostr ou internet na
 operação. Computador continua necessário para compilar, instalar e diagnosticar.
@@ -30,8 +32,28 @@ local após consentimento explícito. A PSK não protege o texto depois dessa ex
 T1000-E, RAK4631, T-Deck, T-Echo, outras Heltec/LilyGO e demais dispositivos Meshtastic
 continuam candidatos a **nós stock** do modo B, com rádio, banda, região, preset,
 frequência e canal compatíveis. Isso não significa que este binário possa ser instalado neles.
-O porte da própria ponte para T1000-E/nRF52 e T-Deck foi adiado quando o escopo foi congelado
-para priorizar qualidade. [Matriz completa](docs/bridge/COMPATIBILITY.md).
+O porte da própria ponte para T1000-E/nRF52 e T-Deck não está incluído nesta versão.
+[Matriz completa](docs/bridge/COMPATIBILITY.md).
+
+O núcleo de protocolo é compartilhado, mas o firmware é compilado **por modelo de placa**.
+Processador igual não garante pinagem, rádio, flash, partições ou bootloader iguais. Não há
+binário universal ESP32 ou nRF52; instalar um arquivo de outro modelo pode impedir o boot.
+
+## Download
+
+Os arquivos estão em [Releases](https://github.com/EduChacon/meshtastic-bitchat/releases).
+Escolha a versão experimental mais recente e abra **Assets**:
+
+| Placa                         | Pacote para upload próprio no flasher                            |
+| ----------------------------- | ---------------------------------------------------------------- |
+| Heltec V3                     | `meshtastic-bitchat-heltec-v3-<versão>-<commit>.zip`             |
+| Cardputer ADV + Cap LoRa-1262 | `meshtastic-bitchat-m5stack-cardputer-adv-<versão>-<commit>.zip` |
+
+Também há um `-update.bin` por placa, `SHA256SUMS`, o verificador, as fontes e os resultados
+dos testes. **Source code (zip/tar.gz)** é código-fonte, não firmware para o instalador.
+Leia [INSTALL](docs/bridge/INSTALL.md) antes de usar o
+[Web Flasher oficial Meshtastic](https://flasher.meshtastic.org/). Esta publicação não exige
+inclusão no catálogo oficial. O fluxo de gravação permanece **documentado, não testado em hardware**.
 
 ## Começo seguro
 
@@ -39,7 +61,7 @@ para priorizar qualidade. [Matriz completa](docs/bridge/COMPATIBILITY.md).
 2. Faça a bancada stock nos dois sentidos e guarde um backup privado e a recuperação stock.
 3. Leia [instalação e rollback](docs/bridge/INSTALL.md). Os pacotes contêm apenas atualização
    de aplicativo; não incluem apagador, bootloader ou tabela de partições.
-4. Após instalação autorizada e validada, use `Menu → System → Bitchat bridge`.
+4. Após instalação e verificação do primeiro boot, use `Menu → System → Bitchat bridge`.
    Configure antes um canal secundário de teste com PSK própria de 32 bytes no app Meshtastic.
 5. Ative A primeiro. Para B, selecione explicitamente o canal e leia o aviso de publicação.
    Aguarde os 30 segundos de observação de outras pontes. Envie, por exemplo, `!lora Olá`.
@@ -58,8 +80,9 @@ o Bitchat ainda não resolve essa condição. Não há fallback de internet.
 ## Construção e documentação
 
 Base: Meshtastic **2.7.26.54e0d8d**, commit
-`54e0d8d0ab2ff56b3a9ce967e53f79e49af560fb`. É uma release marcada Beta pelo upstream;
-o aplicativo da foto a apresenta como STABLE. A Alpha 2.8.2 não foi escolhida.
+`54e0d8d0ab2ff56b3a9ce967e53f79e49af560fb`. É a versão Beta apresentada como estável na
+[página oficial de downloads](https://meshtastic.org/downloads/) consultada em 2026-11-13.
+Esta entrega não usa a linha Alpha 2.8.2.
 Bitchat de referência: iOS **1.8.0**, commit `30c58eee349e172b37f69faa2113c9d5f2c76c23`.
 
 ```sh

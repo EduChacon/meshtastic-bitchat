@@ -79,7 +79,7 @@ O aviso de SX127x ↔ LR1110 não é evidência de falha no par Heltec V3/SX1262
    grupo/convite e recibos são ensaios separados, com airtime e timeout registrados.
    Perder fragmento deve expirar sem parcial. Não há ARQ próprio neste MVP.
 7. **B+C:** testar duplicação, ecos, múltiplas pontes e domínios sobrepostos. Prova de
-   proprietário B deve bloquear conflito visível. Não promover topologia com exportadores
+   exportador B deve bloquear conflito visível. Não promover topologia com exportadores
    B sobrepostos apenas porque mensagens parecem corretas em um ensaio curto.
 8. **Estabilidade:** 24 h inicial, depois 72 h, carga sintética limitada; anotar resets,
    mínimo heap livre, filas, descartes, travamento de BLE, alimentação e temperatura.

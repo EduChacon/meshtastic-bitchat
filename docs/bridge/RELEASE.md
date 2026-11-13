@@ -1,4 +1,4 @@
-# Meshtastic ↔ Bitchat 0.1.0 experimental
+# Meshtastic ↔ Bitchat 0.1.0-experimental.2
 
 Código e atualizações de aplicativo para **Heltec V3** e **M5Stack Cardputer ADV + Cap
 LoRa-1262**, baseados no Meshtastic 2.7.26.54e0d8d. Ponte desligada por padrão.
@@ -31,5 +31,8 @@ O código correspondente está no commit indicado nos manifestos e em `project-s
 As bibliotecas resolvidas e seus avisos estão nos arquivos `dependencies-*.tar.gz`, com
 inventários de conteúdo `dependencies-*.json`. Toolchain/SDK são identificados nesses
 inventários e nos logs. `SHA256SUMS` permite verificar todos os anexos. Os arquivos mantêm a
-licença GPL-3.0 do firmware e as licenças próprias das dependências. O repositório mantém sua
-visibilidade existente; esta publicação não altera permissões de acesso.
+licença GPL-3.0 do firmware e as licenças próprias das dependências.
+
+Esta revisão inclui documentação impessoal em português e um README em inglês, além de
+links e identificação dos downloads por placa. Não acrescenta novos alvos nem resultados
+de hardware. Consulte `README.en.md` para a apresentação em inglês.

@@ -5,6 +5,18 @@ em hardware foi realizado.** Não existe garantia de risco zero em uma gravaçã
 energia, seleção errada, bootloader, partições e defeito físico podem impedir o boot.
 Nenhum comando deste projeto grava um rádio automaticamente.
 
+## Onde baixar
+
+Na página de [Releases](https://github.com/EduChacon/meshtastic-bitchat/releases), abrir a
+versão experimental mais recente e expandir **Assets**. Para Heltec V3, baixar
+`meshtastic-bitchat-heltec-v3-<versão>-<commit>.zip`; para Cardputer ADV + Cap LoRa-1262,
+`meshtastic-bitchat-m5stack-cardputer-adv-<versão>-<commit>.zip`. Baixar também
+`SHA256SUMS` e `verify_artifact.py`. Os anexos `Source code` são fontes, não imagens para flash.
+
+O arquivo `firmware-<modelo>-bridge-<versão>-<commit>-update.bin` é a aplicação do mesmo
+ZIP, fornecida separadamente como alternativa para o upload próprio. Nunca escolher apenas
+pelo processador: os dois alvos desta release usam ESP32-S3, com hardware distinto.
+
 ## Pacotes desta release
 
 | Alvo                          | Artefato publicado                                                   | Método/navegador                                                                         | Bootloader                                                         | Estado                                | Rollback previsto                                                             |
@@ -32,11 +44,18 @@ Não apagar flash para “tentar resolver” seleção ou partições incompatí
    flash completa. Exportação de configuração não deve ser presumida equivalente a backup completo.
 4. Baixar e verificar previamente o firmware oficial para retorno e conhecer o modo de recuperação.
 5. Confirmar SHA-256 do artefato, alimentação estável, cabo de dados e consequências de falha.
-6. Autorizar separadamente a gravação desse aparelho com esse artefato. Publicar código não
-   autoriza conectar, reconfigurar, apagar ou gravar um dispositivo.
+6. Confirmar conscientemente a gravação do aparelho identificado com o artefato conferido,
+   distinguindo atualização de instalação de fábrica e aceitando as consequências possíveis.
 
 Backup/flash dump contém segredos. Não colocar no Git, em release, issue, chat público ou CI.
 Os scripts de empacotamento não procuram portas USB nem fazem backup de dispositivos.
+
+A [CLI oficial](https://meshtastic.org/docs/software/python/cli/) documenta
+`meshtastic --export-config > backup.yaml` para exportar configuração e
+`meshtastic --configure backup.yaml` para restaurá-la. A exportação deve ser guardada em
+local privado e conferida antes do flash; não é uma cópia integral de todas as áreas da flash.
+O comando de restauração escreve configurações e só pertence ao procedimento de recuperação,
+depois da conferência do aparelho e do conteúdo. Não executá-lo como teste de leitura.
 
 ## Verificador sem escrita
 
@@ -101,6 +120,11 @@ O iPhone é requisito de uso, não de gravação.
   `!lora ` literal. Não há parser de administração em texto recebido.
 - Para voltar à descoberta Meshtastic: `Meshtastic BLE: 5 min` ou `Stop bridge`.
 
+No mapeamento padrão do Heltec V3, pressões curtas em USER avançam as telas; uma pressão
+longa de cerca de 500 ms corresponde a selecionar. Na tela System, selecionar abre o menu,
+que inclui `Bitchat bridge`. Manter pressionado por muito mais tempo pode desligar o aparelho.
+Esse mapeamento foi conferido no código; navegação e resposta física do botão permanecem NT.
+
 O estado persiste, mas o relógio pode não sobreviver ao corte de energia. Falta de hora, mudança
 de canal/PSK, conflito de pontes ou erro de armazenamento bloqueia a operação correspondente.
 As filas são descartadas no reinício. Não apagar NVS para recuperar uma identidade sem analisar
@@ -116,3 +140,18 @@ Não tocar eFuses, proteção de flash, bootloader ou configuração RF para con
 Ensaio obrigatório antes de recomendar uso: stock → ponte OFF → ponte A/B → stock,
 preservando configurações quando suportado, comparando backup e verificando chave/identidade,
 comunicação e energia. Repetir após desligamento controlado. **Rollback ainda não testado.**
+
+### Referência oficial de retorno
+
+A release [Meshtastic 2.7.26.54e0d8d](https://github.com/meshtastic/firmware/releases/tag/v2.7.26.54e0d8d)
+inclui `firmware-esp32s3-2.7.26.54e0d8d.zip`. O arquivo foi baixado e seu SHA-256 conferido
+com o digest publicado: `339650ced8b8c859751f04be69c6af845fea96baca1327518f199afd2595a9d4`.
+
+| Aplicação oficial contida no ZIP                    | SHA-256 conferido                                                  |
+| --------------------------------------------------- | ------------------------------------------------------------------ |
+| `firmware-heltec-v3-2.7.26.54e0d8d.bin`             | `34c38ff938380a64ad905ab2b1086172190d83bce0b62d53b95ac490d96c1fc6` |
+| `firmware-m5stack-cardputer-adv-2.7.26.54e0d8d.bin` | `bbe614bf9e9613891f53094c551daa3b1686f28ca67498713e14c9ad168205a8` |
+
+Esses arquivos de aplicação são diferentes dos `.factory.bin` e dos `littlefs-…` presentes
+no mesmo ZIP. Usar o fluxo oficial de **atualização** do modelo exato, com seleção de slot/layout
+compatível. A conferência dos arquivos não demonstra que o rollback funcionou em um rádio.

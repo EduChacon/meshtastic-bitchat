@@ -5,6 +5,10 @@ on:
     branches: [main, "integration/upstream-2.7.26"]
   workflow_dispatch:
 
+concurrency:
+  group: bridge-${{ github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
 
@@ -126,11 +130,18 @@ jobs:
           tar -czf release/project-source.tar.gz -C /tmp/project-source meshtastic-bitchat
           tar -czf release/test-evidence.tar.gz evidence
           cp docs/bridge/INSTALL.md release/INSTALL.md
+          cp README.md README.en.md release/
           cp tools/bridge/verify_artifact.py release/verify_artifact.py
           cd release
           sha256sum * > SHA256SUMS
-      - name: Publish private-repository experimental prerelease
+      - name: Publish experimental prerelease
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create v0.1.0-experimental release/* --target "$GITHUB_SHA" --prerelease --title "Bridge 0.1.0 — experimental, hardware untested" --notes-file docs/bridge/RELEASE.md
+          version="$(python -c 'import runpy; print(runpy.run_path("tools/bridge/package_release.py")["VERSION"])')"
+          current_head="$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq '.object.sha')"
+          if [ "$current_head" != "$GITHUB_SHA" ]; then
+            echo "Refusing to publish a superseded main commit."
+            exit 1
+          fi
+          gh release create "v$version" release/* --target "$GITHUB_SHA" --prerelease --title "Bridge $version — hardware untested" --notes-file docs/bridge/RELEASE.md

@@ -3,20 +3,20 @@
 Consulta em 2026-11-13. As referências fixadas abaixo prevalecem sobre `main`/`develop`
 mutáveis. Documentação descreve comportamento esperado; ensaio físico permanece NT.
 
-| Componente          | Revisão usada                                                                                                            | Motivo/evidência                                                                               |
-| ------------------- | ------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------- |
-| Firmware Meshtastic | [2.7.26.54e0d8d](https://github.com/meshtastic/firmware/commit/54e0d8d0ab2ff56b3a9ce967e53f79e49af560fb)                 | Beta oficial; foto do app rotula STABLE. Alpha 2.8.2 não foi necessária para o MVP             |
-| Protobufs           | [6b1ded4](https://github.com/meshtastic/protobufs/commit/6b1ded439633cd03d4af85b44231b91d1d106278)                       | Submodule do firmware escolhido; porta 1 para texto, 256 PRIVATE_APP para domínio experimental |
-| Bitchat iOS         | [1.8.0 / 30c58ee](https://github.com/permissionlesstech/bitchat/commit/30c58eee349e172b37f69faa2113c9d5f2c76c23)         | Fonte e codec usados para vetores; versão instalada desconhecida                               |
-| Bitchat Android     | [2.2.0 / 20501fd](https://github.com/permissionlesstech/bitchat-android/commit/20501fdfe0d56c7705c377d4a263b01d8f38eeeb) | Referência identificada; interoperabilidade ainda NT                                           |
-| Build               | PlatformIO 6.2.0; intelhex 2.3.0; espressif32 6.13.0                                                                     | CI Python 3.12.8; ferramentas efetivas registradas nos anexos                                  |
-| BLE/crypto          | NimBLE-Arduino 1.4.3; rweather Crypto 0.4.0                                                                              | Versões fixadas pelo upstream; sem implementação de Noise intermediária                        |
-| Formatação          | Trunk 1.25.0; clang-format 16.0.3                                                                                        | Configuração `.trunk`; telemetria desativada na execução local                                 |
+| Componente          | Revisão usada                                                                                                            | Motivo/evidência                                                                                |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------- |
+| Firmware Meshtastic | [2.7.26.54e0d8d](https://github.com/meshtastic/firmware/commit/54e0d8d0ab2ff56b3a9ce967e53f79e49af560fb)                 | Beta da linha estável na página oficial de downloads em 2026-11-13; Alpha 2.8.2 fora desta base |
+| Protobufs           | [6b1ded4](https://github.com/meshtastic/protobufs/commit/6b1ded439633cd03d4af85b44231b91d1d106278)                       | Submodule do firmware escolhido; porta 1 para texto, 256 PRIVATE_APP para domínio experimental  |
+| Bitchat iOS         | [1.8.0 / 30c58ee](https://github.com/permissionlesstech/bitchat/commit/30c58eee349e172b37f69faa2113c9d5f2c76c23)         | Fonte e codec usados para vetores; distribuição instalada ainda não ensaiada                    |
+| Bitchat Android     | [2.2.0 / 20501fd](https://github.com/permissionlesstech/bitchat-android/commit/20501fdfe0d56c7705c377d4a263b01d8f38eeeb) | Referência identificada; interoperabilidade ainda NT                                            |
+| Build               | PlatformIO 6.2.0; intelhex 2.3.0; espressif32 6.13.0                                                                     | CI Python 3.12.8; ferramentas efetivas registradas nos anexos                                   |
+| BLE/crypto          | NimBLE-Arduino 1.4.3; rweather Crypto 0.4.0                                                                              | Versões fixadas pelo upstream; sem implementação de Noise intermediária                         |
+| Formatação          | Trunk 1.25.0; clang-format 16.0.3                                                                                        | Configuração `.trunk`; telemetria desativada na execução local                                  |
 
 ## Integração e preservação
 
-O repositório do proprietário não foi presumido vazio nem fork do GitHub. Seu commit inicial
-`9040e45db23acfd906753d7c3c28dd121d280c8b` e o histórico oficial foram preservados pela
+O commit inicial do projeto (`9040e45db23acfd906753d7c3c28dd121d280c8b`) e o histórico
+oficial foram preservados pela
 integração `78464ecac093adba7e927ce15e8b7f4f37074d0a`. O README inicial permanece em
 `README.initial.md`; o README upstream, em `README.upstream.md`. Workflows upstream foram
 arquivados em `.github/upstream-workflows`, evitando agendamentos e publicações alheios.
@@ -53,7 +53,7 @@ PhoneAPI, StreamAPI, NodeInfo ou schemas de preferências nativas para fingir su
 - [Cardputer Mesh Kit](https://docs.m5stack.com/en/core/Cardputer_Mesh_Kit) e
   [procedimento M5](https://docs.m5stack.com/en/guide/cardputer_mesh_kit/meshtastic): ADV + Cap
   LoRa-1262; confirmar conjunto, banda e revisão. O alvo existe no commit escolhido em
-  `variants/esp32s3/m5stack_cardputer_adv`. O build upstream citado pelo proprietário é
+  `variants/esp32s3/m5stack_cardputer_adv`. O build upstream é uma
   [referência adicional](https://github.com/meshtastic/firmware/actions/runs/21725885459),
   não teste deste fork.
 - [Energia Meshtastic](https://meshtastic.org/docs/configuration/radio/power/): power saving

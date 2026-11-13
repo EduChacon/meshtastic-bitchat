@@ -1,10 +1,10 @@
 # Compatibilidade: protocolo não equivale a ensaio físico
 
 Referência de fonte: Bitchat iOS 1.8.0 (`30c58eee349e172b37f69faa2113c9d5f2c76c23`).
-As versões instaladas do Bitchat, Meshtastic e iOS do proprietário ainda são desconhecidas.
-A foto identifica o alvo Heltec V3, firmware 2.7.19 e região pretendida ANZ; não confirma
-revisão física, antena, frequência efetiva ou LongFast. Android 2.2.0 é uma referência adicional
-identificada, mas não participou dos vetores nem de testes de interoperabilidade.
+As versões instaladas do Bitchat, Meshtastic e sistema operacional devem ser registradas em
+cada ensaio, junto com modelo/revisão, antena, banda, frequência efetiva e preset dos rádios.
+Não há combinação física validada nesta release. Android 2.2.0 é uma referência adicional
+de fonte; não participou dos vetores nem de testes de interoperabilidade.
 
 O cliente de referência contém anúncios, mensagens públicas, Noise, contatos, grupos/prekeys,
 sincronização/courier, mídia, recibos e voz, além de recursos Nostr/geográficos. A presença
@@ -46,7 +46,7 @@ efetiva, PSK, papel de canal, versão e problemas do rádio continuam determinan
 
 | Família                       | Como nó stock remoto/intermediário | Como ponte desta release  | Condição importante                                                        |
 | ----------------------------- | ---------------------------------- | ------------------------- | -------------------------------------------------------------------------- |
-| Heltec V3                     | PREV/NT                            | COMP; hardware NT         | Alvo identificado no app; ESP32-S3/SX1262, 8 MB                            |
+| Heltec V3                     | PREV/NT                            | COMP; hardware NT         | ESP32-S3/SX1262, 8 MB; confirmar revisão e banda físicas                   |
 | Cardputer ADV + Cap LoRa-1262 | PREV/NT                            | COMP; hardware NT         | Confirmar Cap/revisão, comutação de antena e banda; não confundir original |
 | SenseCAP T1000-E              | PREV/NT; primeira bancada stock    | Adiado; nenhum binário    | nRF52840/LR1110; recepção direta de SX127x tem restrição documentada       |
 | RAK4631/WisBlock              | PREV/NT                            | Adiado; nenhum binário    | nRF52/SX1262; precisa adaptador BLE e medição próprios                     |

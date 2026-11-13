@@ -1,69 +1,57 @@
-# Verificação da publicação .4
+# Verificação da publicação .5
 
-Fonte: `e69edd9d2502add17a1d38b048cc8737e1ca9a72`.
-Tag: [v0.1.0-experimental.4](https://github.com/EduChacon/meshtastic-bitchat/releases/tag/v0.1.0-experimental.4).
-[CI 43499954132](https://github.com/EduChacon/meshtastic-bitchat/actions/runs/43499954132):
-dois alvos e publicação concluídos com sucesso em 2026-11-13. Este registro foi acrescentado
-à documentação após a publicação; não altera a tag nem as imagens.
+Fonte: `be61e1dc7de284f1c220922a72c9c203d9723b8d`.
+Tag: [v0.1.0-experimental.5](https://github.com/EduChacon/meshtastic-bitchat/releases/tag/v0.1.0-experimental.5).
+[CI 43514545708](https://github.com/EduChacon/meshtastic-bitchat/actions/runs/43514545708).
+Registro acrescentado depois da publicação; não altera imagens ou tag.
 
-## Resultado de software
+## Resultado
 
-- Heltec V3 e Cardputer ADV + Cap LoRa-1262 compilados.
-- Recompilação limpa gerou o mesmo SHA-256 por alvo no ambiente da CI.
-- 523 verificações, 19 vetores produzidos pelo cliente oficial e 100.000 entradas inválidas.
-- Adaptador BLE, inicialização, menu/controle negativo e configuração padrão executados em host.
-- Onze testes de artefatos/backup passaram; Cppcheck passou; Heltec sem flag da ponte compilou.
-- Árvores de firmware, variantes e testes publicadas coincidem com as fontes locais verificadas.
-- Os dois artefatos da CI foram baixados e seus hashes conferidos. Cada ZIP passou no verificador;
-  selecionar o outro modelo foi rejeitado. Binário avulso e binário no ZIP são idênticos.
-- Cada imagem contém o SHA-256 do ELF correspondente. Os manifestos dizem explicitamente
-  `hardware_tested: false`, padrão BLE/texto ON e túnel de laboratório OFF.
-- Tag e release apontam ao commit acima. Os hashes informados pelo GitHub para os anexos
-  publicados coincidem com os arquivos baixados da CI. São nove anexos, incluindo fontes
-  correspondentes, dependências/licenças e evidências no pacote técnico.
+- Heltec V3 e Cardputer ADV compilados; reconstruções limpas idênticas por alvo.
+- 523 verificações, 19 vetores do cliente oficial e 100.000 entradas inválidas passaram.
+- Adaptador BLE real com transporte simulado: conjunto global de oito frames, três conexões,
+  broadcast compartilhado, desconexão durante envio, esgotamento/recuperação e expiração.
+- Métodos reais de alocação: quatro falhas iniciais injetadas, memória total e maior bloco
+  insuficientes, Bluetooth indisponível e 200 ciclos sem vazamento no modelo host com ASan/UBSan.
+- Configuração padrão, persistência, confirmação de menu, inicialização BLE e onze testes de
+  artefatos/backup passaram. Cppcheck e compilação Heltec sem flag da ponte passaram.
+- ZIPs da CI baixados e conferidos contra os digests; verificador aprovou o alvo correto e
+  rejeitou o outro. Binário avulso igual ao do ZIP; SHA do ELF embutido igual ao arquivo de símbolos.
+- ZIPs e aplicações publicados conferidos pelos digests do GitHub contra esses bytes da CI.
+- No alvo ESP32-S3 compilado, objetos iniciais: 66.688 → 23.084 bytes sem overhead do alocador;
+  maior objeto: 35.776 → 10.244. Reserva de 24 KiB e bloco livre mínimo de 8 KiB preservados.
 
-O repositório está privado. Download anônimo dos anexos retorna 404; é necessário login com
-acesso ao repositório. O conector usado permite baixar artefatos da CI, mas não anexos binários
-privados de release: a conferência final dos anexos usa os digests retornados pelo GitHub,
-comparados aos bytes baixados da CI. Isso não é teste do navegador Windows/USB do operador.
+`trunk fmt` local encerrou com erro interno. Foram usados os mesmos formatadores fixados:
+clang-format 16.0.3 com `.trunk/configs/.clang-format`, Black 26.5.1 e Prettier 3.8.4.
+Os testes executados depois da formatação passaram; não se registra o wrapper Trunk como aprovado.
 
-## Imagens
+## Imagens verificadas
 
-| Modelo        | RAM estática / orçamento | Aplicação (bytes) | SHA-256 da aplicação                                               |
-| ------------- | ------------------------ | ----------------- | ------------------------------------------------------------------ |
-| Heltec V3     | 132736 / 327680          | 2107008           | `4b0466fae5d935a13d98eced7026abb4c09bbd5ebae131aa61a22bf7e37c614e` |
-| Cardputer ADV | 137120 / 327680          | 2223600           | `ed3597ccec3a29f0326404ed2c68ea3e03158869503110c18c0de54110197608` |
+| Modelo                | Bytes da aplicação | SHA-256 da aplicação                                               | SHA-256 do ZIP                                                     |
+| --------------------- | -----------------: | ------------------------------------------------------------------ | ------------------------------------------------------------------ |
+| heltec-v3             |            2108560 | `83828371d821a34812d30f225ecfe515f156ae3567659cb95135473ad8eab877` | `29159b5142a5927578a58c990937d5431c842053ea346bdf1f01fd5b3a0685f6` |
+| m5stack-cardputer-adv |            2225072 | `592cc95ee1d633cc77e4f90fd09686d63e5265b65386d8f722550c46e734559e` | `014ed8b40f62e79ec02790b575f1990e09b5b56443bc3eda5d9a9b1e841e3974` |
 
-RAM estática não equivale a heap livre em execução. Os buffers continuam alocados somente
-após inicialização BLE e validação de memória; margem, picos e estabilidade exigem medição.
+## Limites e menor próximo teste
 
-| Arquivo                                                                     | SHA-256                                                            |
-| --------------------------------------------------------------------------- | ------------------------------------------------------------------ |
-| `meshtastic-bitchat-heltec-v3-0.1.0-experimental.4-e69edd9.zip`             | `2e7cfc66e51323a747f0c979a4859056c74f94c60306fefcb870e7064236b2da` |
-| `meshtastic-bitchat-m5stack-cardputer-adv-0.1.0-experimental.4-e69edd9.zip` | `22cc85805c941c182c706239b4219705a9f51d27f7178fc4ddc6131e2a602cd3` |
-| ELF Heltec V3                                                               | `322bc06029f51c6d9f3e810681dbaf1ff5a2b3869f132e69c7d738a7c7e63f07` |
-| ELF Cardputer ADV                                                           | `4e1d32fce40c4fa8b93342046df6fe21e345a560a312e438d400268402cd0c49` |
+A `.4` apresentou `Low memory: bridge OFF` em um Heltec, mesmo após reiniciar. Não há log de
+heap desse aparelho: a condição exata e a suficiência da correção ainda exigem confirmação física.
+A `.5` não foi gravada nem ensaiada em hardware pelo agente. Não se equiparam testes host,
+tamanhos compilados e hashes a funcionamento BLE/LoRa, preservação ou rollback reais.
 
-## Bancada pendente
-
-Boot desta revisão, entrega BLE/LoRa/iPhone/Android, pareamento simultâneo, consumo, falta
-de energia, preservação, atualização e rollback físicos continuam **não testados**.
-O boot normal relatado na `.3` não é aceite da `.4`. Não há garantia de risco zero.
-
-Seguir [Windows](WINDOWS_RECOVERY.md) para backup/preflight e **Update**, depois
-[início rápido](DEFAULTS.md). O menor aceite usa uma ponte Heltec e um rádio stock, internet
-desligada e Bitchat em primeiro plano: texto no canal público dedicado → `#mesh`;
-`!lora texto` em `#mesh` → esse canal. Aguardar 30 segundos e conferir hora/estado/BLE.
-Comparar com a ponte desligada e testar os apps separadamente antes da simultaneidade.
+Após backup/preflight, usar **Atualizar / Update**, sem apagar flash, com o ZIP exato Heltec V3.
+Conferir estado, conectar Meshtastic para hora, abrir Bitchat e testar texto nos dois sentidos
+com outro rádio stock. Não recriar canais como tentativa de liberar memória. Ver
+[correção de memória](MEMORY_FIX.md), [início rápido](DEFAULTS.md) e [Windows](WINDOWS_RECOVERY.md).
+O repositório permanece privado: downloads exigem login autorizado. O conector baixa artefatos
+privados da CI, mas não anexos binários privados de release; para estes, a conferência usa os
+digests da API. Não houve teste do navegador Windows/USB do operador.
 
 ## English
 
-Both board builds, identical clean rebuilds, host/defensive tests, static analysis and the
-stock Heltec compilation passed. The CI artifacts were downloaded and checked against
-GitHub's artifact digests. ZIP and standalone application match; wrong-board selection is
-rejected; embedded ELF hashes match their debug symbols. Published release asset digests
-match these verified CI files. Private release downloads require a GitHub account with access;
-an authenticated browser/USB installation was not exercised here.
-
-The firmware tag is unchanged by this later documentation record. Physical boot, phone
-delivery, power measurements, recovery and rollback remain untested for this revision.
+Both board builds, identical clean rebuilds, protocol, bounded-memory, BLE, menu, default
+configuration, startup, artifact tests and static analysis passed; stock Heltec also compiled.
+Downloaded CI ZIPs, manifests, application images and matching ELF hashes were checked.
+Published asset digests match those verified CI bytes. Source-size reduction is measured
+in compiled layouts, not on the device. Physical boot, phone delivery, preservation, power,
+recovery and rollback still require acceptance. Use the exact model's update ZIP without erase.

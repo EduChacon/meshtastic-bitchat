@@ -1,8 +1,8 @@
-# Integração padrão — experimental .4
+# Integração padrão — experimental .5
 
 ## O que a instalação ativa
 
-A revisão `.4` ativa o relé Bitchat por BLE e a tradução de texto no primeiro boot,
+Desde a revisão `.4`, o firmware ativa o relé Bitchat por BLE e a tradução de texto no primeiro boot,
 inclusive na primeira atualização a partir das revisões anteriores. A mudança é aplicada
 uma vez e registrada: desligar a ponte ou selecionar somente BLE depois disso continua
 valendo após reiniciar. Um canal de texto já escolhido e autorizado é preservado.
@@ -29,6 +29,9 @@ a criação automática não prossegue. BLE local pode continuar; conferir `Stat
 um canal elegível pelo menu, com consentimento. Falha de escrita, identidade ou falta de
 memória bloqueia a ponte. Bluetooth desativado ou economia stock não são reconfigurados
 automaticamente: é preciso corrigir essas opções pelo aplicativo Meshtastic.
+
+A `.5` reduz a memória inicial da ponte sem repetir a migração nem alterar as escolhas
+persistidas. O aviso `Low memory: bridge OFF` é descrito em [MEMORY_FIX.md](MEMORY_FIX.md).
 
 ## Primeiro uso
 

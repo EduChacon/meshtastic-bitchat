@@ -7,8 +7,9 @@ os aplicativos originais Bitchat e Meshtastic, sem computador, MQTT, Nostr ou in
 operação. Computador continua necessário para compilar, instalar e diagnosticar.
 
 **Pré-release de correção disponível: [v0.1.0-experimental.3](https://github.com/EduChacon/meshtastic-bitchat/releases/tag/v0.1.0-experimental.3).**
-Ela corrige a inicialização e passou pelos testes de software; boot físico continua sem validação.
-As versões anteriores permanecem suspensas após falha de boot reportada no Heltec V3.
+Ela corrige a inicialização e passou pelos testes de software. O operador relatou que um
+Heltec V3 chegou à tela normal; o aceite funcional e de estabilidade continua pendente.
+As pré-releases anteriores foram retiradas dos downloads após a falha de boot reportada no Heltec V3.
 O Cardputer também continua sem teste físico.
 
 **A branch `main` ainda contém o firmware anterior.** Para testar ou compilar as correções,
@@ -16,7 +17,7 @@ use os arquivos e o fonte da tag `v0.1.0-experimental.3`; o merge permanece pend
 Siga o [roteiro Windows com backup privado](https://github.com/EduChacon/meshtastic-bitchat/blob/v0.1.0-experimental.3/docs/bridge/WINDOWS_RECOVERY.md)
 e consulte o [registro da investigação](docs/bridge/BOOT_INCIDENT.md).
 
-**Estado: correção validada em software; ensaios físicos da `.3` ainda pendentes.**
+**Estado: correção validada em software; boot Heltec relatado; funções A/B/C ainda sem aceite.**
 Uma compilação bem-sucedida não comprova descoberta BLE, entrega, consumo, boot, atualização
 ou recuperação. Esta versão não é um produto validado para uso de campo.
 Consulte os resultados efetivamente executados em [TESTING](https://github.com/EduChacon/meshtastic-bitchat/blob/v0.1.0-experimental.3/docs/bridge/TESTING.md).
@@ -51,21 +52,27 @@ binário universal ESP32 ou nRF52; instalar um arquivo de outro modelo pode impe
 
 ## Download
 
-Os arquivos estão em [Releases](https://github.com/EduChacon/meshtastic-bitchat/releases).
-Os pacotes anteriores à `.3` permanecem como evidência, **não para novas instalações**.
-A `.3` destina-se a teste de recuperação, após backup e preflight; não está homologada para campo.
-Os nomes abaixo identificam os artefatos:
+Versão disponível: [**v0.1.0-experimental.3**](https://github.com/EduChacon/meshtastic-bitchat/releases/tag/v0.1.0-experimental.3), para teste de recuperação após
+backup e preflight. Os binários não mudaram com a organização dos downloads.
 
-| Placa                         | Pacote para upload próprio no flasher                            |
-| ----------------------------- | ---------------------------------------------------------------- |
-| Heltec V3                     | `meshtastic-bitchat-heltec-v3-<versão>-<commit>.zip`             |
-| Cardputer ADV + Cap LoRa-1262 | `meshtastic-bitchat-m5stack-cardputer-adv-<versão>-<commit>.zip` |
+| Placa                         | Arquivo para o flasher oficial                                                                                                                                                                |
+| ----------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Heltec V3**                 | [**Baixar ZIP Heltec V3**](https://github.com/EduChacon/meshtastic-bitchat/releases/download/v0.1.0-experimental.3/meshtastic-bitchat-heltec-v3-0.1.0-experimental.3-d15a403.zip)             |
+| Cardputer ADV + Cap LoRa-1262 | [Baixar ZIP Cardputer ADV](https://github.com/EduChacon/meshtastic-bitchat/releases/download/v0.1.0-experimental.3/meshtastic-bitchat-m5stack-cardputer-adv-0.1.0-experimental.3-d15a403.zip) |
 
-Também há um `-update.bin` por placa, `SHA256SUMS`, o verificador, as fontes e os resultados
-dos testes. **Source code (zip/tar.gz)** é código-fonte, não firmware para o instalador.
-Leia [INSTALL](https://github.com/EduChacon/meshtastic-bitchat/blob/v0.1.0-experimental.3/docs/bridge/INSTALL.md) antes de usar o
-[Web Flasher oficial Meshtastic](https://flasher.meshtastic.org/). Esta publicação não exige
-inclusão no catálogo oficial. O fluxo de gravação permanece **documentado, não testado em hardware**.
+1. Seguir o [roteiro Windows com backup privado](https://github.com/EduChacon/meshtastic-bitchat/blob/main/docs/bridge/WINDOWS_RECOVERY.md).
+2. Conferir o download com [SHA256SUMS](https://github.com/EduChacon/meshtastic-bitchat/releases/download/v0.1.0-experimental.3/SHA256SUMS).
+3. No [Web Flasher oficial](https://flasher.meshtastic.org/), selecionar a placa e o ZIP,
+   depois **Atualizar / Update**. Não selecionar **Apagar Flash e Instalar**.
+
+Os dois scripts de backup/preflight e o guia continuam anexados à release. O `-update.bin`
+por placa é uma alternativa ao ZIP; **Source code** não é firmware para o instalador.
+Não é necessário fazer merge para instalar os arquivos da release.
+
+Para auditoria ou compilação, o [pacote técnico](https://github.com/EduChacon/meshtastic-bitchat/releases/download/v0.1.0-experimental.3/technical-package-0.1.0-experimental.3.tar.gz) reúne fontes correspondentes,
+dependências, licenças, símbolos ELF/mapa, manifestos, resultados de testes e os anexos
+originais da `.3`, com seus hashes. Não é um arquivo para o flasher. O histórico de código,
+as tags e o [registro da investigação](docs/bridge/BOOT_INCIDENT.md) foram preservados.
 
 ## Começo seguro
 
@@ -73,12 +80,16 @@ inclusão no catálogo oficial. O fluxo de gravação permanece **documentado, n
 2. Faça a bancada stock nos dois sentidos e guarde um backup privado e a recuperação stock.
 3. Leia [instalação e rollback](https://github.com/EduChacon/meshtastic-bitchat/blob/v0.1.0-experimental.3/docs/bridge/INSTALL.md). Os pacotes contêm apenas atualização
    de aplicativo; não incluem apagador, bootloader ou tabela de partições.
-4. Após instalação e verificação do primeiro boot, use `Menu → System → Bitchat bridge`.
-   Configure antes um canal secundário de teste com PSK própria de 32 bytes no app Meshtastic.
-5. Ative A primeiro. Para B, selecione explicitamente o canal e leia o aviso de publicação.
+4. Após instalação e verificação do primeiro boot, use `Menu → System → Bitchat bridge`
+   e `Start BLE bridge`. O relé Bluetooth local não exige canal LoRa.
+5. Para B, configure um canal secundário de teste com PSK própria de 32 bytes no app
+   Meshtastic; selecione explicitamente esse canal e leia o aviso de publicação.
    Aguarde os 30 segundos de observação de outras pontes. Envie, por exemplo, `!lora Olá`.
 6. `Meshtastic BLE: 5 min` anuncia temporariamente o serviço nativo para administração e relógio.
    Depois retorna ao anúncio Bitchat. A coexistência simultânea precisa de teste no iOS exato.
+
+O [guia de uso da `.3`](docs/bridge/USAGE.md) explica cada opção, a diferença entre os dois
+sentidos de envio e a limitação atual da ativação em placas sem tela.
 
 O painel mostra BLE (conexões), P (peers), D (descartes), TX/RX e Q (fila LoRa).
 Contadores TX/RX grandes usam k/M/G com arredondamento para baixo; não são confirmações de

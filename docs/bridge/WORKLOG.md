@@ -100,3 +100,11 @@ The CI re-executes compilation, host tests, static analysis, clean rebuild compa
 feature-disabled compile before producing updates. Its artifacts record the exact final
 source commit and results. The next useful physical step remains the stock baseline and
 device identification, followed by the separately authorized reversible update experiment.
+
+The owner asked about operation from the Heltec display. The existing System menu exposes
+bridge controls through the stock physical-button navigation. A source-metric review found
+wide counters and fixed row spacing unsuitable for all displays. The panel now abbreviates
+large TX/RX counts and derives spacing from the selected font. Extreme counter strings fit
+the actual Arial 10/16 glyph metrics at 128/240 pixels; the last row ends at 61/91 pixels.
+Both target builds passed after this correction. This is a layout calculation, not a display
+or button test on hardware.

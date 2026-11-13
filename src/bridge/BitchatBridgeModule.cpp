@@ -589,20 +589,39 @@ int32_t BitchatBridgeModule::runOnce()
 }
 
 #if HAS_SCREEN
+static void displayCount(uint32_t value, char out[8])
+{
+    const char *suffix = "";
+    if (value >= 1000000000) {
+        value /= 1000000000;
+        suffix = "G";
+    } else if (value >= 1000000) {
+        value /= 1000000;
+        suffix = "M";
+    } else if (value >= 100000) {
+        value /= 1000;
+        suffix = "k";
+    }
+    snprintf(out, 8, "%lu%s", static_cast<unsigned long>(value), suffix);
+}
+
 void BitchatBridgeModule::drawFrame(OLEDDisplay *display, OLEDDisplayUiState *, int16_t x, int16_t y)
 {
     display->setFont(FONT_SMALL);
     display->setTextAlignment(TEXT_ALIGN_LEFT);
+    const int16_t row = FONT_HEIGHT_SMALL - 1;
     display->drawString(x, y, "Bitchat bridge - EXP");
-    display->drawString(x, y + 12, status());
+    display->drawString(x, y + row, status());
     char line[60];
-    snprintf(line, sizeof(line), "BLE %u  peers %u  drop %lu", unsigned(bleSubscribers()), unsigned(peers.size()),
+    snprintf(line, sizeof(line), "BLE%u P%u D%lu", unsigned(bleSubscribers()), unsigned(peers.size()),
              static_cast<unsigned long>(drops()));
-    display->drawString(x, y + 24, line);
-    snprintf(line, sizeof(line), "LoRa TX %lu RX %lu Q%u", static_cast<unsigned long>(submittedRadio),
-             static_cast<unsigned long>(importedRadio), unsigned(radioQueue.size()));
-    display->drawString(x, y + 36, line);
-    display->drawString(x, y + 48, "Menu > System > Bitchat");
+    display->drawString(x, y + 2 * row, line);
+    char tx[8], rx[8];
+    displayCount(submittedRadio, tx);
+    displayCount(importedRadio, rx);
+    snprintf(line, sizeof(line), "TX%s RX%s Q%u", tx, rx, unsigned(radioQueue.size()));
+    display->drawString(x, y + 3 * row, line);
+    display->drawString(x, y + 4 * row, "Menu > System > Bitchat");
 }
 #endif
 #endif

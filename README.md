@@ -46,6 +46,11 @@ para priorizar qualidade. [Matriz completa](docs/bridge/COMPATIBILITY.md).
 6. `Meshtastic BLE: 5 min` anuncia temporariamente o serviço nativo para administração e relógio.
    Depois retorna ao anúncio Bitchat. A coexistência simultânea precisa de teste no iOS exato.
 
+O painel mostra BLE (conexões), P (peers), D (descartes), TX/RX e Q (fila LoRa).
+Contadores TX/RX grandes usam k/M/G com arredondamento para baixo; não são confirmações de
+entrega no telefone. O espaçamento acompanha a fonte da placa. Navegação física e legibilidade
+no aparelho ainda precisam de bancada.
+
 Após perda de alimentação, o Heltec sem RTC confiável pode precisar de nova conexão ao
 app Meshtastic para obter a hora. O estado local mostra `Open Meshtastic: clock`. Abrir somente
 o Bitchat ainda não resolve essa condição. Não há fallback de internet.

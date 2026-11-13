@@ -16,6 +16,9 @@ class NimbleBluetooth : BluetoothApi
     void startAdvertising();
 #endif
     bool isDeInit = false;
+#ifdef MESHTASTIC_ENABLE_BITCHAT
+    void refreshBridgeAdvertising() { startAdvertising(); }
+#endif
 
   private:
     void setupService();

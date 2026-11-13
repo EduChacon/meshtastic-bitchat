@@ -66,6 +66,9 @@ class Router : protected concurrency::OSThread, protected PacketHistory
     /**
      * @return our local nodenum */
     [[nodiscard]] NodeNum getNodeNum();
+#ifdef MESHTASTIC_ENABLE_BITCHAT
+    uint32_t bridgeAirtime(const meshtastic_MeshPacket *packet) { return iface ? iface->getPacketTime(packet) : UINT32_MAX; }
+#endif
 
     /** Wake up the router thread ASAP, because we just queued a message for it.
      * FIXME, this is kinda a hack because we don't have a nice way yet to say 'wake us because we are 'blocked on this queue'

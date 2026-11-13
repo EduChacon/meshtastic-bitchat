@@ -1,0 +1,181 @@
+#!/usr/bin/env python3
+"""Package application-only updates; never connect to a radio or include an eraser."""
+
+import argparse
+import hashlib
+import json
+import os
+import struct
+import subprocess
+import zipfile
+from pathlib import Path
+
+BOARDS = {
+    "heltec-v3-bitchat": ("heltec-v3", 43),
+    "m5stack-cardputer-adv-bitchat": ("m5stack-cardputer-adv", 112),
+}
+VERSION = "0.1.0-experimental"
+
+
+def sha256(data):
+    return hashlib.sha256(data).hexdigest()
+
+
+def partitions(data):
+    result = []
+    for offset in range(0, len(data), 32):
+        entry = data[offset : offset + 32]
+        if len(entry) != 32 or entry[:2] != b"\xaa\x50":
+            break
+        _, kind, subtype, address, size, label, flags = struct.unpack(
+            "<HBBII16sI", entry
+        )
+        result.append(
+            {
+                "name": label.split(b"\0")[0].decode("ascii"),
+                "type": kind,
+                "subtype": subtype,
+                "offset": address,
+                "size": size,
+                "flags": flags,
+            }
+        )
+    return result
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--environment", required=True, choices=BOARDS)
+    parser.add_argument("--output", type=Path, default=Path("dist"))
+    args = parser.parse_args()
+    root = Path(__file__).resolve().parents[2]
+    if subprocess.check_output(
+        ["git", "status", "--porcelain", "--untracked-files=normal"],
+        cwd=root,
+        text=True,
+    ).strip():
+        raise SystemExit(
+            "Refusing to package uncommitted source; commit and rebuild first"
+        )
+    build = root / ".pio/build" / args.environment
+    model, hardware = BOARDS[args.environment]
+    candidates = sorted(build.glob("firmware-*.bin"))
+    candidates = [p for p in candidates if not p.name.endswith(".factory.bin")]
+    if len(candidates) != 1:
+        raise SystemExit(
+            "Expected exactly one application image; clean stale build outputs first"
+        )
+    application = candidates[0].read_bytes()
+    table = (build / "partitions.bin").read_bytes()
+    layout = partitions(table)
+    app = next((p for p in layout if p["name"] == "app0"), None)
+    if not app or app["offset"] != 0x10000 or app["size"] != 0x330000:
+        raise SystemExit("Unreviewed partition layout")
+    if not (24 < len(application) <= app["size"]) or application[0] != 0xE9:
+        raise SystemExit("Invalid application image")
+    if struct.unpack_from("<H", application, 12)[0] != 9:
+        raise SystemExit("Expected ESP32-S3 image, not a factory or another chip image")
+    if args.environment.encode() not in application:
+        raise SystemExit("Build environment marker is absent")
+    source = subprocess.check_output(
+        ["git", "rev-parse", "HEAD"], cwd=root, text=True
+    ).strip()
+    epoch = int(os.environ["SOURCE_DATE_EPOCH"])
+    core = Path(os.environ.get("PLATFORMIO_CORE_DIR", Path.home() / ".platformio"))
+    boot_selection = (
+        core / "packages/framework-arduinoespressif32/tools/partitions/boot_app0.bin"
+    )
+    libraries = []
+    for metadata in sorted(
+        (root / ".pio/libdeps" / args.environment).glob("*/library.json")
+    ):
+        value = json.loads(metadata.read_text())
+        libraries.append(
+            {
+                "name": value.get("name"),
+                "version": value.get("version"),
+                "license": value.get("license"),
+                "repository": value.get("repository"),
+            }
+        )
+    filename = f"firmware-{model}-bridge-{VERSION}-{source[:7]}-update.bin"
+    manifest = {
+        "schema": 1,
+        "version": VERSION,
+        "source_commit": source,
+        "upstream_commit": "54e0d8d0ab2ff56b3a9ce967e53f79e49af560fb",
+        "bitchat_reference_commit": "30c58eee349e172b37f69faa2113c9d5f2c76c23",
+        "environment": args.environment,
+        "model": model,
+        "hardware_model": hardware,
+        "chip": "esp32-s3",
+        "image_chip_id": 9,
+        "flash_bytes": 8388608,
+        "application": filename,
+        "application_sha256": sha256(application),
+        "application_bytes": len(application),
+        "update_offset": 65536,
+        "partition_table_sha256": sha256(table),
+        "partition_table_bytes": len(table),
+        "partitions": layout,
+        "factory_boot_selection_sha256": sha256(boot_selection.read_bytes()),
+        "source_date_epoch": epoch,
+        "platformio": "6.2.0",
+        "platform": "espressif32@6.13.0",
+        "libraries": libraries,
+        "hardware_tested": False,
+        "feature_default": "OFF",
+        "install_status": "documented-not-tested; preflight and separate approval required",
+        "contains_bootloader": False,
+        "contains_partitions": False,
+        "erase": False,
+    }
+    args.output.mkdir(parents=True, exist_ok=True)
+    payloads = {
+        filename: application,
+        "bridge-manifest.json": (
+            json.dumps(manifest, indent=2, sort_keys=True) + "\n"
+        ).encode(),
+        "LICENSE": (root / "LICENSE").read_bytes(),
+        "LEIA-ANTES.txt": (
+            "EXPERIMENTAL. Nenhum ensaio em hardware. Ponte desativada por padrao.\n"
+            f"Alvo exclusivo: {model}; ESP32-S3; 8 MB; app0 0x10000.\n"
+            "Este ZIP contem somente atualizacao de aplicativo. Nao e instalacao de fabrica.\n"
+            "Nao apaga flash, mas falha de energia, alvo ou layout errado ainda pode impedir boot.\n"
+            "Confirme modelo, banda, antena, backup privado, particoes, slot ativo e rollback.\n"
+            "Use tools/bridge/verify_artifact.py antes de abrir o flasher oficial.\n"
+            "Leia docs/bridge/INSTALL.md. Nunca envie backups ao repositorio.\n"
+        ).encode(),
+    }
+    checksums = "".join(
+        f"{sha256(data)}  {name}\n" for name, data in sorted(payloads.items())
+    )
+    payloads["SHA256SUMS"] = checksums.encode()
+    archive = args.output / f"meshtastic-bitchat-{model}-{VERSION}-{source[:7]}.zip"
+    with zipfile.ZipFile(
+        archive, "w", compression=zipfile.ZIP_DEFLATED, compresslevel=9
+    ) as output:
+        for name, data in sorted(payloads.items()):
+            info = zipfile.ZipInfo(name, (2026, 11, 13, 0, 0, 0))
+            info.compress_type = zipfile.ZIP_DEFLATED
+            info.external_attr = 0o644 << 16
+            output.writestr(info, data)
+    (args.output / filename).write_bytes(application)
+    (args.output / f"{model}-manifest.json").write_bytes(
+        payloads["bridge-manifest.json"]
+    )
+    print(
+        json.dumps(
+            {
+                "archive": archive.name,
+                "sha256": sha256(archive.read_bytes()),
+                "application": filename,
+                "application_sha256": sha256(application),
+            },
+            indent=2,
+        )
+    )
+
+
+if __name__ == "__main__":
+    main()

@@ -2,6 +2,7 @@
 # trunk-ignore-all(ruff/F821)
 # trunk-ignore-all(flake8/F821): For SConstruct imports
 import sys
+import os
 from os.path import join
 import subprocess
 import json
@@ -238,6 +239,8 @@ for pref in userPrefs:
 # Calculate unix epoch for current day (midnight)
 current_date = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
 build_epoch = int(current_date.timestamp())
+if "SOURCE_DATE_EPOCH" in os.environ:
+    build_epoch = int(os.environ["SOURCE_DATE_EPOCH"])
 
 flags = [
         "-DAPP_VERSION=" + verObj["long"],

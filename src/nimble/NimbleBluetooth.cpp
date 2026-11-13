@@ -13,6 +13,9 @@
 #include <NimBLEDevice.h>
 #include <atomic>
 #include <mutex>
+#ifdef MESHTASTIC_ENABLE_BITCHAT
+#include "bridge/BridgeBle.h"
+#endif
 
 #ifdef NIMBLE_TWO
 #include "NimBLEAdvertising.h"
@@ -413,6 +416,8 @@ class NimbleBluetoothToRadioCallback : public NimBLECharacteristicCallbacks
 {
 #ifdef NIMBLE_TWO
     virtual void onWrite(NimBLECharacteristic *pCharacteristic, NimBLEConnInfo &connInfo)
+#elif defined(MESHTASTIC_ENABLE_BITCHAT)
+    virtual void onWrite(NimBLECharacteristic *pCharacteristic, ble_gap_conn_desc *desc)
 #else
     virtual void onWrite(NimBLECharacteristic *pCharacteristic)
 
@@ -422,6 +427,9 @@ class NimbleBluetoothToRadioCallback : public NimBLECharacteristicCallbacks
         // Assumption: onWrite is serialized by NimBLE, so we don't need to lock here against multiple concurrent onWrite calls.
 
         int currentWriteCount = bluetoothPhoneAPI->writeCount.fetch_add(1);
+#ifdef MESHTASTIC_ENABLE_BITCHAT
+        nimbleBluetoothConnHandle = desc->conn_handle;
+#endif
 
 #ifdef DEBUG_NIMBLE_ON_WRITE_TIMING
         int startMillis = millis();
@@ -575,6 +583,9 @@ class NimbleBluetoothFromRadioCallback : public NimBLECharacteristicCallbacks
 
 class NimbleBluetoothServerCallback : public NimBLEServerCallbacks
 {
+#ifdef MESHTASTIC_ENABLE_BITCHAT
+    void onConnect(NimBLEServer *, ble_gap_conn_desc *desc) override { bitchat::bleConnect(desc->conn_handle); }
+#endif
 #ifdef NIMBLE_TWO
   public:
     NimbleBluetoothServerCallback(NimbleBluetooth *ble) { this->ble = ble; }
@@ -690,6 +701,14 @@ class NimbleBluetoothServerCallback : public NimBLEServerCallbacks
     virtual void onDisconnect(NimBLEServer *pServer, ble_gap_conn_desc *desc)
     {
         LOG_INFO("BLE disconnect");
+#ifdef MESHTASTIC_ENABLE_BITCHAT
+        bitchat::bleDisconnect(desc->conn_handle);
+        if (nimbleBluetoothConnHandle != desc->conn_handle) {
+            if (nimbleBluetooth && !nimbleBluetooth->isDeInit)
+                NimBLEDevice::getAdvertising()->start();
+            return;
+        }
+#endif
 #endif
 #ifdef NIMBLE_TWO
         if (ble->isDeInit)
@@ -764,6 +783,9 @@ void NimbleBluetooth::deinit()
 #ifdef ARCH_ESP32
     LOG_INFO("Disable bluetooth until reboot");
     isDeInit = true;
+#ifdef MESHTASTIC_ENABLE_BITCHAT
+    bitchat::bleDetach();
+#endif
 
 #ifdef BLE_LED
     digitalWrite(BLE_LED, LED_STATE_OFF);
@@ -798,7 +820,9 @@ int NimbleBluetooth::getRssi()
         const auto peers = bleServer->getPeerDevices();
         if (!peers.empty()) {
             connHandle = peers.front();
+#ifndef MESHTASTIC_ENABLE_BITCHAT
             nimbleBluetoothConnHandle = connHandle;
+#endif
         }
     }
 
@@ -918,10 +942,18 @@ void NimbleBluetooth::setupService()
     batteryLevelDescriptor->setUnit(0x27ad);
 
     batteryService->start();
+#ifdef MESHTASTIC_ENABLE_BITCHAT
+    bitchat::bleAttach(bleServer);
+#endif
 }
 
 void NimbleBluetooth::startAdvertising()
 {
+#ifdef MESHTASTIC_ENABLE_BITCHAT
+    if (bitchat::bleAdvertise())
+        return;
+    NimBLEDevice::getAdvertising()->stop();
+#endif
 #ifdef NIMBLE_TWO
     NimBLEExtAdvertising *pAdvertising = NimBLEDevice::getAdvertising();
     NimBLEExtAdvertisement legacyAdvertising;

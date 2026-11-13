@@ -1,4 +1,7 @@
 #include "configuration.h"
+#ifdef MESHTASTIC_ENABLE_BITCHAT
+#include "bridge/BitchatBridgeModule.h"
+#endif
 #if HAS_SCREEN
 #include "ClockRenderer.h"
 #include "Default.h"
@@ -1039,7 +1042,7 @@ void menuHandler::textMessageBaseMenu()
 
 void menuHandler::systemBaseMenu()
 {
-    enum optionsNumbers { Back, Notifications, ScreenOptions, Bluetooth, WiFiToggle, PowerMenu, Test, enumEnd };
+    enum optionsNumbers { Back, Notifications, ScreenOptions, Bluetooth, WiFiToggle, PowerMenu, Test, Bitchat, enumEnd };
     static const char *optionsArray[enumEnd] = {"Back"};
     static int optionsEnumArray[enumEnd] = {Back};
     int options = 1;
@@ -1056,6 +1059,10 @@ void menuHandler::systemBaseMenu()
         optionsArray[options] = "Bluetooth Toggle";
     }
     optionsEnumArray[options++] = Bluetooth;
+#ifdef MESHTASTIC_ENABLE_BITCHAT
+    optionsArray[options] = "Bitchat bridge";
+    optionsEnumArray[options++] = Bitchat;
+#endif
 #if HAS_WIFI && !defined(ARCH_PORTDUINO)
     optionsArray[options] = "WiFi Toggle";
     optionsEnumArray[options++] = WiFiToggle;
@@ -1097,6 +1104,11 @@ void menuHandler::systemBaseMenu()
         } else if (selected == Bluetooth) {
             menuQueue = BluetoothToggleMenu;
             screen->runNow();
+#ifdef MESHTASTIC_ENABLE_BITCHAT
+        } else if (selected == Bitchat) {
+            menuQueue = BitchatMenu;
+            screen->runNow();
+#endif
 #if HAS_WIFI && !defined(ARCH_PORTDUINO)
         } else if (selected == WiFiToggle) {
             menuQueue = WifiToggleMenu;
@@ -2658,6 +2670,17 @@ void menuHandler::handleMenuSwitch(OLEDDisplay *display)
     if (menuQueue != MenuNone)
         test_count = 0;
     switch (menuQueue) {
+#ifdef MESHTASTIC_ENABLE_BITCHAT
+    case BitchatMenu:
+        bitchatMenu();
+        break;
+    case BitchatTextChannel:
+        bitchatChannelMenu(false);
+        break;
+    case BitchatTunnelChannel:
+        bitchatChannelMenu(true);
+        break;
+#endif
     case MenuNone:
         break;
     case LoraMenu:

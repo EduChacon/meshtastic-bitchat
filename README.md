@@ -1,39 +1,80 @@
-<div align="center" markdown="1">
+# Meshtastic ↔ Bitchat
 
-<img src=".github/meshtastic_logo.png" alt="Meshtastic Logo" width="80"/>
-<h1>Meshtastic Firmware</h1>
+Ponte embarcada experimental, derivada do firmware oficial Meshtastic. O objetivo é usar
+os aplicativos originais Bitchat e Meshtastic, sem computador, MQTT, Nostr ou internet na
+operação. Computador continua necessário para compilar, instalar e diagnosticar.
 
-![GitHub release downloads](https://img.shields.io/github/downloads/meshtastic/firmware/total)
-[![CI](https://img.shields.io/github/actions/workflow/status/meshtastic/firmware/main_matrix.yml?branch=master&label=actions&logo=github&color=yellow)](https://github.com/meshtastic/firmware/actions/workflows/ci.yml)
-[![CLA assistant](https://cla-assistant.io/readme/badge/meshtastic/firmware)](https://cla-assistant.io/meshtastic/firmware)
-[![Fiscal Contributors](https://opencollective.com/meshtastic/tiers/badge.svg?label=Fiscal%20Contributors&color=deeppink)](https://opencollective.com/meshtastic/)
-[![Vercel](https://img.shields.io/static/v1?label=Powered%20by&message=Vercel&style=flat&logo=vercel&color=000000)](https://vercel.com?utm_source=meshtastic&utm_campaign=oss)
+**Estado: implementação e validação de software; nenhum ensaio em rádio ou iPhone.**
+Uma compilação bem-sucedida não comprova descoberta BLE, entrega, consumo, boot, atualização
+ou recuperação. Esta versão não é um produto validado para uso de campo.
+Consulte os resultados efetivamente executados em [TESTING](docs/bridge/TESTING.md).
 
-<a href="https://trendshift.io/repositories/5524" target="_blank"><img src="https://trendshift.io/api/badge/repositories/5524" alt="meshtastic%2Ffirmware | Trendshift" style="width: 250px; height: 55px;" width="250" height="55"/></a>
+## Modos independentes
 
-</div>
+| Modo                     | Comportamento implementado                                                                                       | Rádios modificados                                                  |
+| ------------------------ | ---------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------- |
+| A — BLE local            | Relé de pacotes Bitchat, com limites, assinatura, TTL e deduplicação                                             | Um por área BLE; sem uso de LoRa pela função A                      |
+| B — texto compartilhado  | `!lora texto` → texto nativo em canal Meshtastic dedicado; canal → Bitchat público                               | Um; os demais rádios continuam stock                                |
+| C — túnel de laboratório | Pacotes preservados em porta privada 256; descoberta e `!bctun texto`; opção separada para tráfego privado opaco | Dois terminadores; intermediários stock precisam de ensaio separado |
 
-</div>
+**Tudo vem desligado por padrão.** B não traduz DMs, sessões Noise, posição, telemetria,
+arquivos, voz ou comandos administrativos. O texto do canal com PSK será público no Bitchat
+local após consentimento explícito. A PSK não protege o texto depois dessa exportação.
 
-<div align="center">
-	<a href="https://meshtastic.org">Website</a>
-	-
-	<a href="https://meshtastic.org/docs/">Documentation</a>
-</div>
+## Alvos desta entrega
 
-## Overview
+- `heltec-v3-bitchat`: Heltec WiFi LoRa 32 V3, ESP32-S3/SX1262, flash de 8 MB.
+- `m5stack-cardputer-adv-bitchat`: Cardputer **ADV**, com **Cap LoRa-1262** e revisão
+  correspondente ao alvo upstream, flash de 8 MB. Cardputer original e outros acessórios não são equivalentes.
 
-This repository contains the official device firmware for Meshtastic, an open-source LoRa mesh networking project designed for long-range, low-power communication without relying on internet or cellular infrastructure. The firmware supports various hardware platforms, including ESP32, nRF52, RP2040/RP2350, and Linux-based devices.
+T1000-E, RAK4631, T-Deck, T-Echo, outras Heltec/LilyGO e demais dispositivos Meshtastic
+continuam candidatos a **nós stock** do modo B, com rádio, banda, região, preset,
+frequência e canal compatíveis. Isso não significa que este binário possa ser instalado neles.
+O porte da própria ponte para T1000-E/nRF52 e T-Deck foi adiado quando o escopo foi congelado
+para priorizar qualidade. [Matriz completa](docs/bridge/COMPATIBILITY.md).
 
-Meshtastic enables text messaging, location sharing, and telemetry over a decentralized mesh network, making it ideal for outdoor adventures, emergency preparedness, and remote operations.
+## Começo seguro
 
-### Get Started
+1. Confirme modelo/revisão, banda/antena, aplicativos e sistema operacional.
+2. Faça a bancada stock nos dois sentidos e guarde um backup privado e a recuperação stock.
+3. Leia [instalação e rollback](docs/bridge/INSTALL.md). Os pacotes contêm apenas atualização
+   de aplicativo; não incluem apagador, bootloader ou tabela de partições.
+4. Após instalação autorizada e validada, use `Menu → System → Bitchat bridge`.
+   Configure antes um canal secundário de teste com PSK própria de 32 bytes no app Meshtastic.
+5. Ative A primeiro. Para B, selecione explicitamente o canal e leia o aviso de publicação.
+   Aguarde os 30 segundos de observação de outras pontes. Envie, por exemplo, `!lora Olá`.
+6. `Meshtastic BLE: 5 min` anuncia temporariamente o serviço nativo para administração e relógio.
+   Depois retorna ao anúncio Bitchat. A coexistência simultânea precisa de teste no iOS exato.
 
-- 🔧 **[Building Instructions](https://meshtastic.org/docs/development/firmware/build)** – Learn how to compile the firmware from source.
-- ⚡ **[Flashing Instructions](https://meshtastic.org/docs/getting-started/flashing-firmware/)** – Install or update the firmware on your device.
+Após perda de alimentação, o Heltec sem RTC confiável pode precisar de nova conexão ao
+app Meshtastic para obter a hora. O estado local mostra `Open Meshtastic: clock`. Abrir somente
+o Bitchat ainda não resolve essa condição. Não há fallback de internet.
 
-Join our community and help improve Meshtastic! 🚀
+## Construção e documentação
 
-## Stats
+Base: Meshtastic **2.7.26.54e0d8d**, commit
+`54e0d8d0ab2ff56b3a9ce967e53f79e49af560fb`. É uma release marcada Beta pelo upstream;
+o aplicativo da foto a apresenta como STABLE. A Alpha 2.8.2 não foi escolhida.
+Bitchat de referência: iOS **1.8.0**, commit `30c58eee349e172b37f69faa2113c9d5f2c76c23`.
 
-![Alt](https://repobeats.axiom.co/api/embed/8025e56c482ec63541593cc5bd322c19d5c0bdcf.svg "Repobeats analytics image")
+```sh
+python3 -m venv .venv
+.venv/bin/python -m pip install platformio==6.2.0 intelhex==2.3.0
+git submodule update --init protobufs
+SOURCE_DATE_EPOCH=1794528000 .venv/bin/pio run -e heltec-v3-bitchat -t buildprog
+```
+
+Os comandos constroem software; não fazem upload. Use somente fontes e ferramentas oficiais
+fixadas. As dependências e a ferramenta precisam de download na preparação.
+
+- [Arquitetura, limites e hipóteses refutáveis](docs/bridge/ARCHITECTURE.md)
+- [Compatibilidade e cobertura funcional](docs/bridge/COMPATIBILITY.md)
+- [Instalação, verificador e recuperação](docs/bridge/INSTALL.md)
+- [Ameaças, privacidade e limitações](docs/bridge/SECURITY.md)
+- [Testes, bancada, consumo e critérios](docs/bridge/TESTING.md)
+- [Fontes, proveniência e licenças](docs/bridge/SOURCES.md)
+- [Registro do trabalho](docs/bridge/WORKLOG.md)
+- [README original do firmware](docs/bridge/README.upstream.md)
+
+O histórico oficial e o histórico inicial do projeto foram preservados. Não é um projeto
+MeshCore. Licença do firmware: [GPL-3.0](LICENSE); as dependências mantêm suas próprias licenças.

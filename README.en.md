@@ -6,15 +6,20 @@ An experimental embedded bridge derived from the official Meshtastic firmware. I
 for the unmodified Bitchat and Meshtastic apps, with no computer, MQTT, Nostr or internet in the
 operating path. A computer is used to build, install and diagnose the firmware.
 
-**Installations suspended: prerelease `v0.1.0-experimental.2` stalled during boot on a
-Heltec V3 and was reset by the watchdog.** Do not install the published packages while
-the cause and recovery remain unverified. Cardputer hardware remains untested.
-See the [failure and investigation record](docs/bridge/BOOT_INCIDENT.md).
+**Startup-fix prerelease available: [v0.1.0-experimental.3](https://github.com/EduChacon/meshtastic-bitchat/releases/tag/v0.1.0-experimental.3).**
+The corrections passed software checks; real-device boot remains unverified.
+Earlier releases remain suspended after the reported Heltec V3 boot failure.
+Cardputer hardware is also untested.
 
-**Status: software checks passed; the first reported physical boot failed.**
+**The `main` branch still contains the earlier firmware.** To test or build the corrections,
+use the assets and source tagged `v0.1.0-experimental.3`; merging remains pending.
+Follow the [Windows private-backup procedure](https://github.com/EduChacon/meshtastic-bitchat/blob/v0.1.0-experimental.3/docs/bridge/WINDOWS_RECOVERY.md)
+and read the [investigation record](docs/bridge/BOOT_INCIDENT.md).
+
+**Status: correction verified in software; `.3` physical acceptance is still pending.**
 A successful build does not establish BLE discovery, delivery, power consumption, boot,
 update preservation or recovery. This is not a field-validated product.
-See the executed checks and remaining gaps in [TESTING](docs/bridge/TESTING.md).
+See the executed checks and remaining gaps in [TESTING](https://github.com/EduChacon/meshtastic-bitchat/blob/v0.1.0-experimental.3/docs/bridge/TESTING.md).
 
 ## Independent modes
 
@@ -39,7 +44,7 @@ T1000-E, RAK4631, T-Deck, T-Echo, other Heltec/LilyGO boards and other Meshtasti
 intended **stock-node** candidates for mode B when radio, band, region, preset, frequency and
 channel match. That does not make these bridge binaries installable on them. Bridge ports
 for T1000-E/nRF52 and T-Deck are not included in this release.
-[Compatibility matrix](docs/bridge/COMPATIBILITY.md).
+[Compatibility matrix](https://github.com/EduChacon/meshtastic-bitchat/blob/v0.1.0-experimental.3/docs/bridge/COMPATIBILITY.md).
 
 The protocol core is shared, but firmware is built **for each board model**. The same CPU
 does not imply the same pins, radio, flash, partitions or bootloader. There is no universal
@@ -48,7 +53,8 @@ ESP32 or nRF52 image; installing another board's image can prevent booting.
 ## Downloads
 
 Existing packages in [Releases](https://github.com/EduChacon/meshtastic-bitchat/releases)
-remain available as evidence, **not for new installations**. Artifact names are:
+before `.3` remain as evidence, **not for new installations**. Version `.3` is for recovery
+testing after private backup and preflight; field use remains unvalidated. Artifact names are:
 
 | Board                         | Package for the flasher's custom firmware upload                  |
 | ----------------------------- | ----------------------------------------------------------------- |
@@ -57,7 +63,7 @@ remain available as evidence, **not for new installations**. Artifact names are:
 
 Each release also includes a board-specific `-update.bin`, `SHA256SUMS`, the verifier,
 corresponding sources and test evidence. **Source code (zip/tar.gz)** is not an installable
-firmware package. Read [INSTALL](docs/bridge/INSTALL.md) before using the
+firmware package. Read [INSTALL](https://github.com/EduChacon/meshtastic-bitchat/blob/v0.1.0-experimental.3/docs/bridge/INSTALL.md) before using the
 [official Meshtastic Web Flasher](https://flasher.meshtastic.org/). Inclusion in its official
 catalog is not required. The flashing procedure is **documented, not hardware-tested**.
 
@@ -65,7 +71,7 @@ catalog is not required. The flashing procedure is **documented, not hardware-te
 
 1. Identify the physical model/revision, band and antenna; record app and OS versions.
 2. Establish bidirectional stock-radio communication. Keep a private backup and stock recovery files.
-3. Read [installation and rollback](docs/bridge/INSTALL.md). Packages contain only the
+3. Read [installation and rollback](https://github.com/EduChacon/meshtastic-bitchat/blob/v0.1.0-experimental.3/docs/bridge/INSTALL.md). Packages contain only the
    application update, with no eraser, bootloader or partition table.
 4. After installation and first-boot verification, use `Menu → System → Bitchat bridge`.
    First configure a secondary test channel with its own 32-byte PSK in the Meshtastic app.
@@ -91,7 +97,11 @@ Base: Meshtastic **2.7.26.54e0d8d**, commit
 This release does not use the Alpha 2.8.2 line.
 Bitchat reference: iOS **1.8.0**, commit `30c58eee349e172b37f69faa2113c9d5f2c76c23`.
 
+To build the correction, check out the tag in a clean working copy:
+
 ```sh
+git fetch origin tag v0.1.0-experimental.3
+git checkout --detach v0.1.0-experimental.3
 python3 -m venv .venv
 .venv/bin/python -m pip install platformio==6.2.0 intelhex==2.3.0
 git submodule update --init protobufs
@@ -102,13 +112,13 @@ These commands build software; they do not upload it. Use the pinned official so
 tools. Initial preparation requires dependency downloads. Detailed engineering documents
 are currently in Portuguese:
 
-- [Architecture, limits and falsifiable hypotheses](docs/bridge/ARCHITECTURE.md)
-- [Compatibility and feature coverage](docs/bridge/COMPATIBILITY.md)
-- [Installation, verifier and recovery](docs/bridge/INSTALL.md)
-- [Threats, privacy and limitations](docs/bridge/SECURITY.md)
-- [Tests, bench procedure, power measurements and acceptance criteria](docs/bridge/TESTING.md)
-- [Sources, provenance and licenses](docs/bridge/SOURCES.md)
-- [Implementation and validation record](docs/bridge/WORKLOG.md)
+- [Architecture, limits and falsifiable hypotheses](https://github.com/EduChacon/meshtastic-bitchat/blob/v0.1.0-experimental.3/docs/bridge/ARCHITECTURE.md)
+- [Compatibility and feature coverage](https://github.com/EduChacon/meshtastic-bitchat/blob/v0.1.0-experimental.3/docs/bridge/COMPATIBILITY.md)
+- [Installation, verifier and recovery](https://github.com/EduChacon/meshtastic-bitchat/blob/v0.1.0-experimental.3/docs/bridge/INSTALL.md)
+- [Threats, privacy and limitations](https://github.com/EduChacon/meshtastic-bitchat/blob/v0.1.0-experimental.3/docs/bridge/SECURITY.md)
+- [Tests, bench procedure, power measurements and acceptance criteria](https://github.com/EduChacon/meshtastic-bitchat/blob/v0.1.0-experimental.3/docs/bridge/TESTING.md)
+- [Sources, provenance and licenses](https://github.com/EduChacon/meshtastic-bitchat/blob/v0.1.0-experimental.3/docs/bridge/SOURCES.md)
+- [Implementation and validation record](https://github.com/EduChacon/meshtastic-bitchat/blob/v0.1.0-experimental.3/docs/bridge/WORKLOG.md)
 - [Original firmware README](docs/bridge/README.upstream.md)
 
 Official upstream history and the original project history are preserved. This is not a

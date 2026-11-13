@@ -7,7 +7,7 @@ Em 2026-11-13 foi reportada falha no primeiro boot de `v0.1.0-experimental.2`, c
 O logotipo permaneceu parado e o watchdog reiniciou o dispositivo. Trata-se de evidência
 fornecida pelo operador, não de um ensaio instrumentado executado pelo projeto.
 
-As instalações das pré-releases existentes estão suspensas. A versão anterior compartilha
+As instalações das pré-releases anteriores à `.3` estão suspensas. A versão inicial compartilha
 o código de inicialização sob investigação; não foi comprovado que apresente a mesma falha.
 Cardputer ADV não foi testado fisicamente. Não há imagem corrigida validada em hardware.
 
@@ -65,7 +65,7 @@ contém memória potencialmente sensível e não deve ser publicado nem enviado 
 
 ## Recuperação
 
-Não instalar outro pacote experimental para tentar destravar. Primeiro preservar a flash
+Antes de testar o pacote de correção `.3`, preservar a flash
 existente por leitura privada e identificar partições/slot, em sessão autorizada. O fato
 de o carregador ROM e a aplicação terem executado oferece uma via de recuperação por USB,
 mas não é garantia de ausência de dano ou de recuperação sem perda.
@@ -146,3 +146,88 @@ boot. O [limite de BUSY](https://github.com/meshtastic/firmware/pull/12105) redu
 [correção de DFU BLE](https://github.com/meshtastic/firmware/pull/12220) é específica de nRF52,
 não da escrita USB observada no ESP32-S3. Não há evidência suficiente para considerar a
 migração completa uma correção deste incidente; a base 2.7.26 permanece fixada.
+
+## Guarda de inicialização na versão experimental .3
+
+A espera de sincronização de NimBLE 1.4.3 foi limitada a cinco segundos, com bloqueio
+cooperativo de um tick entre consultas. A criação de `nimble_host` agora é conferida;
+falha não é anunciada como sucesso. Falhas NVS/controlador/HCI/nome GAP retornam sem
+criar serviços nem anúncio. A inicialização BLE deixa de apagar NVS automaticamente
+em caso de versão incompatível ou falta de páginas.
+
+Após uma falha, `NimbleBluetooth` retém `startupFailed` até reinício. Isso impede repetição
+sobre controlador parcialmente iniciado e evita deinit potencialmente bloqueante nesse
+estado. A UI da ponte mostra `BLE failed: restart`; USB/LoRa e o laço principal podem
+continuar. Não há desligamento ou alimentação artificial do watchdog. Não se promete
+limitar uma chamada interna diferente que eventualmente bloqueie no SDK.
+
+O patch só é aplicado nos dois ambientes da ponte, antes de compilar NimBLE. Os três
+arquivos originais têm SHA-256 verificado; versão inesperada ou patch parcial interrompe
+o build. A sincronização entre tarefas usa `std::atomic<bool>`. O código e os avisos de
+licença originais permanecem no pacote de dependências correspondente.
+
+`tools/bridge/test_startup.py` compila as funções reais extraídas do fonte que será
+compilado para o ESP32, substituindo apenas SDK/FreeRTOS/GATT por fakes. Injeta falha em
+seis etapas, falta/atraso de sync, passagem pelo limite de ticks, recuperação por novo
+boot e sucesso com os mesmos requisitos de autenticação. O controle negativo recompõe
+a função original a partir das alterações verificadas e confirma que continua presa
+sem sync ou tarefa host. **É uma reprodução simulada de um defeito do código, não uma
+reprodução em bancada da causa exata do relato.**
+
+O helper `prepare_flash.py` usa esptool oficial somente para `flash_id` e `read_flash`.
+Seu teste verifica comandos, logs privados, capacidade incorreta, erro de leitura,
+backup incompleto, partições e seleção OTA divergentes. O próprio helper não foi
+executado contra um rádio e não oferece escrita. O [roteiro Windows](WINDOWS_RECOVERY.md)
+separa backup da decisão posterior de atualizar no flasher oficial.
+
+A hipótese de boot será refutada se `.3` ainda parar após `setup-complete`, se o diagnóstico
+mostrar que BLE terminou antes do bloqueio ou se a pilha do core 1 apontar outra chamada.
+O primeiro aceite físico continua sendo boot OFF, dez minutos estáveis, conexão Meshtastic,
+configuração preservada e retorno oficial sem apagamento integral.
+
+A revisão da alocação tardia eliminou também a cópia da lista mutável de conexões de
+NimBLE pela tarefa principal: um registro de três handles/assinaturas, protegido pelo
+lock da ponte, é mantido pelos callbacks. Ele ocupa poucos bytes mesmo com a ponte OFF.
+Assim, ativar/desativar não consulta um `std::vector` que outra tarefa pode modificar,
+e assinaturas de conexões ainda abertas sobrevivem à liberação dos buffers. O teste
+do adaptador cobre parada, retomada e desconexão, sem retenção dos payloads anteriores.
+O empacotador ainda verifica nome e marcador da revisão compilada para recusar binário
+local desatualizado, mesmo que o checkout atual esteja limpo.
+
+## Entrega da pré-release .3
+
+A [CI 43482990039](https://github.com/EduChacon/meshtastic-bitchat/actions/runs/43482990039)
+terminou com sucesso para o commit `d15a403fe9bb50b28a4c025330008ce11636da9b` e publicou
+[v0.1.0-experimental.3](https://github.com/EduChacon/meshtastic-bitchat/releases/tag/v0.1.0-experimental.3).
+Os dois alvos passaram por compilação, recompilação limpa idêntica, 523 asserções de protocolo,
+19 vetores do cliente oficial, 100.000 entradas malformadas, sanitizers, testes do adaptador
+BLE, falhas injetadas na inicialização e controle negativo, 11 testes de pacote/backup e
+análise estática. O alvo stock Heltec também compilou, sem a flag da ponte.
+
+Os ZIPs da CI foram baixados e verificados independentemente: alvo errado recusado, binário
+interno igual ao arquivo de aplicação separado, SHA-256 igual ao digest publicado e hash do
+ELF igual ao gravado no cabeçalho da aplicação. Nenhum dispositivo foi acessado nessa conferência.
+
+| Alvo          | Aplicação: bytes | SHA-256 da aplicação                                               | SHA-256 do ZIP                                                     |
+| ------------- | ---------------: | ------------------------------------------------------------------ | ------------------------------------------------------------------ |
+| Heltec V3     |          2104720 | `9a0c8748ace42a27ed0852ead7360e2ba25d8ece6797fb2c6446c205017fdfb3` | `e68fc26561cf3f10c390d8bc0b2976664e32a691d94d0eafce1a2797953fbb86` |
+| Cardputer ADV |          2220976 | `c4927306f6ee86eb58f37d47cc5aec86e4c98c84a2eea41e4720c67a7a7bbf67` | `35f45260cab38230eed9819ac32886f9c714de39e9f43a6506416e320be90faf` |
+
+ELF Heltec: `098ca2d7bced25f65c6b5ae5046f2c2e852ad16d2062bbf53e5ea4e9b761f556`.
+ELF Cardputer ADV: `0cd45b70472197a38b7b1e6a628c3b6fd1290be93c45e4e95bc90e970d6bcedc`.
+Os arquivos de símbolos e fontes correspondentes estão anexados à release.
+
+No linker Linux, a RAM estática é 132.544 bytes no Heltec e 136.928 no ADV. O build stock
+Heltec usa 132.104 bytes. Esses valores não medem heap em execução nem corrente elétrica.
+
+O fluxo de upload próprio foi reconferido no código do Web Flasher oficial,
+[revisão 6b3b347](https://github.com/meshtastic/web-flasher/blob/6b3b34722106f282eb66162164dd40f1729e7826/stores/firmwareStore.ts):
+o caminho legado Update escolhe a aplicação `-update.bin`, usa `0x10000` e `eraseAll: false`.
+O padrão de nomes seleciona exatamente a aplicação do ZIP. Não foi possível repetir a UI
+nesta sessão, nem executar escrita USB no aparelho. A gravação anterior `.2` foi relatada
+pelo operador; ela demonstrou escrita, seguida de falha de boot, não aceite do firmware.
+
+**Continuam pendentes:** primeiro boot da `.3`, preservação real da configuração, retorno ao
+stock, conexão iOS/Android, ensaios A/B/C, carga prolongada e consumo. A causa exata da falha
+original permanece sem prova do core 1. A nova release permite testar as correções após
+backup/preflight; não é promoção a versão estável nem merge de firmware em `main`.

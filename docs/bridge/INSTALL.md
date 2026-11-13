@@ -1,8 +1,9 @@
 # Instalação e recuperação
 
-**Instalações suspensas:** o primeiro boot reportado da pré-release `.2` no Heltec V3
-travou e reiniciou pelo watchdog. Consulte [BOOT_INCIDENT](BOOT_INCIDENT.md). Não repetir
-o flash nem apagar configurações como tentativa de correção. Rollback físico ainda não validado.
+**Pré-releases anteriores à `.3` suspensas:** o boot reportado da `.2` no Heltec V3
+travou e reiniciou pelo watchdog. A `.3` contém correções de inicialização para teste,
+sem boot físico validado. Consulte [BOOT_INCIDENT](BOOT_INCIDENT.md) e o
+[roteiro Windows com backup privado](WINDOWS_RECOVERY.md). Rollback físico ainda não validado.
 
 Não existe garantia de risco zero em uma gravação. Falta de
 energia, seleção errada, bootloader, partições e defeito físico podem impedir o boot.
@@ -22,12 +23,12 @@ pelo processador: os dois alvos desta release usam ESP32-S3, com hardware distin
 
 ## Pacotes desta release
 
-| Alvo                          | Artefato publicado                                                   | Método/navegador                                                                         | Bootloader                                                         | Estado                                | Rollback previsto                                                             |
-| ----------------------------- | -------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- | ------------------------------------------------------------------ | ------------------------------------- | ----------------------------------------------------------------------------- |
-| Heltec V3 8 MB                | ZIP por placa e `firmware-heltec-v3-bridge-…-update.bin`             | Upload próprio no Web Flasher oficial; Chrome/Edge desktop com Web Serial e USB de dados | ROM/bootloader ESP32-S3 já instalado, preservado                   | COMP; empacotamento testado; flash NT | Atualização oficial Heltec V3 compatível, via USB; ROM download se necessário |
-| Cardputer ADV + Cap LoRa-1262 | ZIP por placa e `firmware-m5stack-cardputer-adv-bridge-…-update.bin` | Mesmo fluxo ESP32, selecionando o alvo exato                                             | Procedimento M5 específico da revisão; não confundir modos de boot | COMP; flash NT                        | Firmware oficial do alvo ADV e procedimento M5                                |
-| T1000-E                       | Nenhum firmware de ponte                                             | Futuro: UF2/bootloader nRF52840 específico documentado por Seeed/Meshtastic              | Não usar ESP32, .bin mesclado ou offset 0x10000                    | Porte adiado                          | Manter stock; recuperação oficial do T1000-E                                  |
-| T-Deck/outros                 | Nenhum firmware de ponte                                             | Futuro por alvo/revisão                                                                  | Não presumir equivalente ao Cardputer                              | Porte adiado                          | Manter firmware oficial específico                                            |
+| Alvo                          | Artefato publicado                                                   | Método/navegador                                                                         | Bootloader                                                         | Estado                                                   | Rollback previsto                                                             |
+| ----------------------------- | -------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- | ------------------------------------------------------------------ | -------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| Heltec V3 8 MB                | ZIP por placa e `firmware-heltec-v3-bridge-…-update.bin`             | Upload próprio no Web Flasher oficial; Chrome/Edge desktop com Web Serial e USB de dados | ROM/bootloader ESP32-S3 já instalado, preservado                   | `.2`: escrita reportada, boot falhou; candidato ainda NT | Atualização oficial Heltec V3 compatível, via USB; ROM download se necessário |
+| Cardputer ADV + Cap LoRa-1262 | ZIP por placa e `firmware-m5stack-cardputer-adv-bridge-…-update.bin` | Mesmo fluxo ESP32, selecionando o alvo exato                                             | Procedimento M5 específico da revisão; não confundir modos de boot | COMP; flash NT                                           | Firmware oficial do alvo ADV e procedimento M5                                |
+| T1000-E                       | Nenhum firmware de ponte                                             | Futuro: UF2/bootloader nRF52840 específico documentado por Seeed/Meshtastic              | Não usar ESP32, .bin mesclado ou offset 0x10000                    | Porte adiado                                             | Manter stock; recuperação oficial do T1000-E                                  |
+| T-Deck/outros                 | Nenhum firmware de ponte                                             | Futuro por alvo/revisão                                                                  | Não presumir equivalente ao Cardputer                              | Porte adiado                                             | Manter firmware oficial específico                                            |
 
 A fonte upstream gera aplicação `.bin`, imagem `.factory.bin`, tabela e filesystem separados.
 O empacotador desta entrega **só inclui a aplicação**, renomeada com sufixo `-update.bin` para
@@ -51,7 +52,8 @@ Não apagar flash para “tentar resolver” seleção ou partições incompatí
    distinguindo atualização de instalação de fábrica e aceitando as consequências possíveis.
 
 Backup/flash dump contém segredos. Não colocar no Git, em release, issue, chat público ou CI.
-Os scripts de empacotamento não procuram portas USB nem fazem backup de dispositivos.
+Os scripts de empacotamento não procuram portas USB. O helper opcional `prepare_flash.py`
+faz somente leitura, com porta explícita e `--read-backup`; nunca grava ou apaga flash.
 
 A [CLI oficial](https://meshtastic.org/docs/software/python/cli/) documenta
 `meshtastic --export-config > backup.yaml` para exportar configuração e

@@ -6,15 +6,20 @@ Ponte embarcada experimental, derivada do firmware oficial Meshtastic. O objetiv
 os aplicativos originais Bitchat e Meshtastic, sem computador, MQTT, Nostr ou internet na
 operação. Computador continua necessário para compilar, instalar e diagnosticar.
 
-**Instalações suspensas: a pré-release `v0.1.0-experimental.2` apresentou travamento de boot
-em um Heltec V3, com reinício pelo watchdog.** Não instalar os pacotes publicados enquanto
-a causa e a recuperação não forem verificadas. O Cardputer permanece sem teste físico.
-Veja o [registro da falha e da investigação](docs/bridge/BOOT_INCIDENT.md).
+**Pré-release de correção disponível: [v0.1.0-experimental.3](https://github.com/EduChacon/meshtastic-bitchat/releases/tag/v0.1.0-experimental.3).**
+Ela corrige a inicialização e passou pelos testes de software; boot físico continua sem validação.
+As versões anteriores permanecem suspensas após falha de boot reportada no Heltec V3.
+O Cardputer também continua sem teste físico.
 
-**Estado: validação de software concluída; primeiro boot físico reportado como falha.**
+**A branch `main` ainda contém o firmware anterior.** Para testar ou compilar as correções,
+use os arquivos e o fonte da tag `v0.1.0-experimental.3`; o merge permanece pendente.
+Siga o [roteiro Windows com backup privado](https://github.com/EduChacon/meshtastic-bitchat/blob/v0.1.0-experimental.3/docs/bridge/WINDOWS_RECOVERY.md)
+e consulte o [registro da investigação](docs/bridge/BOOT_INCIDENT.md).
+
+**Estado: correção validada em software; ensaios físicos da `.3` ainda pendentes.**
 Uma compilação bem-sucedida não comprova descoberta BLE, entrega, consumo, boot, atualização
 ou recuperação. Esta versão não é um produto validado para uso de campo.
-Consulte os resultados efetivamente executados em [TESTING](docs/bridge/TESTING.md).
+Consulte os resultados efetivamente executados em [TESTING](https://github.com/EduChacon/meshtastic-bitchat/blob/v0.1.0-experimental.3/docs/bridge/TESTING.md).
 
 ## Modos independentes
 
@@ -38,7 +43,7 @@ T1000-E, RAK4631, T-Deck, T-Echo, outras Heltec/LilyGO e demais dispositivos Mes
 continuam candidatos a **nós stock** do modo B, com rádio, banda, região, preset,
 frequência e canal compatíveis. Isso não significa que este binário possa ser instalado neles.
 O porte da própria ponte para T1000-E/nRF52 e T-Deck não está incluído nesta versão.
-[Matriz completa](docs/bridge/COMPATIBILITY.md).
+[Matriz completa](https://github.com/EduChacon/meshtastic-bitchat/blob/v0.1.0-experimental.3/docs/bridge/COMPATIBILITY.md).
 
 O núcleo de protocolo é compartilhado, mas o firmware é compilado **por modelo de placa**.
 Processador igual não garante pinagem, rádio, flash, partições ou bootloader iguais. Não há
@@ -47,7 +52,8 @@ binário universal ESP32 ou nRF52; instalar um arquivo de outro modelo pode impe
 ## Download
 
 Os arquivos estão em [Releases](https://github.com/EduChacon/meshtastic-bitchat/releases).
-Os pacotes existentes permanecem disponíveis como evidência, **não para novas instalações**.
+Os pacotes anteriores à `.3` permanecem como evidência, **não para novas instalações**.
+A `.3` destina-se a teste de recuperação, após backup e preflight; não está homologada para campo.
 Os nomes abaixo identificam os artefatos:
 
 | Placa                         | Pacote para upload próprio no flasher                            |
@@ -57,7 +63,7 @@ Os nomes abaixo identificam os artefatos:
 
 Também há um `-update.bin` por placa, `SHA256SUMS`, o verificador, as fontes e os resultados
 dos testes. **Source code (zip/tar.gz)** é código-fonte, não firmware para o instalador.
-Leia [INSTALL](docs/bridge/INSTALL.md) antes de usar o
+Leia [INSTALL](https://github.com/EduChacon/meshtastic-bitchat/blob/v0.1.0-experimental.3/docs/bridge/INSTALL.md) antes de usar o
 [Web Flasher oficial Meshtastic](https://flasher.meshtastic.org/). Esta publicação não exige
 inclusão no catálogo oficial. O fluxo de gravação permanece **documentado, não testado em hardware**.
 
@@ -65,7 +71,7 @@ inclusão no catálogo oficial. O fluxo de gravação permanece **documentado, n
 
 1. Confirme modelo/revisão, banda/antena, aplicativos e sistema operacional.
 2. Faça a bancada stock nos dois sentidos e guarde um backup privado e a recuperação stock.
-3. Leia [instalação e rollback](docs/bridge/INSTALL.md). Os pacotes contêm apenas atualização
+3. Leia [instalação e rollback](https://github.com/EduChacon/meshtastic-bitchat/blob/v0.1.0-experimental.3/docs/bridge/INSTALL.md). Os pacotes contêm apenas atualização
    de aplicativo; não incluem apagador, bootloader ou tabela de partições.
 4. Após instalação e verificação do primeiro boot, use `Menu → System → Bitchat bridge`.
    Configure antes um canal secundário de teste com PSK própria de 32 bytes no app Meshtastic.
@@ -91,7 +97,11 @@ Base: Meshtastic **2.7.26.54e0d8d**, commit
 Esta entrega não usa a linha Alpha 2.8.2.
 Bitchat de referência: iOS **1.8.0**, commit `30c58eee349e172b37f69faa2113c9d5f2c76c23`.
 
+Para compilar a correção, faça checkout da tag em uma cópia de trabalho limpa:
+
 ```sh
+git fetch origin tag v0.1.0-experimental.3
+git checkout --detach v0.1.0-experimental.3
 python3 -m venv .venv
 .venv/bin/python -m pip install platformio==6.2.0 intelhex==2.3.0
 git submodule update --init protobufs
@@ -101,13 +111,13 @@ SOURCE_DATE_EPOCH=1794528000 .venv/bin/pio run -e heltec-v3-bitchat -t buildprog
 Os comandos constroem software; não fazem upload. Use somente fontes e ferramentas oficiais
 fixadas. As dependências e a ferramenta precisam de download na preparação.
 
-- [Arquitetura, limites e hipóteses refutáveis](docs/bridge/ARCHITECTURE.md)
-- [Compatibilidade e cobertura funcional](docs/bridge/COMPATIBILITY.md)
-- [Instalação, verificador e recuperação](docs/bridge/INSTALL.md)
-- [Ameaças, privacidade e limitações](docs/bridge/SECURITY.md)
-- [Testes, bancada, consumo e critérios](docs/bridge/TESTING.md)
-- [Fontes, proveniência e licenças](docs/bridge/SOURCES.md)
-- [Registro do trabalho](docs/bridge/WORKLOG.md)
+- [Arquitetura, limites e hipóteses refutáveis](https://github.com/EduChacon/meshtastic-bitchat/blob/v0.1.0-experimental.3/docs/bridge/ARCHITECTURE.md)
+- [Compatibilidade e cobertura funcional](https://github.com/EduChacon/meshtastic-bitchat/blob/v0.1.0-experimental.3/docs/bridge/COMPATIBILITY.md)
+- [Instalação, verificador e recuperação](https://github.com/EduChacon/meshtastic-bitchat/blob/v0.1.0-experimental.3/docs/bridge/INSTALL.md)
+- [Ameaças, privacidade e limitações](https://github.com/EduChacon/meshtastic-bitchat/blob/v0.1.0-experimental.3/docs/bridge/SECURITY.md)
+- [Testes, bancada, consumo e critérios](https://github.com/EduChacon/meshtastic-bitchat/blob/v0.1.0-experimental.3/docs/bridge/TESTING.md)
+- [Fontes, proveniência e licenças](https://github.com/EduChacon/meshtastic-bitchat/blob/v0.1.0-experimental.3/docs/bridge/SOURCES.md)
+- [Registro do trabalho](https://github.com/EduChacon/meshtastic-bitchat/blob/v0.1.0-experimental.3/docs/bridge/WORKLOG.md)
 - [README original do firmware](docs/bridge/README.upstream.md)
 
 O histórico oficial e o histórico inicial do projeto foram preservados. Não é um projeto

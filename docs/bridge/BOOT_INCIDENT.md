@@ -28,6 +28,26 @@ MAC, identificação pessoal, chaves, payload e dumps de flash não são registr
 O relato de escrita não comprova preservação de toda a configuração nem verificação das
 partições. Não foi obtido backup ou inventário de partições/slot desse aparelho.
 
+### Decodificação com símbolos exatos
+
+A [reconstrução de símbolos](https://github.com/EduChacon/meshtastic-bitchat/actions/runs/43469976491)
+recompilou o commit original sem alterações. O SHA-256 da aplicação coincidiu exatamente:
+`f0cac2e8eddf8497df7e877aa223bb85b0cede2e60ec96ce7394b28dc6a9fb63`.
+O ELF completo tem SHA-256
+`5c1343a83b5e1b6514ed9591d0010afd36ae33390025997c3660fb4329716d1b`, cujo prefixo coincide
+com o panic fornecido. A pilha decodificada é:
+
+```text
+panic_abort → esp_system_abort → abort → task_wdt_isr → _xt_lowint1
+→ cpu_ll_waiti → esp_vApplicationIdleHook → prvIdleTask
+```
+
+Isso confirma que a pilha pública é a interrupção do watchdog sobre a tarefa ociosa do
+core 0. Ela não localiza o bloqueio de `loopTask` no core 1. Portanto, a causa continua
+em aberto. A configuração do SDK habilita coredump em flash; se um registro válido existir,
+uma leitura privada pode permitir examinar o core 1 antes de outra instalação. Coredump
+contém memória potencialmente sensível e não deve ser publicado nem enviado à CI.
+
 ## Hipóteses e como refutá-las
 
 1. **Pressão de memória ao iniciar BLE:** no ELF local anterior, os buffers BLE globais
@@ -59,3 +79,70 @@ Ele não é a imagem `.factory.bin`. Nenhuma gravação de recuperação foi exe
 
 Confirmar aparelho, revisão/banda, arquivo, backup, consequências e rollback antes de
 gravar novamente. Os procedimentos gerais permanecem em [INSTALL](INSTALL.md).
+
+## Correção candidata, ainda sem validação física
+
+A branch `fix/heltec-boot-memory` move os buffers grandes do módulo e das conexões BLE
+para alocação posterior ao início do Bluetooth, somente quando a ponte é ativada. Desativar
+a ponte libera os buffers. Falha de alocação ou reserva insuficiente bloqueia a ativação,
+com indicação `Low memory: bridge OFF`; não altera canais, identidade ou região.
+
+O módulo no caminho de boot passa de 37.800 para 2.032 bytes no build local de Heltec;
+a reserva estática dos enlaces de 30.912 bytes passa a um ponteiro. O linker local reporta
+132.528 bytes de RAM estática no primeiro build candidato. Essas são medidas de software,
+não medições de heap livre ou prova de que a memória causou a falha observada.
+
+O limite inicial exige 24 KiB de heap interno ainda livre após a alocação, incluindo um
+bloco de pelo menos 8 KiB. É uma barreira conservadora provisória, não uma garantia de
+capacidade sob carga. Deve ser ajustada somente com medições reais. A pilha principal
+e o watchdog não são reduzidos, desligados nem alimentados dentro de esperas bloqueadas.
+
+Diagnósticos mínimos de boot informam estágio, heap livre, maior bloco e mínimo observado;
+falhas de alocação informam tamanho e capacidades. Não incluem chaves, mensagens, nomes
+ou posições. Os artefatos de CI passam a preservar ELF e mapa correspondentes ao binário.
+
+O teste host executa o adaptador BLE real com substitutos de transporte/heap e sanitizers:
+desligado sem buffers, memória insuficiente, falha do alocador, ativação, três enlaces,
+remontagem de writes, filas cheias, justiça, expiração, desativação e reativação sem resíduos.
+Isso não executa o controlador Bluetooth nem o FreeRTOS do ESP32. A CI não publica outra
+release automaticamente; um candidato aprovado em software ainda exige ensaio autorizado.
+
+### Resultado da CI do candidato
+
+Commit de firmware `bd5bfbe6c087dee993f4b5f5084c7e1f3f3d821d`, candidato
+`0.1.0-boot-candidate.1`: [CI concluída](https://github.com/EduChacon/meshtastic-bitchat/actions/runs/43468801100).
+Os dois jobs de verificação passaram; o job de publicação foi deliberadamente ignorado.
+Compilação por placa, testes de protocolo e adaptador com ASan/UBSan, sete testes de pacote,
+Cppcheck e recompilação limpa idêntica passaram. A compilação Heltec sem a flag também passou.
+
+| Alvo                       |  RAM estática | Flash da aplicação indicada pelo linker | Boot físico deste candidato |
+| -------------------------- | ------------: | --------------------------------------: | --------------------------- |
+| Heltec V3                  | 132.528 bytes |                         2.031.325 bytes | Não testado                 |
+| Cardputer ADV              | 136.928 bytes |                         2.147.065 bytes | Não testado                 |
+| Heltec sem a flag de ponte | 132.104 bytes |                         2.109.001 bytes | Não testado                 |
+
+Os ZIPs da CI foram baixados e conferidos independentemente. SHA-256 dos pacotes:
+
+- Heltec: `8dde06309f11bdca432385f96b795dabd4c3f752d62824bf7cff62a81ed9968c`.
+- Cardputer ADV: `989bf614c7d74ff70fe43453c34d74d4bca5e0924fae5983842ec108555b77d3`.
+
+SHA-256 das aplicações:
+
+- Heltec: `93c04180ed67ddf1ac8f9f628ac4d5b666e7f8bcf4d8656f009d2ecbf6bc8af5`.
+- Cardputer ADV: `eabb745fa6a6c8fdd3f326410e530945a8f67704ac76d5a3b41fab419fcfc62e`.
+
+Os símbolos de cada candidato também foram conferidos contra o SHA-256 do ELF embutido
+na aplicação. O verificador rejeitou o ZIP Heltec quando informado o alvo Cardputer.
+Nenhum desses testes identifica o hardware conectado ou comprova boot/rollback. Os
+artefatos permanecem candidatos da CI, não uma nova release declarada pronta para instalar.
+
+## Avaliação da versão oficial 2.8.2
+
+A [2.8.2.d5f1619 é Alpha](https://github.com/meshtastic/firmware/releases/tag/v2.8.2.d5f1619).
+A correção de [DIO1 após light sleep](https://github.com/meshtastic/firmware/pull/12131)
+trata watchdog de interrupção após suspensão; o relato presente é de task watchdog durante
+boot. O [limite de BUSY](https://github.com/meshtastic/firmware/pull/12105) reduz espera de
+1.000 para 50 ms, e não demonstra a origem deste bloqueio. A
+[correção de DFU BLE](https://github.com/meshtastic/firmware/pull/12220) é específica de nRF52,
+não da escrita USB observada no ESP32-S3. Não há evidência suficiente para considerar a
+migração completa uma correção deste incidente; a base 2.7.26 permanece fixada.

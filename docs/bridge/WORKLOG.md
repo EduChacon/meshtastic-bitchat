@@ -95,3 +95,11 @@ mede consumo dinâmico. A CI deve registrar o resultado final do commit e preser
 A Alpha 2.8.2 foi examinada sem migrar a base: os fixes considerados ainda não correspondem
 à falha observada. A próxima etapa física depende de backup privado e confirmação separada
 da operação. Nenhum comando desta investigação acessou ou gravou o rádio.
+
+A CI do commit `bd5bfbe6c087dee993f4b5f5084c7e1f3f3d821d` concluiu os dois alvos com
+sucesso, inclusive recompilação idêntica e build Heltec sem flag. Os pacotes e a associação
+binário/ELF foram conferidos após download; os hashes estão em BOOT_INCIDENT. Uma reconstrução
+independente do commit original reproduziu exatamente o binário e o ELF do panic. A pilha
+decodificada confirma watchdog sobre a tarefa ociosa do core 0, sem localizar o bloqueio
+do core 1. Faltam backup privado, leitura do registro de falha e validação física; a publicação
+de nova release permanece suspensa.

@@ -28,6 +28,26 @@ MAC, identificação pessoal, chaves, payload e dumps de flash não são registr
 O relato de escrita não comprova preservação de toda a configuração nem verificação das
 partições. Não foi obtido backup ou inventário de partições/slot desse aparelho.
 
+### Decodificação com símbolos exatos
+
+A [reconstrução de símbolos](https://github.com/EduChacon/meshtastic-bitchat/actions/runs/43469976491)
+recompilou o commit original sem alterações. O SHA-256 da aplicação coincidiu exatamente:
+`f0cac2e8eddf8497df7e877aa223bb85b0cede2e60ec96ce7394b28dc6a9fb63`.
+O ELF completo tem SHA-256
+`5c1343a83b5e1b6514ed9591d0010afd36ae33390025997c3660fb4329716d1b`, cujo prefixo coincide
+com o panic fornecido. A pilha decodificada é:
+
+```text
+panic_abort → esp_system_abort → abort → task_wdt_isr → _xt_lowint1
+→ cpu_ll_waiti → esp_vApplicationIdleHook → prvIdleTask
+```
+
+Isso confirma que a pilha pública é a interrupção do watchdog sobre a tarefa ociosa do
+core 0. Ela não localiza o bloqueio de `loopTask` no core 1. Portanto, a causa continua
+em aberto. A configuração do SDK habilita coredump em flash; se um registro válido existir,
+uma leitura privada pode permitir examinar o core 1 antes de outra instalação. Coredump
+contém memória potencialmente sensível e não deve ser publicado nem enviado à CI.
+
 ## Hipóteses e como refutá-las
 
 1. **Pressão de memória ao iniciar BLE:** no ELF local anterior, os buffers BLE globais
@@ -86,6 +106,35 @@ desligado sem buffers, memória insuficiente, falha do alocador, ativação, tr�
 remontagem de writes, filas cheias, justiça, expiração, desativação e reativação sem resíduos.
 Isso não executa o controlador Bluetooth nem o FreeRTOS do ESP32. A CI não publica outra
 release automaticamente; um candidato aprovado em software ainda exige ensaio autorizado.
+
+### Resultado da CI do candidato
+
+Commit de firmware `bd5bfbe6c087dee993f4b5f5084c7e1f3f3d821d`, candidato
+`0.1.0-boot-candidate.1`: [CI concluída](https://github.com/EduChacon/meshtastic-bitchat/actions/runs/43468801100).
+Os dois jobs de verificação passaram; o job de publicação foi deliberadamente ignorado.
+Compilação por placa, testes de protocolo e adaptador com ASan/UBSan, sete testes de pacote,
+Cppcheck e recompilação limpa idêntica passaram. A compilação Heltec sem a flag também passou.
+
+| Alvo                       |  RAM estática | Flash da aplicação indicada pelo linker | Boot físico deste candidato |
+| -------------------------- | ------------: | --------------------------------------: | --------------------------- |
+| Heltec V3                  | 132.528 bytes |                         2.031.325 bytes | Não testado                 |
+| Cardputer ADV              | 136.928 bytes |                         2.147.065 bytes | Não testado                 |
+| Heltec sem a flag de ponte | 132.104 bytes |                         2.109.001 bytes | Não testado                 |
+
+Os ZIPs da CI foram baixados e conferidos independentemente. SHA-256 dos pacotes:
+
+- Heltec: `8dde06309f11bdca432385f96b795dabd4c3f752d62824bf7cff62a81ed9968c`.
+- Cardputer ADV: `989bf614c7d74ff70fe43453c34d74d4bca5e0924fae5983842ec108555b77d3`.
+
+SHA-256 das aplicações:
+
+- Heltec: `93c04180ed67ddf1ac8f9f628ac4d5b666e7f8bcf4d8656f009d2ecbf6bc8af5`.
+- Cardputer ADV: `eabb745fa6a6c8fdd3f326410e530945a8f67704ac76d5a3b41fab419fcfc62e`.
+
+Os símbolos de cada candidato também foram conferidos contra o SHA-256 do ELF embutido
+na aplicação. O verificador rejeitou o ZIP Heltec quando informado o alvo Cardputer.
+Nenhum desses testes identifica o hardware conectado ou comprova boot/rollback. Os
+artefatos permanecem candidatos da CI, não uma nova release declarada pronta para instalar.
 
 ## Avaliação da versão oficial 2.8.2
 

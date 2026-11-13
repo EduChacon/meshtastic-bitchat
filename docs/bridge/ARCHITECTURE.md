@@ -60,7 +60,10 @@ escolhas posteriores e canais existentes. Não depende de display, mas exige par
 
 Configuração: até três links, incluindo a eventual conexão nativa. Quantidade utilizável,
 MTU, justiça e reconexão não foram medidos. Há duas posições de recepção e duas de envio
-por conexão. Uma conexão lenta expira sua própria fila após dez segundos e é desconectada
+por conexão, com oito frames globais alocados sob demanda e payload de broadcast compartilhado.
+O núcleo é alocado em blocos separados; remontagens só consomem memória quando usadas.
+A reserva interna de 24 KiB e o bloco livre mínimo de 8 KiB continuam obrigatórios.
+Uma conexão lenta expira sua própria fila após dez segundos e é desconectada
 para reiniciar o enquadramento; isso não confirma entrega ao usuário.
 
 Intervalos iniciais: 152,5 ms fixo e 1022,5 ms econômico, valores listados pela Apple.

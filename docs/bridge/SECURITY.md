@@ -33,7 +33,7 @@ própria, telemetria externa da ponte ou execução de comandos recebidos por me
 
 | Ameaça                              | Defesa implementada                                                                  | Teste que pode refutar / lacuna                                                                              |
 | ----------------------------------- | ------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------ |
-| Frame malformado ou enorme          | Limites antes de cópia, buffers estáticos, validação de comprimentos e UTF-8         | ASan/UBSan, mutações estruturadas e entradas aleatórias; callbacks BLE ainda precisam de bancada             |
+| Frame malformado ou enorme          | Limites antes de cópia, buffers limitados, validação de comprimentos e UTF-8         | ASan/UBSan, mutações estruturadas e entradas aleatórias; callbacks BLE ainda precisam de bancada             |
 | Fragmentos consomem toda a RAM      | 3 remontagens BLE e 3 de túnel, teto por frame e prazo não renovável                 | Ocupar todas, repetir fragmento, aguardar prazo, verificar liberação e heap em rádio                         |
 | Spoof ou assinatura maleável        | Ed25519 da biblioteca upstream, S canônico, pontos inválidos/pequena ordem recusados | Vetores independentes do cliente; não substitui auditoria criptográfica externa                              |
 | Replay e reordenação                | Frescor ±120 s, ID SHA-256 canônico sem TTL, cache 256/125 s                         | Repetir antes/depois do prazo, voltar relógio e reiniciar                                                    |

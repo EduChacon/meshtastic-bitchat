@@ -1,8 +1,8 @@
-# Integração padrão — experimental .4
+# Integração padrão — experimental .5
 
 ## O que a instalação ativa
 
-A revisão `.4` ativa o relé Bitchat por BLE e a tradução de texto no primeiro boot,
+Desde a revisão `.4`, o firmware ativa o relé Bitchat por BLE e a tradução de texto no primeiro boot,
 inclusive na primeira atualização a partir das revisões anteriores. A mudança é aplicada
 uma vez e registrada: desligar a ponte ou selecionar somente BLE depois disso continua
 valendo após reiniciar. Um canal de texto já escolhido e autorizado é preservado.
@@ -29,6 +29,9 @@ a criação automática não prossegue. BLE local pode continuar; conferir `Stat
 um canal elegível pelo menu, com consentimento. Falha de escrita, identidade ou falta de
 memória bloqueia a ponte. Bluetooth desativado ou economia stock não são reconfigurados
 automaticamente: é preciso corrigir essas opções pelo aplicativo Meshtastic.
+
+A `.5` reduz a memória inicial da ponte sem repetir a migração nem alterar as escolhas
+persistidas. O aviso `Low memory: bridge OFF` é descrito em [MEMORY_FIX.md](MEMORY_FIX.md).
 
 ## Primeiro uso
 
@@ -59,8 +62,13 @@ Find Meshtastic: 5m**. Existência dos dois serviços GATT não demonstra uso si
 O mesmo alvo `heltec-v3-bitchat` executa a configuração automática sem depender do OLED.
 O pareamento nativo ainda precisa funcionar: usar um vínculo já existente ou o procedimento
 Meshtastic para PIN fixo privado. Esta revisão não remove autenticação nem troca o PIN.
+A [documentação oficial de Bluetooth](https://meshtastic.org/docs/configuration/radio/bluetooth/)
+explica os modos de PIN e o caso de uma tela removida após a configuração.
 Sem vínculo e sem acesso ao PIN, configurar o pareamento pela interface USB oficial antes
-da implantação. O computador não é necessário na operação normal após a configuração.
+da implantação. Em ESP32, Wi-Fi habilitado impede BLE nesta base: se necessário, ajustar
+essa configuração pela interface Meshtastic oficial. O padrão da ponte não desliga uma
+configuração Wi-Fi existente automaticamente. O computador não é necessário na operação
+normal após a configuração.
 
 O ESP32-S3 pode perder a hora ao cortar totalmente a energia. Sem RTC/GPS confiável, abrir
 Meshtastic e conectar novamente para restaurá-la; depois abrir Bitchat. Portanto não há

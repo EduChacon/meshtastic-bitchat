@@ -1,0 +1,53 @@
+name: Recover exact symbols for reported Heltec boot failure
+
+on:
+  push:
+    branches: ["diagnostics/heltec-crash-symbols"]
+    paths: [".github/workflows/bridge-original-symbols.yml"]
+
+permissions:
+  contents: read
+
+env:
+  SOURCE_DATE_EPOCH: "1794528000"
+  PLATFORMIO_SETTING_ENABLE_TELEMETRY: "no"
+  PLATFORMIO_CORE_DIR: /tmp/bridge-platformio
+  PIP_DISABLE_PIP_VERSION_CHECK: "1"
+
+jobs:
+  symbols:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: 0e981daffaa8d05287fdc311530d60949f782f4d
+          fetch-depth: 0
+          submodules: recursive
+          persist-credentials: false
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: "3.12.8"
+      - name: Rebuild the original source without firmware changes
+        run: |
+          set -euo pipefail
+          mkdir -p evidence
+          python -m pip install platformio==6.2.0 intelhex==2.3.0
+          git rev-parse HEAD > evidence/source.txt
+          pio run -e heltec-v3-bitchat -t buildprog 2>&1 | tee evidence/build.log
+      - name: Require the exact reported application and decode public addresses
+        run: |
+          set -euo pipefail
+          build=.pio/build/heltec-v3-bitchat
+          app="$build/firmware-heltec-v3-bitchat-2.7.26.0e981da.bin"
+          elf="$build/firmware-heltec-v3-bitchat-2.7.26.0e981da.elf"
+          printf '%s  %s\n' f0cac2e8eddf8497df7e877aa223bb85b0cede2e60ec96ce7394b28dc6a9fb63 "$app" | sha256sum --check
+          sha256sum "$app" "$elf" > evidence/digests.txt
+          "$PLATFORMIO_CORE_DIR/packages/toolchain-xtensa-esp32s3/bin/xtensa-esp32s3-elf-addr2line" -e "$elf" -a -f -C 0x40377b12 0x40380ff1 0x40387bb1 0x420a33dc 0x40379bd1 0x421619af 0x420a3c41 0x403824fc > evidence/public-backtrace.txt
+          cp "$elf" "$build/firmware-heltec-v3-bitchat-2.7.26.0e981da.map" evidence/
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: original-heltec-0e981da-symbols
+          path: evidence/*
+          retention-days: 30

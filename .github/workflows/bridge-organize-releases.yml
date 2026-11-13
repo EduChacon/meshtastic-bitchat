@@ -1,0 +1,40 @@
+name: Organize authorized experimental releases
+
+on:
+  push:
+    branches: ["maintenance/organize-releases"]
+    paths:
+      - .github/workflows/bridge-organize-releases.yml
+      - tools/bridge/organize_releases.py
+      - tools/bridge/release_cleanup_plan.json
+
+permissions:
+  contents: write
+  actions: write
+
+concurrency:
+  group: organize-bridge-releases
+  cancel-in-progress: false
+
+jobs:
+  organize:
+    if: github.repository == 'EduChacon/meshtastic-bitchat'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - name: Verify, organize and remove superseded downloads
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: python3 tools/bridge/organize_releases.py --apply
+      - name: Preserve organization report
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: release-organization-report-${{ github.run_attempt }}
+          path: /tmp/bridge-release-organization/report.json
+          if-no-files-found: warn
+          retention-days: 90

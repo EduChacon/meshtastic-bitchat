@@ -1,6 +1,6 @@
 # Instalação e recuperação
 
-**Pré-releases anteriores à `.3` suspensas:** o boot reportado da `.2` no Heltec V3
+**Pré-releases anteriores à `.3` retiradas dos downloads:** o boot reportado da `.2` no Heltec V3
 travou e reiniciou pelo watchdog. A `.3` contém correções de inicialização para teste,
 sem boot físico validado. Consulte [BOOT_INCIDENT](BOOT_INCIDENT.md) e o
 [roteiro Windows com backup privado](WINDOWS_RECOVERY.md). Rollback físico ainda não validado.
@@ -16,6 +16,10 @@ versão experimental mais recente e expandir **Assets**. Para Heltec V3, baixar
 `meshtastic-bitchat-heltec-v3-<versão>-<commit>.zip`; para Cardputer ADV + Cap LoRa-1262,
 `meshtastic-bitchat-m5stack-cardputer-adv-<versão>-<commit>.zip`. Baixar também
 `SHA256SUMS` e `verify_artifact.py`. Os anexos `Source code` são fontes, não imagens para flash.
+
+Os anexos de auditoria ficam reunidos em `technical-package-0.1.0-experimental.3.tar.gz`:
+fontes, dependências, licenças, símbolos, manifestos, resultados e cópia dos anexos originais.
+Esse pacote técnico não deve ser enviado ao flasher. A organização não alterou os binários.
 
 O arquivo `firmware-<modelo>-bridge-<versão>-<commit>-update.bin` é a aplicação do mesmo
 ZIP, fornecida separadamente como alternativa para o upload próprio. Nunca escolher apenas

@@ -8,7 +8,7 @@ operação. Computador continua necessário para compilar, instalar e diagnostic
 
 **Pré-release de correção disponível: [v0.1.0-experimental.3](https://github.com/EduChacon/meshtastic-bitchat/releases/tag/v0.1.0-experimental.3).**
 Ela corrige a inicialização e passou pelos testes de software; boot físico continua sem validação.
-As versões anteriores permanecem suspensas após falha de boot reportada no Heltec V3.
+As pré-releases anteriores foram retiradas dos downloads após a falha de boot reportada no Heltec V3.
 O Cardputer também continua sem teste físico.
 
 **A branch `main` ainda contém o firmware anterior.** Para testar ou compilar as correções,
@@ -51,21 +51,27 @@ binário universal ESP32 ou nRF52; instalar um arquivo de outro modelo pode impe
 
 ## Download
 
-Os arquivos estão em [Releases](https://github.com/EduChacon/meshtastic-bitchat/releases).
-Os pacotes anteriores à `.3` permanecem como evidência, **não para novas instalações**.
-A `.3` destina-se a teste de recuperação, após backup e preflight; não está homologada para campo.
-Os nomes abaixo identificam os artefatos:
+Versão disponível: [**v0.1.0-experimental.3**](https://github.com/EduChacon/meshtastic-bitchat/releases/tag/v0.1.0-experimental.3), para teste de recuperação após
+backup e preflight. Os binários não mudaram com a organização dos downloads.
 
-| Placa                         | Pacote para upload próprio no flasher                            |
-| ----------------------------- | ---------------------------------------------------------------- |
-| Heltec V3                     | `meshtastic-bitchat-heltec-v3-<versão>-<commit>.zip`             |
-| Cardputer ADV + Cap LoRa-1262 | `meshtastic-bitchat-m5stack-cardputer-adv-<versão>-<commit>.zip` |
+| Placa                         | Arquivo para o flasher oficial                                                                                                                                                                |
+| ----------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Heltec V3**                 | [**Baixar ZIP Heltec V3**](https://github.com/EduChacon/meshtastic-bitchat/releases/download/v0.1.0-experimental.3/meshtastic-bitchat-heltec-v3-0.1.0-experimental.3-d15a403.zip)             |
+| Cardputer ADV + Cap LoRa-1262 | [Baixar ZIP Cardputer ADV](https://github.com/EduChacon/meshtastic-bitchat/releases/download/v0.1.0-experimental.3/meshtastic-bitchat-m5stack-cardputer-adv-0.1.0-experimental.3-d15a403.zip) |
 
-Também há um `-update.bin` por placa, `SHA256SUMS`, o verificador, as fontes e os resultados
-dos testes. **Source code (zip/tar.gz)** é código-fonte, não firmware para o instalador.
-Leia [INSTALL](https://github.com/EduChacon/meshtastic-bitchat/blob/v0.1.0-experimental.3/docs/bridge/INSTALL.md) antes de usar o
-[Web Flasher oficial Meshtastic](https://flasher.meshtastic.org/). Esta publicação não exige
-inclusão no catálogo oficial. O fluxo de gravação permanece **documentado, não testado em hardware**.
+1. Seguir o [roteiro Windows com backup privado](https://github.com/EduChacon/meshtastic-bitchat/blob/main/docs/bridge/WINDOWS_RECOVERY.md).
+2. Conferir o download com [SHA256SUMS](https://github.com/EduChacon/meshtastic-bitchat/releases/download/v0.1.0-experimental.3/SHA256SUMS).
+3. No [Web Flasher oficial](https://flasher.meshtastic.org/), selecionar a placa e o ZIP,
+   depois **Atualizar / Update**. Não selecionar **Apagar Flash e Instalar**.
+
+Os dois scripts de backup/preflight e o guia continuam anexados à release. O `-update.bin`
+por placa é uma alternativa ao ZIP; **Source code** não é firmware para o instalador.
+Não é necessário fazer merge para instalar os arquivos da release.
+
+Para auditoria ou compilação, o [pacote técnico](https://github.com/EduChacon/meshtastic-bitchat/releases/download/v0.1.0-experimental.3/technical-package-0.1.0-experimental.3.tar.gz) reúne fontes correspondentes,
+dependências, licenças, símbolos ELF/mapa, manifestos, resultados de testes e os anexos
+originais da `.3`, com seus hashes. Não é um arquivo para o flasher. O histórico de código,
+as tags e o [registro da investigação](docs/bridge/BOOT_INCIDENT.md) foram preservados.
 
 ## Começo seguro
 

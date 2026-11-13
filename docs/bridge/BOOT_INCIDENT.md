@@ -7,7 +7,7 @@ Em 2026-11-13 foi reportada falha no primeiro boot de `v0.1.0-experimental.2`, c
 O logotipo permaneceu parado e o watchdog reiniciou o dispositivo. Trata-se de evidência
 fornecida pelo operador, não de um ensaio instrumentado executado pelo projeto.
 
-As instalações das pré-releases anteriores à `.3` estão suspensas. A versão inicial compartilha
+As pré-releases anteriores à `.3` foram retiradas dos downloads. A versão inicial compartilha
 o código de inicialização sob investigação; não foi comprovado que apresente a mesma falha.
 Cardputer ADV não foi testado fisicamente. Não há imagem corrigida validada em hardware.
 
@@ -134,7 +134,8 @@ SHA-256 das aplicações:
 Os símbolos de cada candidato também foram conferidos contra o SHA-256 do ELF embutido
 na aplicação. O verificador rejeitou o ZIP Heltec quando informado o alvo Cardputer.
 Nenhum desses testes identifica o hardware conectado ou comprova boot/rollback. Os
-artefatos permanecem candidatos da CI, não uma nova release declarada pronta para instalar.
+artefatos eram candidatos da CI, sem declaração de boot validado. Os downloads desses
+candidatos foram posteriormente retirados na organização da release `.3`.
 
 ## Avaliação da versão oficial 2.8.2
 
@@ -231,3 +232,16 @@ pelo operador; ela demonstrou escrita, seguida de falha de boot, não aceite do 
 stock, conexão iOS/Android, ensaios A/B/C, carga prolongada e consumo. A causa exata da falha
 original permanece sem prova do core 1. A nova release permite testar as correções após
 backup/preflight; não é promoção a versão estável nem merge de firmware em `main`.
+
+## Organização dos downloads
+
+Por solicitação do mantenedor, as pré-releases `v0.1.0-experimental` e
+`v0.1.0-experimental.2` e seus anexos foram retirados da página de releases. Os artefatos
+instaláveis de CI anteriores à `.3` também foram removidos; logs, evidências de teste,
+símbolos de diagnóstico, commits e tags de fonte foram preservados.
+
+A `.3` mantém os mesmos ZIPs e aplicações, com os SHA-256 registrados acima. Os anexos
+originais foram reunidos, sem mudar seu conteúdo, em
+`technical-package-0.1.0-experimental.3.tar.gz`. Ele inclui o índice de hashes original;
+o `SHA256SUMS` avulso corresponde à lista atual de downloads. A retirada dos instaladores
+antigos não apaga o registro da falha nem equivale à validação física da correção.

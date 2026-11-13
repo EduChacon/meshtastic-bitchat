@@ -1,0 +1,314 @@
+{
+  "repository": "EduChacon/meshtastic-bitchat",
+  "current": {
+    "id": 444616456,
+    "tag": "v0.1.0-experimental.3",
+    "commit": "d15a403fe9bb50b28a4c025330008ce11636da9b",
+    "published_at": "2026-11-13T18:54:13Z",
+    "run_id": 43482990039,
+    "assets": [
+      {
+        "id": 744795694,
+        "name": "debug-heltec-v3-bitchat-d15a403fe9bb50b28a4c025330008ce11636da9b.tar.gz",
+        "size": 8896531,
+        "sha256": "c61ded1f879f0d3310026dd58122dd2dc71a3c683b05a772c601268f87ab880d"
+      },
+      {
+        "id": 744795701,
+        "name": "debug-m5stack-cardputer-adv-bitchat-d15a403fe9bb50b28a4c025330008ce11636da9b.tar.gz",
+        "size": 9136073,
+        "sha256": "35ca982c3069cf62e04b1db75d9e93dcc8590808db575f1d06c72ab748b195fa"
+      },
+      {
+        "id": 744795698,
+        "name": "dependencies-heltec-v3-bitchat.json",
+        "size": 584358,
+        "sha256": "2dd0dbed5ed250dd5eb1de0f8f60d155315804c1b53f0fb3f108e467cd540d30"
+      },
+      {
+        "id": 744795706,
+        "name": "dependencies-heltec-v3-bitchat.tar.gz",
+        "size": 26088742,
+        "sha256": "92a36d93c87a2d9f63f6f3715aeafdbb9d589a35ac47184733921b68f4634471"
+      },
+      {
+        "id": 744795707,
+        "name": "dependencies-m5stack-cardputer-adv-bitchat.json",
+        "size": 801296,
+        "sha256": "bb7db28f9b47d7033f591be3f606e392b560ac364eb0e013007ca019e0b7fd47"
+      },
+      {
+        "id": 744795722,
+        "name": "dependencies-m5stack-cardputer-adv-bitchat.tar.gz",
+        "size": 34544221,
+        "sha256": "c7ed93bacc069248e6f1cfbed0402458da816aec38d335f7beaba461861711d9"
+      },
+      {
+        "id": 744795727,
+        "name": "firmware-heltec-v3-bridge-0.1.0-experimental.3-d15a403-update.bin",
+        "size": 2104720,
+        "sha256": "9a0c8748ace42a27ed0852ead7360e2ba25d8ece6797fb2c6446c205017fdfb3"
+      },
+      {
+        "id": 744795726,
+        "name": "firmware-m5stack-cardputer-adv-bridge-0.1.0-experimental.3-d15a403-update.bin",
+        "size": 2220976,
+        "sha256": "c4927306f6ee86eb58f37d47cc5aec86e4c98c84a2eea41e4720c67a7a7bbf67"
+      },
+      {
+        "id": 744795731,
+        "name": "heltec-v3-manifest.json",
+        "size": 5826,
+        "sha256": "c293ed87e1cf86e90feab4150b194843a39823a44e899f9d1f0a3bcaab775935"
+      },
+      {
+        "id": 744795680,
+        "name": "INSTALL.md",
+        "size": 12497,
+        "sha256": "e2a5a06ddc88ea9af88c54236150fdb09943c0cd0816b0263ef5760f48e1307e"
+      },
+      {
+        "id": 744795743,
+        "name": "m5stack-cardputer-adv-manifest.json",
+        "size": 6518,
+        "sha256": "bda833ab3e4321e674d39161eea3a536e945780360cbde4d20a8675c19818634"
+      },
+      {
+        "id": 744795744,
+        "name": "meshtastic-bitchat-heltec-v3-0.1.0-experimental.3-d15a403.zip",
+        "size": 1347341,
+        "sha256": "e68fc26561cf3f10c390d8bc0b2976664e32a691d94d0eafce1a2797953fbb86"
+      },
+      {
+        "id": 744795746,
+        "name": "meshtastic-bitchat-m5stack-cardputer-adv-0.1.0-experimental.3-d15a403.zip",
+        "size": 1420194,
+        "sha256": "35f45260cab38230eed9819ac32886f9c714de39e9f43a6506416e320be90faf"
+      },
+      {
+        "id": 744795751,
+        "name": "prepare_flash.py",
+        "size": 4759,
+        "sha256": "8e222ac1fd17f1bf61645e669683880ffda3c0e7639536728e2fc1bb32368a12"
+      },
+      {
+        "id": 744795765,
+        "name": "project-source.tar.gz",
+        "size": 4694250,
+        "sha256": "0c7a84fcf79df559124d1f77c522dda54cc81faeac24495deaa2a1fb3b92a2b0"
+      },
+      {
+        "id": 744795681,
+        "name": "README.en.md",
+        "size": 7568,
+        "sha256": "020f1a6fdd60d3b49671c6cdb1bb3e43cc1c9984b15ff8f0108ab115e26d3820"
+      },
+      {
+        "id": 744795683,
+        "name": "README.md",
+        "size": 7737,
+        "sha256": "1b132e0c680c9174882dd8ddb0effa693c2ea61f8047030e1343f70094b8c1a8"
+      },
+      {
+        "id": 744795679,
+        "name": "SHA256SUMS",
+        "size": 2121,
+        "sha256": "750fb0fb4fd15dc346c5de7e11b16a7cd9d58d8d357b08cb83a9bc7c4931201d"
+      },
+      {
+        "id": 744795770,
+        "name": "test-evidence.tar.gz",
+        "size": 95421,
+        "sha256": "648fe5ec4e3e3558887123e2803d64166f0a330511f88b35696e1a6925a5af8d"
+      },
+      {
+        "id": 744795771,
+        "name": "verify_artifact.py",
+        "size": 5935,
+        "sha256": "96b8e61cb9c7a4506b4e062fddb95bd28aea74e4a1d1be37114760a7992af37d"
+      },
+      {
+        "id": 744795677,
+        "name": "WINDOWS_RECOVERY.md",
+        "size": 6554,
+        "sha256": "f82291660f96e9bd5515549da081a78c93642e40943c436588033126d36f8168"
+      }
+    ]
+  },
+  "remove": [
+    {
+      "id": 444452063,
+      "tag": "v0.1.0-experimental.2",
+      "commit": "0e981daffaa8d05287fdc311530d60949f782f4d",
+      "assets": [
+        {
+          "name": "dependencies-heltec-v3-bitchat.json",
+          "size": 584358,
+          "sha256": "0aa083033d77e1e008799d3beb56f905634ea6ceeabb5565f5246b618a09d074"
+        },
+        {
+          "name": "dependencies-heltec-v3-bitchat.tar.gz",
+          "size": 26088538,
+          "sha256": "214805a5e1213be796bfc9c1d0c786bf77676039d0eb22157a2a4d6405cd98b8"
+        },
+        {
+          "name": "dependencies-m5stack-cardputer-adv-bitchat.json",
+          "size": 801296,
+          "sha256": "f185dd589db0de5d8785f832ae50f5e0bcacdac2a2db364ea0c7440ff18a3b62"
+        },
+        {
+          "name": "dependencies-m5stack-cardputer-adv-bitchat.tar.gz",
+          "size": 34543861,
+          "sha256": "bc4a27877bd18ff17510c6caa289a2b132d9eed10fbc7c87e027e3587ea14c7f"
+        },
+        {
+          "name": "firmware-heltec-v3-bridge-0.1.0-experimental.2-0e981da-update.bin",
+          "size": 2060800,
+          "sha256": "f0cac2e8eddf8497df7e877aa223bb85b0cede2e60ec96ce7394b28dc6a9fb63"
+        },
+        {
+          "name": "firmware-m5stack-cardputer-adv-bridge-0.1.0-experimental.2-0e981da-update.bin",
+          "size": 2176608,
+          "sha256": "53604eaccdabbece57853ed1281c0af4959e0270904868f6789f80463daa1215"
+        },
+        {
+          "name": "heltec-v3-manifest.json",
+          "size": 5826,
+          "sha256": "ae265ff1dd593c2c6b4f8ea9051b31aea43ce4587ee6b5a619fdf04ec0b2516c"
+        },
+        {
+          "name": "INSTALL.md",
+          "size": 12061,
+          "sha256": "8b0455382492f5b08ceda86e1406489e702624a1b961819b73b1dd925ba93d77"
+        },
+        {
+          "name": "m5stack-cardputer-adv-manifest.json",
+          "size": 6518,
+          "sha256": "69f25462b0c2419f0331abaf384c15a99651be01b4200f79d1314bb40db655bd"
+        },
+        {
+          "name": "meshtastic-bitchat-heltec-v3-0.1.0-experimental.2-0e981da.zip",
+          "size": 1316746,
+          "sha256": "2ace5bde7fae1a96d20e29926196e003215006489db3c1879e91415d10711ef9"
+        },
+        {
+          "name": "meshtastic-bitchat-m5stack-cardputer-adv-0.1.0-experimental.2-0e981da.zip",
+          "size": 1389732,
+          "sha256": "fbb8a5c20dcb8ca55daf39c93cd210e1decc5111c5c1cafb36ada8896ab941f5"
+        },
+        {
+          "name": "project-source.tar.gz",
+          "size": 4667852,
+          "sha256": "e7cf5d10032d67e5722b077162df4b9d77073703f751eb270963f17c693106ff"
+        },
+        {
+          "name": "README.en.md",
+          "size": 7045,
+          "sha256": "eabaa3f291ad0363f795e2f791f4fdbc8a9525bd45a8f12e016d8f068083026e"
+        },
+        {
+          "name": "README.md",
+          "size": 7166,
+          "sha256": "9d2fbf94345d594782a9d592a6bb402759c51184c0706ca3d3842ba97eade900"
+        },
+        {
+          "name": "SHA256SUMS",
+          "size": 1664,
+          "sha256": "3aa2b5336074add75dc0e4d69168a1ead8cffa485ded069022687665e44b89a1"
+        },
+        {
+          "name": "test-evidence.tar.gz",
+          "size": 95605,
+          "sha256": "f80cc246677585219fdaefe38c902601675311faa04fec81334b1422a6622c66"
+        },
+        {
+          "name": "verify_artifact.py",
+          "size": 5391,
+          "sha256": "4d747dcfd06364d238761001b33bcdaa986e937cd4d43ff7a11f4f6aa2c4a2dc"
+        }
+      ]
+    },
+    {
+      "id": 444423951,
+      "tag": "v0.1.0-experimental",
+      "commit": "f6444cd6a4eb842719244ed838d9b3334f64ed0d",
+      "assets": [
+        {
+          "name": "dependencies-heltec-v3-bitchat.json",
+          "size": 584358,
+          "sha256": "9c983e2bab8236cfbcd0a023725bd7503f834a76e99b9eddf5828541b7d1a9fb"
+        },
+        {
+          "name": "dependencies-heltec-v3-bitchat.tar.gz",
+          "size": 26088538,
+          "sha256": "15f85f48ae4e6b844f879714d436093ed0dff69fd66ce3f8f0cce66fb71fa3d7"
+        },
+        {
+          "name": "dependencies-m5stack-cardputer-adv-bitchat.json",
+          "size": 801296,
+          "sha256": "b6296910e31729ee4bb32e095c09b76fa42911a24802e59cdfc42d7d04ce39e6"
+        },
+        {
+          "name": "dependencies-m5stack-cardputer-adv-bitchat.tar.gz",
+          "size": 34543861,
+          "sha256": "776ebe6d5e772095cff84ce960dfdcacd521bb87b054b0957096279b8f9b692c"
+        },
+        {
+          "name": "firmware-heltec-v3-bridge-0.1.0-experimental-f6444cd-update.bin",
+          "size": 2060800,
+          "sha256": "5f88c7605302b1dd8d184b350c351a650a13b0a3e5c78b7d4b696a7d56eee80c"
+        },
+        {
+          "name": "firmware-m5stack-cardputer-adv-bridge-0.1.0-experimental-f6444cd-update.bin",
+          "size": 2176608,
+          "sha256": "b0445f1422cc30cbf1c03ed2f0eff2702661166d4b5be3658d54e4c023336760"
+        },
+        {
+          "name": "heltec-v3-manifest.json",
+          "size": 5822,
+          "sha256": "db720738c24135c593b8f745627dd53bd9d8442519f8ffc8cc2d611fb7ab91ab"
+        },
+        {
+          "name": "INSTALL.md",
+          "size": 9266,
+          "sha256": "fac73e73c0e5e9c757dc763c4d44a1827f15859e79e089a0aa3373a7b2c37a50"
+        },
+        {
+          "name": "m5stack-cardputer-adv-manifest.json",
+          "size": 6514,
+          "sha256": "2e96b0537316f92d252e0164cc7ac0799fd1004aff6fa47bd48d38867b1e25c1"
+        },
+        {
+          "name": "meshtastic-bitchat-heltec-v3-0.1.0-experimental-f6444cd.zip",
+          "size": 1316746,
+          "sha256": "adaef527c1fb276aa568ad63dd108d29d6e517add6cb738893586a75e346b292"
+        },
+        {
+          "name": "meshtastic-bitchat-m5stack-cardputer-adv-0.1.0-experimental-f6444cd.zip",
+          "size": 1389727,
+          "sha256": "31fffec5adc72b2f7ebb1aa68e3f6ac290c5db8a8588ad235c4367708e909aa7"
+        },
+        {
+          "name": "project-source.tar.gz",
+          "size": 4669091,
+          "sha256": "0bc6d58aa074df5b13215908b84d9bb8262ca6c9b2e1aeb44fb7b5cc89f6924a"
+        },
+        {
+          "name": "SHA256SUMS",
+          "size": 1501,
+          "sha256": "748438b72e1311597494786dce41af0f80a2d90895caeaddae405979a525e801"
+        },
+        {
+          "name": "test-evidence.tar.gz",
+          "size": 95449,
+          "sha256": "0d78c0488e16931c3358b8b5c7c4c2869f7693387afaf19016c04881a011d127"
+        },
+        {
+          "name": "verify_artifact.py",
+          "size": 5391,
+          "sha256": "4d747dcfd06364d238761001b33bcdaa986e937cd4d43ff7a11f4f6aa2c4a2dc"
+        }
+      ]
+    }
+  ]
+}

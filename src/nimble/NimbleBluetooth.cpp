@@ -15,6 +15,7 @@
 #include <mutex>
 #ifdef MESHTASTIC_ENABLE_BITCHAT
 #include "bridge/BridgeBle.h"
+#include "bridge/BridgeDiagnostics.h"
 #endif
 
 #ifdef NIMBLE_TWO
@@ -849,7 +850,13 @@ void NimbleBluetooth::setup()
 
     LOG_INFO("Init the NimBLE bluetooth module");
 
+#ifdef MESHTASTIC_ENABLE_BITCHAT
+    bitchat::bootDiagnostic("ble-init-begin");
+#endif
     NimBLEDevice::init(getDeviceName());
+#ifdef MESHTASTIC_ENABLE_BITCHAT
+    bitchat::bootDiagnostic("ble-init-end");
+#endif
     NimBLEDevice::setPower(ESP_PWR_LVL_P9);
 
 #if NIMBLE_ENABLE_2M_PHY && (defined(CONFIG_IDF_TARGET_ESP32S3) || defined(CONFIG_IDF_TARGET_ESP32C6))
@@ -890,7 +897,13 @@ void NimbleBluetooth::setup()
 #endif
     bleServer->setCallbacks(serverCallbacks, true);
     setupService();
+#ifdef MESHTASTIC_ENABLE_BITCHAT
+    bitchat::bootDiagnostic("gatt-ready");
+#endif
     startAdvertising();
+#ifdef MESHTASTIC_ENABLE_BITCHAT
+    bitchat::bootDiagnostic("advertising-ready");
+#endif
 }
 
 void NimbleBluetooth::setupService()

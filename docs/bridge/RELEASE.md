@@ -1,38 +1,27 @@
-# Meshtastic ↔ Bitchat 0.1.0-experimental.2
+# Meshtastic ↔ Bitchat 0.1.0-boot-candidate.1
 
-Código e atualizações de aplicativo para **Heltec V3** e **M5Stack Cardputer ADV + Cap
-LoRa-1262**, baseados no Meshtastic 2.7.26.54e0d8d. Ponte desligada por padrão.
+**Candidato de investigação, sem boot físico validado. Não usar como release de campo.**
+As pré-releases anteriores permanecem suspensas após o travamento reportado em Heltec V3.
+O histórico e as hipóteses refutáveis estão em [BOOT_INCIDENT](BOOT_INCIDENT.md).
 
-Inclui relé BLE limitado, tradução opt-in de texto público `!lora ` para canal secundário
-nativo e túnel experimental separado `!bctun `. Os apps oficiais permanecem sem modificação.
-T1000-E, T-Deck e outros rádios são candidatos a nós stock remotos; esta release **não inclui
-firmware de ponte para eles**.
+A mudança adia a reserva dos buffers grandes até o Bluetooth estar iniciado e a ponte ser
+ativada. Desativação libera memória; falta de espaço recusa a ativação. O início registra
+somente etapas e números de memória, sem mensagens, chaves ou localização. Os diagnósticos
+não desligam o watchdog. ELF e mapa correspondentes acompanham os artefatos de CI.
 
-**Não houve ensaio em hardware. Não é uma release pronta para uso cotidiano.** A CI valida
-compilação, testes host com sanitizers, entradas malformadas, pacotes, análise estática e
-recompilação idêntica no mesmo ambiente. Os logs estão em `test-evidence.tar.gz`.
+Os alvos continuam Heltec V3 e Cardputer ADV + Cap LoRa-1262. Base oficial 2.7.26.54e0d8d,
+ponte desligada por padrão, mesmas políticas de texto e túnel. A Alpha 2.8.2 foi avaliada,
+mas não foi demonstrado que suas correções resolvam este incidente.
 
-Os ZIPs contêm somente aplicação de atualização, manifesto, checksums, licença e aviso.
-Não contêm bootloader, partições, filesystem ou apagador. Os arquivos `-update.bin` são
-específicos de cada placa. **Não usar como imagem factory nem em outro modelo.**
+Os testes de software incluem compilação por placa, sanitizers, protocolo, adaptador BLE
+com transporte/heap substituídos e falhas de alocação, verificação de pacotes, análise
+estática e recompilação idêntica no mesmo ambiente. Isso não comprova boot, entrega BLE/RF,
+rollback ou consumo. Consulte os logs do commit em teste, sem presumir sucesso de jobs ausentes.
 
-Ler `INSTALL.md` e executar `verify_artifact.py` antes de abrir o flasher oficial. O modo
-`--package-only` confere o arquivo e o alvo declarado; não identifica o rádio nem autoriza
-gravação. Uma futura instalação exige identificação física, revisão/banda, backup privado,
-layout/slot compatíveis, plano de rollback e autorização separada. Nenhuma gravação oferece
-garantia de risco zero de impedir boot ou de perda de dados.
+Os pacotes contêm apenas a aplicação específica da placa; não incluem apagador, bootloader,
+partições ou filesystem. Backups são privados. Uma nova gravação exige confirmar aparelho,
+revisão/banda, artefato, backup, consequências e rollback conforme [INSTALL](INSTALL.md).
+Não repetir o procedimento que falhou nem apagar flash como tentativa de correção.
 
-Limites principais: iOS/Android reais, coexistência BLE, RF, energia e rollback ainda não
-testados; hora confiável necessária após boot; sincronização histórica/RSR recusada; apenas
-um exportador B por malha local/canal; DMs pelo túnel dependem de tempo/capacidade e estão em
-modo de laboratório; voz contínua e arquivos grandes não são suportados por LoRa.
-
-O código correspondente está no commit indicado nos manifestos e em `project-source.tar.gz`.
-As bibliotecas resolvidas e seus avisos estão nos arquivos `dependencies-*.tar.gz`, com
-inventários de conteúdo `dependencies-*.json`. Toolchain/SDK são identificados nesses
-inventários e nos logs. `SHA256SUMS` permite verificar todos os anexos. Os arquivos mantêm a
-licença GPL-3.0 do firmware e as licenças próprias das dependências.
-
-Esta revisão inclui documentação impessoal em português e um README em inglês, além de
-links e identificação dos downloads por placa. Não acrescenta novos alvos nem resultados
-de hardware. Consulte `README.en.md` para a apresentação em inglês.
+A CI de push produz candidatos e evidência, sem publicação automática. Não promover este
+candidato antes do primeiro boot, preservação de configurações e recuperação serem validados.

@@ -2,8 +2,13 @@ name: Bridge verification and experimental release
 
 on:
   push:
-    branches: [main, "integration/upstream-2.7.26"]
+    branches: [main, "integration/upstream-2.7.26", "fix/heltec-boot-memory"]
   workflow_dispatch:
+    inputs:
+      publish_release:
+        description: Publish after the documented physical acceptance gates
+        type: boolean
+        default: false
 
 concurrency:
   group: bridge-${{ github.ref }}
@@ -58,6 +63,7 @@ jobs:
         run: |
           set -o pipefail
           python tools/bridge/test_host.py --crypto-dir ".pio/libdeps/$BRIDGE_ENV/Crypto" 2>&1 | tee evidence/host.log
+          python tools/bridge/test_ble.py 2>&1 | tee evidence/ble-adapter.log
           python -m unittest discover -s test/test_bitchat_bridge -p 'test_*.py' -v 2>&1 | tee evidence/packages.log
       - name: Static analysis
         env:
@@ -83,6 +89,8 @@ jobs:
           python tools/bridge/package_release.py --environment "$BRIDGE_ENV"
           python tools/bridge/dependencies.py --environment "$BRIDGE_ENV"
           python tools/bridge/verify_artifact.py dist/meshtastic-bitchat-*.zip --model "${BRIDGE_ENV%-bitchat}" --package-only
+          tar -czf "dist/debug-$BRIDGE_ENV-$GITHUB_SHA.tar.gz" .pio/build/"$BRIDGE_ENV"/*.elf .pio/build/"$BRIDGE_ENV"/*.map
+          sha256sum "dist/debug-$BRIDGE_ENV-$GITHUB_SHA.tar.gz" > evidence/debug-symbols.sha256
       - name: Upload verified files
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
@@ -101,7 +109,7 @@ jobs:
 
   release:
     needs: verify
-    if: github.ref == 'refs/heads/main'
+    if: github.ref == 'refs/heads/main' && github.event_name == 'workflow_dispatch' && inputs.publish_release
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     permissions:

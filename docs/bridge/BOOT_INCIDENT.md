@@ -59,3 +59,41 @@ Ele não é a imagem `.factory.bin`. Nenhuma gravação de recuperação foi exe
 
 Confirmar aparelho, revisão/banda, arquivo, backup, consequências e rollback antes de
 gravar novamente. Os procedimentos gerais permanecem em [INSTALL](INSTALL.md).
+
+## Correção candidata, ainda sem validação física
+
+A branch `fix/heltec-boot-memory` move os buffers grandes do módulo e das conexões BLE
+para alocação posterior ao início do Bluetooth, somente quando a ponte é ativada. Desativar
+a ponte libera os buffers. Falha de alocação ou reserva insuficiente bloqueia a ativação,
+com indicação `Low memory: bridge OFF`; não altera canais, identidade ou região.
+
+O módulo no caminho de boot passa de 37.800 para 2.032 bytes no build local de Heltec;
+a reserva estática dos enlaces de 30.912 bytes passa a um ponteiro. O linker local reporta
+132.528 bytes de RAM estática no primeiro build candidato. Essas são medidas de software,
+não medições de heap livre ou prova de que a memória causou a falha observada.
+
+O limite inicial exige 24 KiB de heap interno ainda livre após a alocação, incluindo um
+bloco de pelo menos 8 KiB. É uma barreira conservadora provisória, não uma garantia de
+capacidade sob carga. Deve ser ajustada somente com medições reais. A pilha principal
+e o watchdog não são reduzidos, desligados nem alimentados dentro de esperas bloqueadas.
+
+Diagnósticos mínimos de boot informam estágio, heap livre, maior bloco e mínimo observado;
+falhas de alocação informam tamanho e capacidades. Não incluem chaves, mensagens, nomes
+ou posições. Os artefatos de CI passam a preservar ELF e mapa correspondentes ao binário.
+
+O teste host executa o adaptador BLE real com substitutos de transporte/heap e sanitizers:
+desligado sem buffers, memória insuficiente, falha do alocador, ativação, três enlaces,
+remontagem de writes, filas cheias, justiça, expiração, desativação e reativação sem resíduos.
+Isso não executa o controlador Bluetooth nem o FreeRTOS do ESP32. A CI não publica outra
+release automaticamente; um candidato aprovado em software ainda exige ensaio autorizado.
+
+## Avaliação da versão oficial 2.8.2
+
+A [2.8.2.d5f1619 é Alpha](https://github.com/meshtastic/firmware/releases/tag/v2.8.2.d5f1619).
+A correção de [DIO1 após light sleep](https://github.com/meshtastic/firmware/pull/12131)
+trata watchdog de interrupção após suspensão; o relato presente é de task watchdog durante
+boot. O [limite de BUSY](https://github.com/meshtastic/firmware/pull/12105) reduz espera de
+1.000 para 50 ms, e não demonstra a origem deste bloqueio. A
+[correção de DFU BLE](https://github.com/meshtastic/firmware/pull/12220) é específica de nRF52,
+não da escrita USB observada no ESP32-S3. Não há evidência suficiente para considerar a
+migração completa uma correção deste incidente; a base 2.7.26 permanece fixada.

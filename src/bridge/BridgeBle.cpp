@@ -1,5 +1,6 @@
 #ifdef MESHTASTIC_ENABLE_BITCHAT
 #include "BridgeBle.h"
+#include "BridgeDiagnostics.h"
 #include "BridgeState.h"
 #include "concurrency/Lock.h"
 #include "concurrency/LockGuard.h"
@@ -7,6 +8,8 @@
 #include "nimble/nimble/host/include/host/ble_hs.h"
 #include <NimBLEDevice.h>
 #include <atomic>
+#include <memory>
+#include <new>
 
 namespace bitchat
 {
@@ -32,12 +35,16 @@ struct Link {
     BoundedQueue<Frame, 2> received;
     BoundedQueue<Outgoing, 2> sent;
 };
-static std::array<Link, LINKS> links;
+using Links = std::array<Link, LINKS>;
+static std::unique_ptr<Links> links;
 static size_t nextReceive = 0;
+static uint32_t nextGeneration = 0;
 
 static Link *findLink(uint16_t handle)
 {
-    for (auto &link : links)
+    if (!links)
+        return nullptr;
+    for (auto &link : *links)
         if (link.handle == handle)
             return &link;
     return nullptr;
@@ -106,27 +113,61 @@ void bleAttach(NimBLEServer *s)
 
 void bleDetach()
 {
+    enabled = false;
     concurrency::LockGuard guard(&lock);
     server = nullptr;
     characteristic = nullptr;
-    for (auto &link : links) {
-        link.handle = NO_LINK;
-        link.subscribed = false;
-        link.received.clear();
-        link.sent.clear();
-        link.incoming.size = 0;
+    links.reset();
+}
+
+size_t bleBufferSize()
+{
+    return sizeof(Links);
+}
+
+bool bleAllocateBuffers()
+{
+    concurrency::LockGuard guard(&lock);
+    if (!server || !characteristic)
+        return false;
+    if (links)
+        return true;
+    if (!memoryAvailable(sizeof(Links), sizeof(Links)))
+        return false;
+    links.reset(new (std::nothrow) Links);
+    if (!links)
+        return false;
+    for (auto &link : *links)
+        link.generation = ++nextGeneration;
+    size_t index = 0;
+    for (auto handle : server->getPeerDevices()) {
+        if (index == LINKS)
+            break;
+        (*links)[index++].handle = handle;
     }
+    nextReceive = 0;
+    return true;
+}
+
+void bleReleaseBuffers()
+{
+    enabled = false;
+    concurrency::LockGuard guard(&lock);
+    links.reset();
+    announceNeeded = false;
 }
 
 void bleConnect(uint16_t handle)
 {
     {
         concurrency::LockGuard guard(&lock);
-        for (auto &link : links) {
+        if (!links)
+            return;
+        for (auto &link : *links) {
             if (link.handle == NO_LINK) {
                 link.handle = handle;
                 link.subscribed = false;
-                ++link.generation;
+                link.generation = ++nextGeneration;
                 link.incoming.size = 0;
                 link.received.clear();
                 link.sent.clear();
@@ -152,12 +193,12 @@ void bleDisconnect(uint16_t handle)
 
 void bleConfigure(bool on, bool native, bool lowPower)
 {
-    enabled = on;
+    concurrency::LockGuard guard(&lock);
+    enabled = on && bool(links);
     nativeWindow = native;
     economy = lowPower;
-    if (!on) {
-        concurrency::LockGuard guard(&lock);
-        for (auto &link : links) {
+    if (!on && links) {
+        for (auto &link : *links) {
             link.incoming.size = 0;
             link.received.clear();
             link.sent.clear();
@@ -189,9 +230,11 @@ bool bleAdvertise()
 bool bleReceive(BleInput &output)
 {
     concurrency::LockGuard guard(&lock);
+    if (!enabled || !links)
+        return false;
     for (size_t offset = 0; offset < LINKS; ++offset) {
         size_t index = (nextReceive + offset) % LINKS;
-        auto &link = links[index];
+        auto &link = (*links)[index];
         if (auto *frame = link.received.front()) {
             output.frame = *frame;
             output.link = link.handle;
@@ -208,12 +251,14 @@ bool bleBroadcast(Bytes frame, uint16_t exclude)
     if (!enabled || frame.size > MAX_FRAME)
         return false;
     concurrency::LockGuard guard(&lock);
+    if (!links || !enabled)
+        return false;
     Outgoing message;
     message.frame.size = frame.size;
     std::copy_n(frame.data, frame.size, message.frame.data.begin());
     message.started = millis();
     bool accepted = true;
-    for (auto &link : links) {
+    for (auto &link : *links) {
         if (link.subscribed && link.handle != exclude && link.handle != NO_LINK && !link.sent.push(message)) {
             accepted = false;
             ++dropped;
@@ -234,7 +279,9 @@ void blePoll()
         bool expired = false;
         {
             concurrency::LockGuard guard(&lock);
-            auto &link = links[i];
+            if (!links || !enabled)
+                return;
+            auto &link = (*links)[i];
             auto *message = link.sent.front();
             if (!server || !characteristic)
                 return;
@@ -267,7 +314,9 @@ void blePoll()
         int result = buffer ? ble_gatts_notify_custom(handle, attribute, buffer) : BLE_HS_ENOMEM;
         if (result == 0) {
             concurrency::LockGuard guard(&lock);
-            auto &link = links[i];
+            if (!links)
+                return;
+            auto &link = (*links)[i];
             if (link.handle == handle && link.generation == generation) {
                 if (auto *message = link.sent.front()) {
                     message->offset += count;
@@ -283,7 +332,9 @@ size_t bleSubscribers()
 {
     concurrency::LockGuard guard(&lock);
     size_t count = 0;
-    for (const auto &link : links)
+    if (!links)
+        return 0;
+    for (const auto &link : *links)
         count += link.subscribed && link.handle != NO_LINK;
     return count;
 }

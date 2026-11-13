@@ -1,4 +1,7 @@
 #include "configuration.h"
+#ifdef MESHTASTIC_ENABLE_BITCHAT
+#include "bridge/BridgeDiagnostics.h"
+#endif
 #if !MESHTASTIC_EXCLUDE_GPS
 #include "GPS.h"
 #endif
@@ -1058,6 +1061,9 @@ void setup()
 
     // We manually run this to update the NodeStatus
     nodeDB->notifyObservers(true);
+#ifdef MESHTASTIC_ENABLE_BITCHAT
+    bitchat::bootDiagnostic("setup-complete");
+#endif
 }
 
 #endif
@@ -1232,6 +1238,13 @@ void loop()
     messageStoreAutosaveTick();
 #endif
     long delayMsec = mainController.runOrDelay();
+#ifdef MESHTASTIC_ENABLE_BITCHAT
+    static bool firstLoop = true;
+    if (firstLoop) {
+        firstLoop = false;
+        bitchat::bootDiagnostic("loop-ready");
+    }
+#endif
 
     // We want to sleep as long as possible here - because it saves power
     if (!runASAP && loopCanSleep()) {

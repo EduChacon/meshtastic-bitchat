@@ -8,6 +8,7 @@
 #include "MeshModule.h"
 #include "concurrency/OSThread.h"
 #include <Preferences.h>
+#include <memory>
 
 class BitchatBridgeModule : public MeshModule, private concurrency::OSThread
 {
@@ -79,14 +80,20 @@ class BitchatBridgeModule : public MeshModule, private concurrency::OSThread
     std::array<uint8_t, 8> tunnelDomain{};
     std::array<JournalEntry, 64> journal{};
     bitchat::BridgeCrypto crypto;
-    bitchat::PeerTable peers;
-    bitchat::BleReassembly fragments;
-    bitchat::TunnelReassembly tunnelFragments;
-    bitchat::DedupCache<256> dedup;
-    bitchat::BoundedQueue<RadioItem, 4> radioQueue;
-    bitchat::RateGate announceGate, radioGate, cryptoGate;
-    bitchat::BleInput input;
-    bitchat::Frame assembled, working, canonical;
+    struct Runtime {
+        bitchat::PeerTable peers;
+        bitchat::BleReassembly fragments;
+        bitchat::TunnelReassembly tunnelFragments;
+        bitchat::DedupCache<256> dedup;
+        bitchat::BoundedQueue<RadioItem, 4> radioQueue;
+        bitchat::RateGate announceGate, radioGate, cryptoGate;
+        bitchat::BleInput input;
+        bitchat::Frame assembled, working, canonical;
+    };
+    std::unique_ptr<Runtime> runtime;
+    bool resourceError = false;
+    bool ensureRuntime();
+    void releaseRuntime();
     bool persist();
     bool initIdentity();
     bool binding(uint8_t index, bitchat::Digest &out) const;
@@ -103,4 +110,5 @@ class BitchatBridgeModule : public MeshModule, private concurrency::OSThread
     uint64_t utc() const;
 };
 extern BitchatBridgeModule *bitchatBridge;
+static_assert(sizeof(BitchatBridgeModule) <= 4096, "Keep bridge buffers out of the default OFF boot path");
 #endif

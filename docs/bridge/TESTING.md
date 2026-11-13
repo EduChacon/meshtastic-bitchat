@@ -13,6 +13,7 @@ export PLATFORMIO_SETTING_ENABLE_TELEMETRY=no
 export SOURCE_DATE_EPOCH=1794528000
 pio run -e heltec-v3-bitchat -e m5stack-cardputer-adv-bitchat -t buildprog
 python3 tools/bridge/test_host.py --crypto-dir .pio/libdeps/heltec-v3-bitchat/Crypto
+python3 tools/bridge/test_ble.py
 python3 -m unittest discover -s test/test_bitchat_bridge -p 'test_*.py' -v
 pio check -e heltec-v3-bitchat --skip-packages --src-filters '+<src/bridge/>' --fail-on-defect high
 pio run -e heltec-v3 -t buildprog
@@ -32,12 +33,17 @@ upstream não entra no pacote publicado.
 | Entradas inválidas                                   | 100.000 entradas determinísticas, além de casos dirigidos; SIM                                    | Não equivale a cobertura exaustiva ou fuzzer contínuo        |
 | Pacote de instalação                                 | Testes Python de corrupção, placa incorreta, offset factory, arquivo extra, checksums incompletos | Usa também imagens sintéticas; não prova boot                |
 | Análise estática                                     | Cppcheck nos 7 arquivos C++ da ponte; logs da CI                                                  | Configuração e bibliotecas afetam alcance da análise         |
-| Heltec V3 e ADV                                      | COMP; RAM/flash e logs na CI/release                                                              | Nenhum ensaio de boot, BLE, RF ou display                    |
+| Heltec V3 e ADV                                      | COMP; RAM/flash e logs na CI/release                                                              | Boot Heltec `.2` falhou no relato do operador; ADV ainda NT  |
 | Ponte desativada                                     | Compilação de `heltec-v3` sem flag                                                                | Regressão funcional stock ainda NT                           |
 | Repetibilidade                                       | Duas compilações da aplicação no mesmo ambiente de CI com epoch fixo                              | Não promete binário idêntico entre SOs/toolchains diferentes |
 
-Logs da CI identificam commit, ferramenta, comando e resultado real. Uma falha impede a
-publicação automática da pré-release. Não interpretar um job ignorado como aprovado.
+O adaptador BLE também é executado no host com substitutos de NimBLE/heap, ASan e UBSan,
+incluindo falha de alocação, filas e ciclo desligado/ligado/desligado. Esse teste não simula
+o controlador ou o escalonador FreeRTOS; a inicialização real ainda exige bancada.
+
+Logs da CI identificam commit, ferramenta, comando e resultado real. Desde o incidente de
+boot, publicação exige acionamento explícito após os gates físicos; push só verifica e
+gera candidatos. Não interpretar um job ignorado como aprovado.
 
 ## Reprodução dos vetores
 
@@ -49,7 +55,7 @@ gerador como `main.swift` e executar `swift run`. Comparar o JSON semanticamente
 `test/test_bitchat_bridge/official_vectors.json`. A geração original usou Swift 6.4.2.
 Não copiar chaves de um iPhone nem usar tráfego pessoal como fixture.
 
-## Gates físicos obrigatórios — todos NT
+## Gates físicos obrigatórios — sem aprovação física
 
 Antes de cada fase, registrar modelo/revisão/antena/banda, versões e flags dos dois apps,
 iOS/Android, commit, SHA-256 do artefato, região, preset, frequência efetiva e canais.

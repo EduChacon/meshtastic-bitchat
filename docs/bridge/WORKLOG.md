@@ -65,9 +65,10 @@ com risco de timeout imposto pela capacidade/latência LoRa.
 
 ## Evidência física e próxima etapa
 
-**Nenhum teste físico foi executado:** boot, navegação local, descoberta iOS/Android,
-coexistência BLE, RF, preservação de configuração, rollback, energia e estabilidade prolongada
-permanecem não testados. Aprovação de CI não altera essa classificação.
+O primeiro boot de `.2` reportado em Heltec V3 **falhou**: logotipo parado e task watchdog.
+O registro sanitizado e as hipóteses estão em [BOOT_INCIDENT](BOOT_INCIDENT.md). Navegação,
+descoberta iOS/Android, coexistência BLE, RF, preservação de configuração, rollback,
+energia e estabilidade prolongada permanecem não validados. Aprovação de CI não altera isso.
 
 O menor ensaio útil é identificar os dispositivos e medir comunicação stock nos dois sentidos.
 Depois, com backup privado, layout/slot conferidos e artefato específico, testar stock → ponte
@@ -75,3 +76,22 @@ OFF → A → B → stock. C exige dois terminadores e ensaio separado. Os contr
 critérios de aprovação e registros estão em [TESTING](TESTING.md); recuperação em
 [INSTALL](INSTALL.md). Não executar o harness upstream de hardware como teste de software:
 seu fluxo de instalação pode gravar rádios conectados.
+
+## Investigação de boot — 2026-11-13
+
+As instalações foram suspensas nos dois READMEs e nas pré-releases, preservando os arquivos
+e o histórico. Identificada reserva antecipada de cerca de 68 KiB para módulo e enlaces,
+mesmo com a ponte desligada. Isso motivou alocação posterior ao início do BLE, liberação ao
+desativar, recusa por falta de memória e diagnóstico mínimo. A causa do watchdog real
+continua não demonstrada; não se afirma que o hardware esteja recuperado.
+
+Os testes de protocolo passaram novamente: 523 assertivas, 19 vetores oficiais e 100.000
+entradas malformadas com ASan/UBSan, além de sete verificações de pacote. Um novo teste
+do adaptador BLE real com transporte/heap substituídos passou com sanitizers, incluindo
+alocador sem memória, reativação limpa e três enlaces. O primeiro build candidato Heltec
+compilou com 132.528 bytes estáticos, contra 163.424 na release afetada; esse número não
+mede consumo dinâmico. A CI deve registrar o resultado final do commit e preservar símbolos.
+
+A Alpha 2.8.2 foi examinada sem migrar a base: os fixes considerados ainda não correspondem
+à falha observada. A próxima etapa física depende de backup privado e confirmação separada
+da operação. Nenhum comando desta investigação acessou ou gravou o rádio.

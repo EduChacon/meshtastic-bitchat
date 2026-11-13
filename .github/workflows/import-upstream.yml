@@ -1,0 +1,37 @@
+name: Import verified upstream history
+on:
+  push:
+    branches: [integration/bootstrap-20261113]
+    paths: [.github/workflows/import-upstream.yml]
+permissions:
+  contents: write
+concurrency:
+  group: import-upstream-2-7-26
+  cancel-in-progress: false
+jobs:
+  import:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          fetch-depth: 0
+      - name: Preserve both histories in an integration branch
+        env:
+          UPSTREAM_COMMIT: 54e0d8d0ab2ff56b3a9ce967e53f79e49af560fb
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD~1)" = 9040e45db23acfd906753d7c3c28dd121d280c8b
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git fetch --no-tags https://github.com/meshtastic/firmware.git "$UPSTREAM_COMMIT"
+          test "$(git rev-parse FETCH_HEAD)" = "$UPSTREAM_COMMIT"
+          git merge --allow-unrelated-histories --no-commit --no-ff -X theirs "$UPSTREAM_COMMIT"
+          mkdir -p docs/bridge
+          git show 9040e45db23acfd906753d7c3c28dd121d280c8b:README.md > docs/bridge/README.initial.md
+          mv .github/workflows .github/upstream-workflows
+          git add -A
+          git commit -m "Import Meshtastic 2.7.26 preserving upstream and project history"
+          git merge-base --is-ancestor 9040e45db23acfd906753d7c3c28dd121d280c8b HEAD
+          git merge-base --is-ancestor "$UPSTREAM_COMMIT" HEAD
+          git push origin HEAD:refs/heads/integration/upstream-2.7.26

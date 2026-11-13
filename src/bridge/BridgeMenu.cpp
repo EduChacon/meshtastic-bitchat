@@ -133,7 +133,14 @@ void menuHandler::bitchatDetailMenu(screenMenus page)
                 next(BitchatApps);
                 break;
             case 3:
-                showResult(true, "Bridge status", BitchatOptions);
+                if (bitchatBridge->textChannel() == 255)
+                    snprintf(notice, sizeof(notice), "%s\nBLE clients: %u\nLoRa text: OFF", bitchatBridge->status(),
+                             unsigned(bitchat::bleSubscribers()));
+                else
+                    snprintf(notice, sizeof(notice), "%s\nBLE clients: %u\nText channel: %u", bitchatBridge->status(),
+                             unsigned(bitchat::bleSubscribers()), unsigned(bitchatBridge->textChannel()));
+                noticeBack = BitchatOptions;
+                next(BitchatNotice);
                 break;
             case 4:
                 next(BitchatHelp);

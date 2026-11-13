@@ -34,6 +34,8 @@ quem precisa combinar B/C deve habilitar o laboratório depois da escolha básic
 **More options → Power profile** mostra o perfil atual e oferece `Fixed (USB)` e
 `Economy (battery)`. **Switch phone app** permite anunciar Meshtastic por cinco minutos
 ou voltar ao anúncio Bitchat imediatamente, sem reiniciar o dispositivo.
+**More options → Status** mostra o número de clientes BLE inscritos e o canal de texto,
+ou `LoRa text: OFF`. Não é necessário procurar a página de contadores para essa conferência.
 
 ## Primeiro teste após atualização
 

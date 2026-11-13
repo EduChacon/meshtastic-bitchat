@@ -9,6 +9,13 @@
 #include <vector>
 
 using Digest = std::array<uint8_t, 32>;
+namespace bitchat
+{
+size_t bleSubscribers()
+{
+    return 1;
+}
+} // namespace bitchat
 uint32_t millis()
 {
     return 1000;
@@ -234,6 +241,10 @@ int main()
     assert(bridge.settings.textChannel == 255 && bridge.saves == 0);
     puts("PASS: original channel confirmation is lost after selection (host lifecycle control)");
 #else
+    open(menuHandler::BitchatOptions);
+    click(3);
+    assert(display.message.find("BLE clients: 1") != std::string::npos);
+    assert(display.message.find("LoRa text: OFF") != std::string::npos);
     open(menuHandler::BitchatMenu);
     click(2);
     assert(display.message == "Choose shared channel");
@@ -246,11 +257,15 @@ int main()
     click(1);
     assert(bridge.enabled() && bridge.settings.textChannel == 1 && bridge.saves == 1);
     assert(display.message.find("Text mode saved") != std::string::npos);
+    open(menuHandler::BitchatOptions);
+    click(3);
+    assert(display.message.find("Text channel: 1") != std::string::npos);
+    open(menuHandler::BitchatNotice);
     bridge.settings.tunnelChannel = 2;
     bridge.settings.privateTunnel = true;
     bridge.nativeWindow = true;
     bridge.textConflict = true;
-    click(0);
+    open(menuHandler::BitchatMenu);
     click(1);
     assert(bridge.enabled() && bridge.settings.textChannel == 255 && bridge.settings.tunnelChannel == 255);
     assert(!bridge.privateTunnel() && !bridge.nativeWindow && !bridge.textConflict);

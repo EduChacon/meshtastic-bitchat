@@ -2,9 +2,10 @@
 
 Estados: **COMP** compilado; **SIM** teste executado no host; **PREV** inferido do código;
 **NT** não testado; **HW** confirmado em hardware; **INC** incompatível com a política atual.
-Nenhum sucesso funcional está classificado como HW nesta release. O primeiro boot reportado
-em Heltec V3 **falhou**, com watchdog da tarefa principal; ver [BOOT_INCIDENT](BOOT_INCIDENT.md).
-Os resultados de software abaixo não cobriam a inicialização real do Bluetooth.
+Nenhum sucesso de entrega está classificado como HW nesta release. O boot Heltec `.2`
+falhou com watchdog; o operador relatou tela normal na `.3`. A `.4` exige novo aceite de
+boot e de entrega. Ver [BOOT_INCIDENT](BOOT_INCIDENT.md). Simulação e compilação não
+comprovam inicialização real do Bluetooth nem operação no iPhone.
 
 ## Testes executáveis sem rádio
 
@@ -14,6 +15,9 @@ export SOURCE_DATE_EPOCH=1794528000
 pio run -e heltec-v3-bitchat -e m5stack-cardputer-adv-bitchat -t buildprog
 python3 tools/bridge/test_host.py --crypto-dir .pio/libdeps/heltec-v3-bitchat/Crypto
 python3 tools/bridge/test_ble.py
+python3 tools/bridge/test_menu.py
+python3 tools/bridge/test_defaults.py
+python3 tools/bridge/test_startup.py --nimble-dir .pio/libdeps/heltec-v3-bitchat/NimBLE-Arduino
 python3 -m unittest discover -s test/test_bitchat_bridge -p 'test_*.py' -v
 pio check -e heltec-v3-bitchat --skip-packages --src-filters '+<src/bridge/>' --fail-on-defect high
 pio run -e heltec-v3 -t buildprog
@@ -35,6 +39,8 @@ upstream não entra no pacote publicado.
 | Análise estática                                     | Cppcheck no diretório C++ da ponte; logs da CI                                                    | Configuração e bibliotecas afetam alcance da análise         |
 | Heltec V3 e ADV                                      | COMP; RAM/flash e logs na CI/release                                                              | Boot Heltec `.2` falhou no relato do operador; ADV ainda NT  |
 | Ponte desativada                                     | Compilação de `heltec-v3` sem flag                                                                | Regressão funcional stock ainda NT                           |
+| Menus e consentimento                                | Callbacks reais com ciclo de tela simulado; controle negativo `.3`; SIM                           | Sem OLED, botão ou iOS reais                                 |
+| Padrão automático e migração                         | Métodos reais com canais/NVS/hora simulados; erros e preservação; SIM                             | Sem corte de alimentação ou escrita flash física             |
 | Repetibilidade                                       | Duas compilações da aplicação no mesmo ambiente de CI com epoch fixo                              | Não promete binário idêntico entre SOs/toolchains diferentes |
 
 O adaptador BLE também é executado no host com substitutos de NimBLE/heap, ASan e UBSan,

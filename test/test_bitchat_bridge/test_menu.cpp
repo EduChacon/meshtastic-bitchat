@@ -48,7 +48,7 @@ class BitchatBridgeModule
     };
     std::unique_ptr<Runtime> runtime;
     bool resourceError = false, identityOk = true, memoryOk = true, storageOk = true;
-    bool nativeWindow = false, advertisingChanged = false, textConflict = false;
+    bool nativeWindow = false, advertisingChanged = false, textConflict = false, defaultChannelUnavailable = false;
     uint32_t textGuardAt = 0, lastBudget = 0, tokens = 0;
     unsigned saves = 0, refreshes = 0;
     bool startBasicMode(uint8_t channel = 255);

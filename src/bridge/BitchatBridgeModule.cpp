@@ -1,5 +1,6 @@
 #ifdef MESHTASTIC_ENABLE_BITCHAT
 #include "BitchatBridgeModule.h"
+#include "BridgeDefaults.h"
 #include "BridgeDiagnostics.h"
 #include "MeshService.h"
 #include "NodeDB.h"
@@ -25,11 +26,12 @@ BitchatBridgeModule::BitchatBridgeModule() : MeshModule("bitchat"), OSThread("bi
     if (storageReady && storage.isKey("settings")) {
         if (storage.getBytesLength("settings") != sizeof(settings) ||
             storage.getBytes("settings", &settings, sizeof(settings)) != sizeof(settings) || settings.magic != 0x42433031 ||
-            settings.enabled > 1 || settings.economy > 1 || settings.privateTunnel > 1) {
+            settings.enabled > 1 || settings.economy > 1 || settings.privateTunnel > 1 || settings.reserved[0] > 1) {
             settings = Settings{};
             storageReady = false;
         }
     }
+    defaultsPending = storageReady && settings.reserved[0] == 0;
     for (size_t i = 0; storageReady && i < journal.size(); ++i) {
         char key[8];
         snprintf(key, sizeof(key), "j%02u", unsigned(i));
@@ -53,6 +55,8 @@ uint64_t BitchatBridgeModule::utc() const
 
 bool BitchatBridgeModule::persist()
 {
+    settings.reserved[0] = 1;
+    defaultsPending = false;
     if (!storageReady || storage.putBytes("settings", &settings, sizeof(settings)) != sizeof(settings)) {
         storageReady = false;
         settings.enabled = false;
@@ -61,6 +65,81 @@ bool BitchatBridgeModule::persist()
     }
     advertisingChanged = true;
     return true;
+}
+
+uint8_t BitchatBridgeModule::provisionPublicChannel()
+{
+    if (!nodeDB || owner.is_licensed)
+        return 255;
+    uint8_t available = 255;
+    for (uint8_t i = 0; i < channels.getNumChannels(); ++i) {
+        const auto &channel = channels.getByIndex(i);
+        const auto &s = channel.settings;
+        if (strnlen(s.name, sizeof(s.name)) == sizeof(PUBLIC_CHANNEL_NAME) - 1 &&
+            strncasecmp(s.name, PUBLIC_CHANNEL_NAME, sizeof(PUBLIC_CHANNEL_NAME) - 1) == 0) {
+            if (strcmp(s.name, PUBLIC_CHANNEL_NAME) != 0 || i == settings.tunnelChannel || !eligibleChannel(i) ||
+                !std::equal(PUBLIC_CHANNEL_KEY.begin(), PUBLIC_CHANNEL_KEY.end(), s.psk.bytes))
+                return 255;
+            return i;
+        }
+        if (available == 255 && i != channels.getPrimaryIndex() && channel.role == meshtastic_Channel_Role_DISABLED &&
+            s.name[0] == 0 && s.psk.size == 0 && s.channel_num == 0 && s.id == 0 && !s.uplink_enabled && !s.downlink_enabled &&
+            !s.has_module_settings)
+            available = i;
+    }
+    if (available == 255)
+        return 255;
+    const auto previous = channels.getByIndex(available);
+    meshtastic_Channel channel = meshtastic_Channel_init_zero;
+    channel.index = available;
+    channel.role = meshtastic_Channel_Role_SECONDARY;
+    channel.has_settings = true;
+    strcpy(channel.settings.name, PUBLIC_CHANNEL_NAME);
+    channel.settings.psk.size = PUBLIC_CHANNEL_KEY.size();
+    std::copy(PUBLIC_CHANNEL_KEY.begin(), PUBLIC_CHANNEL_KEY.end(), channel.settings.psk.bytes);
+    channel.settings.has_module_settings = true;
+    channel.settings.module_settings.position_precision = 0;
+    channels.setChannel(channel);
+    channels.onConfigChanged();
+    if (!nodeDB->saveToDisk(SEGMENT_CHANNELS)) {
+        channels.setChannel(previous);
+        channels.onConfigChanged();
+        storageReady = false;
+        return 255;
+    }
+    return available;
+}
+
+void BitchatBridgeModule::applyDefaults()
+{
+    if (!defaultsPending || !storageReady || !config.bluetooth.enabled || config.power.is_power_saving || !ensureRuntime())
+        return;
+    if (!initIdentity())
+        return;
+    if (settings.textChannel == 255) {
+        const uint8_t channel = provisionPublicChannel();
+        Digest fingerprint{};
+        if (channel != 255 && binding(channel, fingerprint)) {
+            settings.textChannel = channel;
+            settings.textBinding = fingerprint;
+        } else {
+            defaultChannelUnavailable = true;
+        }
+    }
+    // Apply this migration once; subsequent explicit OFF/local-only choices survive reboot.
+    settings.enabled = true;
+    textGuardAt = millis();
+    persist();
+    refreshChannels();
+}
+
+void BitchatBridgeModule::updateClockWindow()
+{
+    const bool needed = settings.enabled && !utc();
+    if (clockWindow != needed) {
+        clockWindow = needed;
+        advertisingChanged = true;
+    }
 }
 
 bool BitchatBridgeModule::initIdentity()
@@ -156,6 +235,7 @@ bool BitchatBridgeModule::startBasicMode(uint8_t channel)
     settings.tunnelBinding = {};
     settings.privateTunnel = false;
     settings.enabled = true;
+    defaultChannelUnavailable = false;
     textConflict = false;
     textGuardAt = millis();
     runtime->radioQueue.clear();
@@ -279,12 +359,16 @@ const char *BitchatBridgeModule::status() const
         return "Open Meshtastic: clock";
     if (nativeWindow)
         return "Meshtastic window 5m";
+    if (defaultChannelUnavailable && settings.textChannel == 255)
+        return "Local only: set channel";
     if (textConflict)
         return "B conflict: stop overlap";
     if (textReady && Throttle::isWithinTimespanMsAt(textGuardAt, 30000, millis()))
         return "B listening: wait 30s";
     if ((settings.textChannel != 255 && !textReady) || (settings.tunnelChannel != 255 && !tunnelReady))
         return "Channel changed: blocked";
+    if (settings.textChannel == 255 && settings.tunnelChannel == 255)
+        return settings.economy ? "Local BLE: economy" : "Local BLE: fixed";
     return settings.economy ? "BC economy (available)" : "BC fixed (available)";
 }
 
@@ -628,6 +712,8 @@ int32_t BitchatBridgeModule::runOnce()
 {
     const uint32_t now = millis();
     const bool bluetoothReady = nimbleBluetooth && nimbleBluetooth->isActive() && !nimbleBluetooth->isDeInit;
+    if (bluetoothReady && !resourceError)
+        applyDefaults();
     if (settings.enabled && storageReady && config.bluetooth.enabled && !config.power.is_power_saving && bluetoothReady &&
         !resourceError && ensureRuntime() && !identityReady)
         initIdentity();
@@ -645,8 +731,9 @@ int32_t BitchatBridgeModule::runOnce()
         lastBudget = now;
         wasActive = active;
     }
+    updateClockWindow();
     if (advertisingChanged) {
-        bleConfigure(active, nativeWindow, settings.economy);
+        bleConfigure(active, nativeWindow || clockWindow, settings.economy);
         if (nimbleBluetooth && nimbleBluetooth->isActive() && !nimbleBluetooth->isDeInit)
             nimbleBluetooth->refreshBridgeAdvertising();
         advertisingChanged = false;

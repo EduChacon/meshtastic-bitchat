@@ -42,7 +42,7 @@ class BitchatBridgeModule : public MeshModule, private concurrency::OSThread
   private:
     struct Settings {
         uint32_t magic = 0x42433031;
-        uint8_t enabled = 0;
+        uint8_t enabled = 1;
         uint8_t economy = 0;
         uint8_t textChannel = 255;
         uint8_t tunnelChannel = 255;
@@ -64,6 +64,7 @@ class BitchatBridgeModule : public MeshModule, private concurrency::OSThread
     };
     Preferences storage;
     bool storageReady = false, identityReady = false, advertisingChanged = true;
+    bool defaultsPending = false, defaultChannelUnavailable = false, clockWindow = false;
     bool textReady = false, tunnelReady = false;
     bool wasActive = false;
     bool textConflict = false;
@@ -95,6 +96,9 @@ class BitchatBridgeModule : public MeshModule, private concurrency::OSThread
     std::unique_ptr<Runtime> runtime;
     bool resourceError = false;
     bool ensureRuntime();
+    void applyDefaults();
+    uint8_t provisionPublicChannel();
+    void updateClockWindow();
     void releaseRuntime();
     bool persist();
     bool initIdentity();
@@ -112,5 +116,5 @@ class BitchatBridgeModule : public MeshModule, private concurrency::OSThread
     uint64_t utc() const;
 };
 extern BitchatBridgeModule *bitchatBridge;
-static_assert(sizeof(BitchatBridgeModule) <= 4096, "Keep bridge buffers out of the default OFF boot path");
+static_assert(sizeof(BitchatBridgeModule) <= 4096, "Keep bridge buffers out of module construction");
 #endif

@@ -136,7 +136,7 @@ def main():
         "platform": "espressif32@6.13.0",
         "libraries": libraries,
         "hardware_tested": False,
-        "feature_default": "OFF",
+        "feature_default": "ON: local BLE and dedicated public Bitchat text channel; laboratory tunnel OFF",
         "install_status": "documented-not-tested; preflight and separate approval required",
         "contains_bootloader": False,
         "contains_partitions": False,
@@ -150,7 +150,9 @@ def main():
         ).encode(),
         "LICENSE": (root / "LICENSE").read_bytes(),
         "LEIA-ANTES.txt": (
-            "EXPERIMENTAL. Nenhum ensaio em hardware. Ponte desativada por padrao.\n"
+            "EXPERIMENTAL. Nenhum ensaio desta revisao em hardware. BLE e texto publico Bitchat ativos por padrao.\n"
+            "No primeiro boot desta revisao: cria canal publico Bitchat em espaco livre; nao exporta o primario.\n"
+            "Conecte Meshtastic para fornecer a hora; depois abra #mesh no Bitchat. Leia docs/bridge/DEFAULTS.md.\n"
             f"Alvo exclusivo: {model}; ESP32-S3; 8 MB; app0 0x10000.\n"
             "Este ZIP contem somente atualizacao de aplicativo. Nao e instalacao de fabrica.\n"
             "Nao inclui apagamento integral; atualiza os setores da aplicacao. Falhas ainda podem impedir boot.\n"

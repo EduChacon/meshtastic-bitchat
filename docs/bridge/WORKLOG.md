@@ -19,7 +19,8 @@ procedimento de build ou teste deste projeto aciona flash ou descobre dispositiv
   independentes para relé BLE, tradução pública e túnel experimental.
 - Adaptadores Meshtastic e ESP32/NimBLE; controles no menu e painel de estado local.
 - Publicação de texto em `TEXT_MESSAGE_APP`, sem alteração dos aplicativos de referência.
-- Recursos desligados por padrão; canal secundário opt-in; sem tradução de DMs em B.
+- Inicialmente recursos desligados por padrão; na `.4`, BLE/texto público dedicado ativos
+  no primeiro uso, conforme [migração](DEFAULTS.md). Sem tradução de DMs em B.
 - Journal persistente limitado, com entradas individuais para reduzir escrita em flash.
 - Atualizações de aplicativo por placa, manifesto, SHA-256, verificador sem escrita,
   fontes correspondentes e inventário de dependências.

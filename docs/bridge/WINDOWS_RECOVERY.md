@@ -2,7 +2,8 @@
 
 Este roteiro é específico do Heltec WiFi LoRa 32 V3, ESP32-S3, flash de 8 MB.
 A pré-release `v0.1.0-experimental.4` mantém as correções de inicialização da `.3` e corrige
-a confirmação de canais no menu. **Boot físico desta versão ainda não validado.**
+a confirmação de canais no menu. BLE/texto público dedicado são ativados no primeiro boot
+desta revisão; ler [o padrão antes de instalar](DEFAULTS.md). **Boot físico desta versão ainda não validado.**
 O firmware anterior `.2` permanece suspenso. Não há garantia de risco zero.
 
 ## 1. Baixar os arquivos
@@ -85,14 +86,18 @@ sendo riscos. A opção Update não faz backup automaticamente.
 
 ## 4. Verificar o resultado
 
-O primeiro teste é boot com ponte **OFF**, conexão pelo app Meshtastic, canais/identidade
-preservados e funcionamento por pelo menos dez minutos. Conferir região/preset existentes;
-a correção não escolhe nem muda a configuração RF.
+No primeiro boot desta revisão, BLE e texto público dedicado são ativados uma vez,
+inclusive na atualização: [ler padrão e chave pública](DEFAULTS.md). O canal `Bitchat` é
+criado somente em espaço vazio quando não havia canal de texto autorizado. Conferir boot,
+conexão Meshtastic, canais/identidade anteriores preservados e funcionamento por pelo menos
+dez minutos. Região/preset/potência existentes não são alterados.
 
 Depois, no Heltec, abrir **System → Bitchat bridge**. Pressões curtas em USER avançam as
 telas/opções; pressão de aproximadamente 500 ms seleciona. Não manter pressionado por
-vários segundos. Conectar Meshtastic primeiro para fornecer a hora; selecionar `1. Local Bitchat`
-antes de testar `2. Bitchat + LoRa`. O fluxo e o aviso de publicação estão em [MENU_FIX](MENU_FIX.md).
+vários segundos. Conectar Meshtastic primeiro para fornecer a hora; sem hora, a descoberta
+Meshtastic é automática. Depois abrir Bitchat `#mesh` e seguir [DEFAULTS](DEFAULTS.md).
+Para isolar o teste BLE, selecionar `1. Local Bitchat`; depois usar `2. Bitchat + LoRa`
+para voltar ao canal compartilhado. O fluxo e o aviso de publicação estão em [MENU_FIX](MENU_FIX.md).
 
 Se o Bluetooth falhar na inicialização, o status mostra `BLE failed: restart` e o log
 informa `ble-init-failed-reboot-required`; não se tenta reiniciar um controlador parcialmente

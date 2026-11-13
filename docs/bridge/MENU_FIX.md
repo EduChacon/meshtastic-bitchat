@@ -27,8 +27,9 @@ As duas escolhas de operação são:
   só depois ativa o relé e a tradução. Desativa o túnel e a opção privada de laboratório.
 
 Ambas preservam as configurações stock, região, chaves, identidade da ponte e perfil de energia.
-O túnel fica em **More options → Lab tunnel**, com autorização separada. A ponte continua OFF
-por padrão. As escolhas básicas substituem os modos da ponte previamente configurados;
+O túnel fica em **More options → Lab tunnel**, com autorização separada. A ponte agora ativa
+BLE e texto público dedicado no primeiro uso: ver [padrões e migração](DEFAULTS.md).
+As escolhas básicas substituem os modos da ponte previamente configurados;
 quem precisa combinar B/C deve habilitar o laboratório depois da escolha básica.
 
 **More options → Power profile** mostra o perfil atual e oferece `Fixed (USB)` e
@@ -39,9 +40,12 @@ ou `LoRa text: OFF`. Não é necessário procurar a página de contadores para e
 
 ## Primeiro teste após atualização
 
-1. Abrir o app Meshtastic para fornecer a hora; manter o teste fixo por USB.
-2. Abrir `System → Bitchat bridge → 2. Bitchat + LoRa`.
-3. Escolher o canal secundário já configurado nos dois rádios. Ler o aviso:
+1. Abrir o app Meshtastic para fornecer a hora; manter o teste fixo por USB. Sem hora, a
+   descoberta Meshtastic é automática; ao receber hora válida, o anúncio volta a Bitchat.
+2. Para o padrão, usar o canal público `Bitchat` criado automaticamente, com a mesma chave
+   no rádio stock remoto. Seguir [DEFAULTS](DEFAULTS.md); não é necessário ativar pelo menu.
+3. Para usar outro canal, abrir `System → Bitchat bridge → 2. Bitchat + LoRa` e escolher
+   o canal secundário configurado nos dois rádios. Ler o aviso:
    **o texto desse canal ficará público no Bitchat local**. Confirmar somente para a rede
    de teste autorizada. O canal primário continua excluído.
 4. Aguardar 30 segundos, deixar o Bitchat aberto perto da ponte e conferir `BLE` no painel.
@@ -66,9 +70,8 @@ da publicação; os logs da revisão publicada são a evidência correspondente.
 legibilidade física e entrega A/B/C ainda precisam de bancada.** A correção do menu não prova
 que seja a única causa de ausência de entrega relatada.
 
-Heltec sem tela permanece com a limitação de ativação descrita em [USAGE](USAGE.md).
-Não há configurador USB da ponte nesta revisão. Não se recomenda instalar esperando que a
-ausência de tela seja resolvida pelo novo menu.
+O padrão automático não depende da tela. Pareamento/hora e limitações da implantação
+sem OLED estão em [DEFAULTS](DEFAULTS.md#heltec-v3-sem-tela). Não há configurador USB próprio.
 
 ## English
 
@@ -78,12 +81,13 @@ queues every bridge menu transition and feedback screen, preserving explicit con
 
 Choose **1. Local Bitchat** for BLE-only bridge operation, or **2. Bitchat + LoRa**, select a
 secondary channel and confirm public export. Both basic choices disable laboratory tunneling;
-local mode also disables text translation. The bridge still defaults to OFF. Power, app
+local mode also disables text translation. Local BLE plus dedicated public text now default
+to ON on first boot; see [defaults and migration](DEFAULTS.md#english). Power, app
 discovery and lab settings are under **More options**. Fixed/economy now show current state.
 
 Set the clock through Meshtastic first. After enabling shared text, wait 30 seconds and keep
 Bitchat open nearby. Send ordinary text on the selected channel from the remote stock radio;
 send `!lora text` in public Bitchat for the opposite direction. PSK channel text becomes public
 on local Bitchat. Host tests and builds do not establish phone delivery or physical stability.
-Headless activation is still unsupported; the same board image does not solve configuration
-without a screen.
+Automatic defaults work without menu input; native pairing and valid time remain necessary.
+Screenless hardware and actual phone delivery still require physical acceptance.

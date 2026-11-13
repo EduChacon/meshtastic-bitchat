@@ -71,6 +71,7 @@ jobs:
           python tools/bridge/test_host.py --crypto-dir ".pio/libdeps/$BRIDGE_ENV/Crypto" 2>&1 | tee evidence/host.log
           python tools/bridge/test_ble.py 2>&1 | tee evidence/ble-adapter.log
           python tools/bridge/test_menu.py 2>&1 | tee evidence/menu.log
+          python tools/bridge/test_defaults.py 2>&1 | tee evidence/defaults.log
           python tools/bridge/test_startup.py --nimble-dir ".pio/libdeps/$BRIDGE_ENV/NimBLE-Arduino" 2>&1 | tee evidence/startup.log
           python -m unittest discover -s test/test_bitchat_bridge -p 'test_*.py' -v 2>&1 | tee evidence/packages.log
       - name: Static analysis

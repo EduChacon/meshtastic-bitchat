@@ -7,8 +7,9 @@ os aplicativos originais Bitchat e Meshtastic, sem computador, MQTT, Nostr ou in
 operação. Computador continua necessário para compilar, instalar e diagnosticar.
 
 **Revisão experimental do menu: [v0.1.0-experimental.4](https://github.com/EduChacon/meshtastic-bitchat/releases/tag/v0.1.0-experimental.4).**
-Corrige a confirmação de canal que desaparecia e oferece duas escolhas: **Local Bitchat**
-e **Bitchat + LoRa**. Veja o [guia desta revisão](docs/bridge/MENU_FIX.md).
+Corrige a confirmação de canal que desaparecia e ativa BLE + texto público dedicado no
+primeiro uso. Veja o [início rápido e padrão da integração](docs/bridge/DEFAULTS.md)
+e o [guia do menu](docs/bridge/MENU_FIX.md).
 O boot de um Heltec com `.3` foi relatado pelo operador; a `.4` exige novo aceite físico.
 Cardputer, entrega nos apps, estabilidade, preservação e rollback continuam sem aceite de bancada.
 
@@ -27,9 +28,16 @@ campo. Os resultados da CI da revisão e as lacunas devem ser consultados antes 
 | B — texto compartilhado  | `!lora texto` → texto nativo em canal Meshtastic dedicado; canal → Bitchat público                               | Um; os demais rádios continuam stock                                |
 | C — túnel de laboratório | Pacotes preservados em porta privada 256; descoberta e `!bctun texto`; opção separada para tráfego privado opaco | Dois terminadores; intermediários stock precisam de ensaio separado |
 
-**Tudo vem desligado por padrão.** B não traduz DMs, sessões Noise, posição, telemetria,
-arquivos, voz ou comandos administrativos. O texto do canal com PSK será público no Bitchat
-local após consentimento explícito. A PSK não protege o texto depois dessa exportação.
+**BLE e tradução de texto vêm ativos por padrão nesta revisão.** No primeiro boot, inclusive
+ao atualizar uma revisão anterior, a ponte usa o canal já autorizado ou cria o canal público
+dedicado `Bitchat` em um espaço vazio. Não seleciona nem substitui canais existentes por nome
+ou por posição. O canal primário fica excluído. O [guia](docs/bridge/DEFAULTS.md) publica a chave
+de interoperabilidade: ela não é secreta. Escolhas posteriores de desligar a ponte ou usar
+somente BLE são preservadas. C continua sendo laboratório com ativação separada.
+
+B não traduz DMs, sessões Noise, posição, telemetria, arquivos, voz ou comandos administrativos.
+Escolher outro canal exige confirmar que seu texto ficará público no Bitchat local;
+a PSK não protege o texto depois dessa exportação.
 
 ## Alvos desta entrega
 
@@ -73,21 +81,26 @@ as tags e o [registro da investigação](docs/bridge/BOOT_INCIDENT.md) foram pre
 
 ## Uso
 
-Após instalar e verificar o primeiro boot, conectar Meshtastic para fornecer a hora.
-Abrir `System → Bitchat bridge`:
+Após instalar e verificar o primeiro boot, conectar Meshtastic para fornecer a hora. Sem hora,
+o rádio anuncia Meshtastic automaticamente; com hora válida, volta ao anúncio Bitchat.
+Compartilhar somente o canal `Bitchat` com o rádio stock remoto e aguardar 30 segundos.
+O [guia rápido](docs/bridge/DEFAULTS.md) explica a chave pública e os casos de configuração cheia.
+
+No Meshtastic, enviar texto normal **nesse canal**. No `#mesh` do Bitchat, enviar
+`!lora texto` para sair por LoRa. Manter Bitchat aberto perto da ponte no primeiro teste.
+Para mudar o comportamento, abrir `System → Bitchat bridge`:
 
 1. **Local Bitchat:** relé Bluetooth, sem tradução nem túnel LoRa da ponte.
 2. **Bitchat + LoRa:** escolher um canal secundário e confirmar a publicação de seu texto
    no Bitchat local. Aguardar 30 segundos antes do primeiro envio.
 
-No Meshtastic, enviar texto normal no canal escolhido. No Bitchat público, enviar
-`!lora texto` para sair por LoRa. Manter o Bitchat aberto perto da ponte no primeiro teste.
 **More options** reúne perfil fixo/econômico, alternância dos apps, estado e laboratório.
 Os modos básicos desativam o túnel; sua ativação posterior exige escolha e consentimento próprios.
 
 O [guia do menu](docs/bridge/MENU_FIX.md) detalha o fluxo e o [guia anterior](docs/bridge/USAGE.md)
-explica os contadores e as limitações. Heltec V3 sem tela pode usar o mesmo alvo, mas **a
-ativação sem tela ainda não é suportada**; não há configurador USB da ponte nesta entrega.
+documenta a `.3`. O padrão novo permite ativação sem OLED no mesmo alvo Heltec V3; ainda
+exige pareamento Meshtastic e hora válida. Isso é implementado e testado em host, **não validado
+em placa sem tela**. Não há configurador USB próprio nem promessa de descoberta simultânea.
 
 ## Construção e documentação
 
@@ -117,6 +130,7 @@ fixadas. As dependências e a ferramenta precisam de download na preparação.
 - [Ameaças, privacidade e limitações](https://github.com/EduChacon/meshtastic-bitchat/blob/v0.1.0-experimental.4/docs/bridge/SECURITY.md)
 - [Testes, bancada, consumo e critérios](https://github.com/EduChacon/meshtastic-bitchat/blob/v0.1.0-experimental.4/docs/bridge/TESTING.md)
 - [Fontes, proveniência e licenças](https://github.com/EduChacon/meshtastic-bitchat/blob/v0.1.0-experimental.4/docs/bridge/SOURCES.md)
+- [Comparação com outras pontes e limites da evidência](docs/bridge/COMPARISON.md)
 - [Registro do trabalho](https://github.com/EduChacon/meshtastic-bitchat/blob/v0.1.0-experimental.4/docs/bridge/WORKLOG.md)
 - [README original do firmware](docs/bridge/README.upstream.md)
 

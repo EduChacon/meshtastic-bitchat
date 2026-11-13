@@ -1,6 +1,6 @@
 # Instalação e recuperação
 
-**Pré-releases anteriores à `.3` suspensas:** o boot reportado da `.2` no Heltec V3
+**Pré-releases anteriores à `.3` retiradas dos downloads:** o boot reportado da `.2` no Heltec V3
 travou e reiniciou pelo watchdog. A `.3` contém correções de inicialização para teste,
 sem boot físico validado. Consulte [BOOT_INCIDENT](BOOT_INCIDENT.md) e o
 [roteiro Windows com backup privado](WINDOWS_RECOVERY.md). Rollback físico ainda não validado.
@@ -16,6 +16,10 @@ versão experimental mais recente e expandir **Assets**. Para Heltec V3, baixar
 `meshtastic-bitchat-heltec-v3-<versão>-<commit>.zip`; para Cardputer ADV + Cap LoRa-1262,
 `meshtastic-bitchat-m5stack-cardputer-adv-<versão>-<commit>.zip`. Baixar também
 `SHA256SUMS` e `verify_artifact.py`. Os anexos `Source code` são fontes, não imagens para flash.
+
+Os anexos de auditoria ficam reunidos em `technical-package-<versão>.tar.gz`:
+fontes, dependências, licenças, símbolos, manifestos, resultados e cópia dos anexos originais.
+Esse pacote técnico não deve ser enviado ao flasher. A organização não alterou os binários.
 
 O arquivo `firmware-<modelo>-bridge-<versão>-<commit>-update.bin` é a aplicação do mesmo
 ZIP, fornecida separadamente como alternativa para o upload próprio. Nunca escolher apenas
@@ -119,11 +123,11 @@ O iPhone é requisito de uso, não de gravação.
 - Ponte OFF: anúncio Meshtastic e funções nativas disponíveis, sujeitos à regressão de bancada.
 - Conectar o app Meshtastic original, acertar região/preset/canais e fornecer a hora.
 - Manter Wi-Fi fora do caminho, desativar power saving stock que desligue BLE para o teste.
-- No menu local, iniciar BLE bridge. Para B, criar/selecionar canal secundário com nome não vazio,
+- No menu local, escolher `1. Local Bitchat`. Para `2. Bitchat + LoRa`, criar/selecionar canal secundário com nome não vazio,
   PSK própria de 32 bytes e MQTT uplink/downlink desligados. Canal primário não é elegível.
 - Aceitar o aviso de texto público somente na rede de teste consentida. Aguardar 30 s e testar
   `!lora ` literal. Não há parser de administração em texto recebido.
-- Para voltar à descoberta Meshtastic: `Meshtastic BLE: 5 min` ou `Stop bridge`.
+- Para voltar à descoberta Meshtastic: `More options → Switch phone app → Find Meshtastic: 5m` ou `Turn bridge OFF`.
 
 No mapeamento padrão do Heltec V3, pressões curtas em USER avançam as telas; uma pressão
 longa de cerca de 500 ms corresponde a selecionar. Na tela System, selecionar abre o menu,

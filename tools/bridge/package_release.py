@@ -14,7 +14,7 @@ BOARDS = {
     "heltec-v3-bitchat": ("heltec-v3", 43),
     "m5stack-cardputer-adv-bitchat": ("m5stack-cardputer-adv", 112),
 }
-VERSION = "0.1.0-experimental.3"
+VERSION = "0.1.0-experimental.4"
 
 
 def sha256(data):

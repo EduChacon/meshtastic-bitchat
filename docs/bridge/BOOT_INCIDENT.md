@@ -7,9 +7,10 @@ Em 2026-11-13 foi reportada falha no primeiro boot de `v0.1.0-experimental.2`, c
 O logotipo permaneceu parado e o watchdog reiniciou o dispositivo. Trata-se de evidência
 fornecida pelo operador, não de um ensaio instrumentado executado pelo projeto.
 
-As instalações das pré-releases anteriores à `.3` estão suspensas. A versão inicial compartilha
+As pré-releases anteriores à `.3` foram retiradas dos downloads. A versão inicial compartilha
 o código de inicialização sob investigação; não foi comprovado que apresente a mesma falha.
-Cardputer ADV não foi testado fisicamente. Não há imagem corrigida validada em hardware.
+Cardputer ADV não foi testado fisicamente. Foi relatado que o Heltec V3 com a correção `.3`
+chegou à tela normal; isso ainda não representa aceite funcional da ponte.
 
 ## Evidência sanitizada
 
@@ -134,7 +135,8 @@ SHA-256 das aplicações:
 Os símbolos de cada candidato também foram conferidos contra o SHA-256 do ELF embutido
 na aplicação. O verificador rejeitou o ZIP Heltec quando informado o alvo Cardputer.
 Nenhum desses testes identifica o hardware conectado ou comprova boot/rollback. Os
-artefatos permanecem candidatos da CI, não uma nova release declarada pronta para instalar.
+artefatos eram candidatos da CI, sem declaração de boot validado. Os downloads desses
+candidatos foram posteriormente retirados na organização da release `.3`.
 
 ## Avaliação da versão oficial 2.8.2
 
@@ -193,3 +195,64 @@ e assinaturas de conexões ainda abertas sobrevivem à liberação dos buffers. 
 do adaptador cobre parada, retomada e desconexão, sem retenção dos payloads anteriores.
 O empacotador ainda verifica nome e marcador da revisão compilada para recusar binário
 local desatualizado, mesmo que o checkout atual esteja limpo.
+
+## Entrega da pré-release .3
+
+A [CI 43482990039](https://github.com/EduChacon/meshtastic-bitchat/actions/runs/43482990039)
+terminou com sucesso para o commit `d15a403fe9bb50b28a4c025330008ce11636da9b` e publicou
+[v0.1.0-experimental.3](https://github.com/EduChacon/meshtastic-bitchat/releases/tag/v0.1.0-experimental.3).
+Os dois alvos passaram por compilação, recompilação limpa idêntica, 523 asserções de protocolo,
+19 vetores do cliente oficial, 100.000 entradas malformadas, sanitizers, testes do adaptador
+BLE, falhas injetadas na inicialização e controle negativo, 11 testes de pacote/backup e
+análise estática. O alvo stock Heltec também compilou, sem a flag da ponte.
+
+Os ZIPs da CI foram baixados e verificados independentemente: alvo errado recusado, binário
+interno igual ao arquivo de aplicação separado, SHA-256 igual ao digest publicado e hash do
+ELF igual ao gravado no cabeçalho da aplicação. Nenhum dispositivo foi acessado nessa conferência.
+
+| Alvo          | Aplicação: bytes | SHA-256 da aplicação                                               | SHA-256 do ZIP                                                     |
+| ------------- | ---------------: | ------------------------------------------------------------------ | ------------------------------------------------------------------ |
+| Heltec V3     |          2104720 | `9a0c8748ace42a27ed0852ead7360e2ba25d8ece6797fb2c6446c205017fdfb3` | `e68fc26561cf3f10c390d8bc0b2976664e32a691d94d0eafce1a2797953fbb86` |
+| Cardputer ADV |          2220976 | `c4927306f6ee86eb58f37d47cc5aec86e4c98c84a2eea41e4720c67a7a7bbf67` | `35f45260cab38230eed9819ac32886f9c714de39e9f43a6506416e320be90faf` |
+
+ELF Heltec: `098ca2d7bced25f65c6b5ae5046f2c2e852ad16d2062bbf53e5ea4e9b761f556`.
+ELF Cardputer ADV: `0cd45b70472197a38b7b1e6a628c3b6fd1290be93c45e4e95bc90e970d6bcedc`.
+Os arquivos de símbolos e fontes correspondentes estão anexados à release.
+
+No linker Linux, a RAM estática é 132.544 bytes no Heltec e 136.928 no ADV. O build stock
+Heltec usa 132.104 bytes. Esses valores não medem heap em execução nem corrente elétrica.
+
+O fluxo de upload próprio foi reconferido no código do Web Flasher oficial,
+[revisão 6b3b347](https://github.com/meshtastic/web-flasher/blob/6b3b34722106f282eb66162164dd40f1729e7826/stores/firmwareStore.ts):
+o caminho legado Update escolhe a aplicação `-update.bin`, usa `0x10000` e `eraseAll: false`.
+O padrão de nomes seleciona exatamente a aplicação do ZIP. Não foi possível repetir a UI
+nesta sessão, nem executar escrita USB no aparelho. A gravação anterior `.2` foi relatada
+pelo operador; ela demonstrou escrita, seguida de falha de boot, não aceite do firmware.
+
+Em 2026-11-13, o operador informou que o Heltec saiu do logotipo e abriu a tela normal após
+a atualização `.3`. **Estado: boot observado pelo operador**, sem captura instrumentada ou
+medição de estabilidade. Não se infere daí descoberta BLE, entrega de mensagens ou causa
+exata do watchdog anterior. A tradução de texto ainda está em configuração/teste.
+
+**Continuam pendentes:** estabilidade da `.3`, preservação real da configuração, retorno ao
+stock, conexão iOS/Android, ensaios A/B/C, carga prolongada e consumo. A causa exata da falha
+original permanece sem prova do core 1. A nova release permite testar as correções após
+backup/preflight; não é promoção a versão estável nem merge de firmware em `main`.
+
+## Organização dos downloads
+
+Por solicitação do mantenedor, as pré-releases `v0.1.0-experimental` e
+`v0.1.0-experimental.2` e seus anexos foram retirados da página de releases. Os artefatos
+instaláveis de CI anteriores à `.3` também foram removidos; logs, evidências de teste,
+símbolos de diagnóstico, commits e tags de fonte foram preservados.
+
+A `.3` mantém os mesmos ZIPs e aplicações, com os SHA-256 registrados acima. Os anexos
+originais foram reunidos, sem mudar seu conteúdo, em
+`technical-package-0.1.0-experimental.3.tar.gz`. Ele inclui o índice de hashes original;
+o `SHA256SUMS` avulso corresponde à lista atual de downloads. A retirada dos instaladores
+antigos não apaga o registro da falha nem equivale à validação física da correção.
+
+A [execução 43489792702](https://github.com/EduChacon/meshtastic-bitchat/actions/runs/43489792702)
+concluiu a limpeza: duas releases e dez artefatos instaláveis antigos removidos; 21 anexos
+originais conferidos antes de consolidar 13 anexos técnicos. Restaram nove downloads na `.3`.
+SHA-256 do pacote técnico: `43a15188dcd8135a0d01a0e1ed7ca0f763db96b6ab18bbcb809669c917308b9d`.

@@ -138,6 +138,34 @@ bool BitchatBridgeModule::ensureRuntime()
     return false;
 }
 
+bool BitchatBridgeModule::startBasicMode(uint8_t channel)
+{
+    Digest fingerprint{};
+    if (channel != 255 && !binding(channel, fingerprint))
+        return false;
+    resourceError = false;
+    if (!config.bluetooth.enabled || config.power.is_power_saving || !ensureRuntime())
+        return false;
+    if (!initIdentity()) {
+        releaseRuntime();
+        return false;
+    }
+    settings.textChannel = channel;
+    settings.textBinding = fingerprint;
+    settings.tunnelChannel = 255;
+    settings.tunnelBinding = {};
+    settings.privateTunnel = false;
+    settings.enabled = true;
+    textConflict = false;
+    textGuardAt = millis();
+    runtime->radioQueue.clear();
+    tokens = 12000;
+    lastBudget = millis();
+    closeNativeWindow();
+    refreshChannels();
+    return persist();
+}
+
 void BitchatBridgeModule::releaseRuntime()
 {
     bleReleaseBuffers();
@@ -224,6 +252,12 @@ void BitchatBridgeModule::openNativeWindow()
 {
     nativeWindow = true;
     nativeOpenedAt = millis();
+    advertisingChanged = true;
+}
+
+void BitchatBridgeModule::closeNativeWindow()
+{
+    nativeWindow = false;
     advertisingChanged = true;
 }
 

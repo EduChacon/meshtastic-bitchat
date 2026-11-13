@@ -20,11 +20,13 @@ class BitchatBridgeModule : public MeshModule, private concurrency::OSThread
     int tunnelChannel() const { return settings.tunnelChannel; }
     bool privateTunnel() const { return settings.privateTunnel; }
     bool setEnabled(bool value);
+    bool startBasicMode(uint8_t textChannel = 255);
     bool setEconomy(bool value);
     bool setChannel(bool tunnel, uint8_t index);
     bool setPrivateTunnel(bool value);
     bool eligibleChannel(uint8_t index) const;
     void openNativeWindow();
+    void closeNativeWindow();
     const char *status() const;
     uint32_t drops() const;
 #if HAS_SCREEN

@@ -1,7 +1,10 @@
 # Instalação e recuperação
 
-**Estado: fluxo documentado e pacote verificado em software; nenhum flash, boot ou rollback
-em hardware foi realizado.** Não existe garantia de risco zero em uma gravação. Falta de
+**Instalações suspensas:** o primeiro boot reportado da pré-release `.2` no Heltec V3
+travou e reiniciou pelo watchdog. Consulte [BOOT_INCIDENT](BOOT_INCIDENT.md). Não repetir
+o flash nem apagar configurações como tentativa de correção. Rollback físico ainda não validado.
+
+Não existe garantia de risco zero em uma gravação. Falta de
 energia, seleção errada, bootloader, partições e defeito físico podem impedir o boot.
 Nenhum comando deste projeto grava um rádio automaticamente.
 

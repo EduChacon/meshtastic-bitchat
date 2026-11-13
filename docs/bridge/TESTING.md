@@ -2,7 +2,9 @@
 
 Estados: **COMP** compilado; **SIM** teste executado no host; **PREV** inferido do código;
 **NT** não testado; **HW** confirmado em hardware; **INC** incompatível com a política atual.
-Nenhum resultado deste projeto está classificado como HW nesta release.
+Nenhum sucesso funcional está classificado como HW nesta release. O primeiro boot reportado
+em Heltec V3 **falhou**, com watchdog da tarefa principal; ver [BOOT_INCIDENT](BOOT_INCIDENT.md).
+Os resultados de software abaixo não cobriam a inicialização real do Bluetooth.
 
 ## Testes executáveis sem rádio
 

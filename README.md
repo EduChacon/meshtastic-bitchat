@@ -6,7 +6,12 @@ Ponte embarcada experimental, derivada do firmware oficial Meshtastic. O objetiv
 os aplicativos originais Bitchat e Meshtastic, sem computador, MQTT, Nostr ou internet na
 operação. Computador continua necessário para compilar, instalar e diagnosticar.
 
-**Estado: implementação e validação de software; nenhum ensaio em rádio ou iPhone.**
+**Instalações suspensas: a pré-release `v0.1.0-experimental.2` apresentou travamento de boot
+em um Heltec V3, com reinício pelo watchdog.** Não instalar os pacotes publicados enquanto
+a causa e a recuperação não forem verificadas. O Cardputer permanece sem teste físico.
+Veja o [registro da falha e da investigação](docs/bridge/BOOT_INCIDENT.md).
+
+**Estado: validação de software concluída; primeiro boot físico reportado como falha.**
 Uma compilação bem-sucedida não comprova descoberta BLE, entrega, consumo, boot, atualização
 ou recuperação. Esta versão não é um produto validado para uso de campo.
 Consulte os resultados efetivamente executados em [TESTING](docs/bridge/TESTING.md).
@@ -42,7 +47,8 @@ binário universal ESP32 ou nRF52; instalar um arquivo de outro modelo pode impe
 ## Download
 
 Os arquivos estão em [Releases](https://github.com/EduChacon/meshtastic-bitchat/releases).
-Escolha a versão experimental mais recente e abra **Assets**:
+Os pacotes existentes permanecem disponíveis como evidência, **não para novas instalações**.
+Os nomes abaixo identificam os artefatos:
 
 | Placa                         | Pacote para upload próprio no flasher                            |
 | ----------------------------- | ---------------------------------------------------------------- |

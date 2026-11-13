@@ -120,7 +120,7 @@ jobs:
     if: >-
       (github.ref == 'refs/heads/main' && github.event_name == 'workflow_dispatch' && inputs.publish_release) ||
       (github.ref == 'refs/heads/fix/heltec-boot-memory' && github.event_name == 'push' && contains(github.event.head_commit.message, '[release-bootfix]')) ||
-      (github.ref == 'refs/heads/fix/bridge-menu' && github.event_name == 'push' && contains(github.event.head_commit.message, '[release-menufix]'))
+      (github.ref == 'refs/heads/fix/bridge-menu' && github.event_name == 'push' && contains(github.event.head_commit.message, '[release-defaults]'))
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     permissions:

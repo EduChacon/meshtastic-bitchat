@@ -6,6 +6,7 @@
 #include "concurrency/LockGuard.h"
 #include "nimble/nimble/host/include/host/ble_gatt.h"
 #include "nimble/nimble/host/include/host/ble_hs.h"
+#include "nimble/nimble/host/services/gatt/include/services/gatt/ble_svc_gatt.h"
 #include <NimBLEDevice.h>
 #include <atomic>
 #include <memory>
@@ -38,6 +39,9 @@ struct Outgoing {
 struct Link {
     uint16_t handle = NO_LINK;
     bool subscribed = false;
+    // A bonded phone's old subscription returns by itself; only a write shows the
+    // Bitchat app is there.
+    bool talked = false;
     uint32_t generation = 0;
     uint32_t receivedAt = 0;
     uint8_t incoming = NO_FRAME;
@@ -108,6 +112,7 @@ struct Links : std::array<Link, LINKS> {
             link.received.pop();
         }
         clearSent(link);
+        link.talked = false;
     }
 };
 static_assert(sizeof(Links) < 1024, "BLE startup must not reserve per-connection payloads");
@@ -154,6 +159,7 @@ class Callbacks : public NimBLECharacteristicCallbacks
             ++dropped;
             return;
         }
+        link->talked = true;
         Packet whole;
         if (decode(chunk, whole) == Result::Ok) {
             // Bitchat sends one frame per write, so a whole frame ends any stalled partial stream.
@@ -478,6 +484,44 @@ size_t bleSubscribers()
     for (const auto &link : *links)
         count += link.subscribed && link.handle != NO_LINK;
     return count;
+}
+size_t blePhones()
+{
+    concurrency::LockGuard guard(&lock);
+    size_t count = 0;
+    if (!links)
+        return 0;
+    for (const auto &link : *links)
+        count += link.subscribed && link.talked && link.handle != NO_LINK;
+    return count;
+}
+size_t bleConnections()
+{
+    concurrency::LockGuard guard(&lock);
+    size_t count = 0;
+    for (const auto &connection : connections)
+        count += connection.handle != NO_LINK;
+    return count;
+}
+void bleServicesChanged()
+{
+    // Asks connected and bonded phones to read the service list again instead of
+    // trusting an old copy.
+    ble_svc_gatt_changed(0x0001, 0xffff);
+}
+void bleDropConnections()
+{
+    std::array<uint16_t, LINKS> handles;
+    NimBLEServer *target = nullptr;
+    {
+        concurrency::LockGuard guard(&lock);
+        target = server;
+        for (size_t index = 0; index < LINKS; ++index)
+            handles[index] = connections[index].handle;
+    }
+    for (const uint16_t handle : handles)
+        if (target && handle != NO_LINK)
+            target->disconnect(handle);
 }
 uint32_t bleDrops()
 {

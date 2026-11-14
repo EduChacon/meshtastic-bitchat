@@ -67,7 +67,7 @@ void menuHandler::bitchatMenu()
         case 4: {
             const char *hint = bitchatBridge->hint();
             int used = snprintf(notice, sizeof(notice), "%s\n%s%sPhones connected: %u\n", bitchatBridge->status(), hint,
-                                hint[0] ? "\n" : "", unsigned(bitchat::bleSubscribers()));
+                                hint[0] ? "\n" : "", unsigned(bitchat::blePhones()));
             if (bitchatBridge->textChannel() == 255)
                 snprintf(notice + used, sizeof(notice) - used, "LoRa: off");
             else
@@ -129,7 +129,7 @@ void menuHandler::bitchatDetailMenu(screenMenus page)
         return;
     BannerOverlayOptions banner;
     static const char *back[] = {"Back"};
-    static const char *options[7];
+    static const char *options[8];
     static const char *lab[3];
     static const char *confirm[] = {"No - go back", "Yes - allow"};
     banner.optionsArrayPtr = back;
@@ -145,9 +145,10 @@ void menuHandler::bitchatDetailMenu(screenMenus page)
         options[4] = "Help";
         options[5] = "Advanced: tunnel";
         options[6] = "Diagnostics";
+        options[7] = "Reconnect phones";
         banner.message = "Bridge settings";
         banner.optionsArrayPtr = options;
-        banner.optionsCount = 7;
+        banner.optionsCount = 8;
         banner.bannerCallback = [](int selected) {
             switch (selected) {
             case 1: {
@@ -180,6 +181,10 @@ void menuHandler::bitchatDetailMenu(screenMenus page)
             case 6:
                 bitchatBridge->diagnostics(notice, sizeof(notice));
                 showNotice(BitchatOptions);
+                break;
+            case 7:
+                bitchatBridge->restartLinks();
+                showResult(true, "Bluetooth restarts.\nOpen Bitchat nearby", BitchatOptions);
                 break;
             default:
                 next(BitchatMenu);

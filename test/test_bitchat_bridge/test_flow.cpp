@@ -143,6 +143,11 @@ static std::vector<std::string> radio()
             messages.push_back(text({packet.decoded.payload.bytes, packet.decoded.payload.size}));
     return messages;
 }
+static std::string app(size_t index)
+{
+    const auto &packet = fakeApp.at(index);
+    return text({packet.decoded.payload.bytes, packet.decoded.payload.size});
+}
 static void fromLoRa(NodeNum from, const std::string &message, uint8_t channel = 1)
 {
     static uint32_t id = 5000;
@@ -422,6 +427,47 @@ int main()
         (message.rfind("caio: flood", 0) == 0 ? floods : others)++;
     CHECK(floods == 6 && others == 1 && bridge->drops() == before + 6);
 
+    // Self-test typed in the Meshtastic app attached to this radio (sender 0):
+    // answered in that app only, in any letter case, and neither sent by LoRa nor
+    // shown in Bitchat.
+    run(20000);
+    fakeRadio.clear();
+    fakeSent.clear();
+    fromLoRa(0, "!Bridge ");
+    run(100);
+    CHECK(fakeApp.size() == 2 && fakeRadio.empty() && fakeApp[0].channel == 1 && fakeApp[0].to == NODENUM_BROADCAST);
+    CHECK(app(0).rfind("[bridge] Ready: Bitchat + LoRa\nBluetooth 3, Bitchat 3, people ", 0) == 0);
+    CHECK(app(0).find("\nLoRa Bitchat out ") != std::string::npos && app(0).find("\nUTC ") != std::string::npos);
+    CHECK(app(0).size() <= 200 && app(1).rfind("[bridge] Bitchat link OK", 0) == 0);
+    // The same word arriving from another radio is not answered and not imported.
+    fromLoRa(0x1234, "!bridge");
+    run(100);
+    CHECK(fakeApp.size() == 2 && chat(ana.handle).empty());
+    // Asked from Bitchat: the signed answer reaches the phones, proving both
+    // directions; nothing goes to LoRa.
+    ana.write(ana.say("!ponte"));
+    run(3000);
+    CHECK(radio().empty() && chat(ana.handle, &bridgeId).size() == 1 && chat(bia.handle, &bridgeId).size() == 1);
+    CHECK(chat(ana.handle, &bridgeId)[0].rfind("[bridge] Ready: Bitchat + LoRa. Phones 3, people ", 0) == 0);
+    CHECK(chat(ana.handle, &bridgeId)[0].size() < 100 && chat(bia.handle, &ana.id) == std::vector<std::string>{"!ponte"});
+    // Several people asking at once get one answer; a reset is not accepted from
+    // Bitchat.
+    bia.write(bia.say("!bridge reset"));
+    caio.write(caio.say("!bridge"));
+    run(3000);
+    CHECK(chat(ana.handle, &bridgeId).size() == 1 && fakeServiceChanges == 0 && radio().empty());
+    // Reset from the owner's app: phones are told to read the services again,
+    // then every link is dropped.
+    const size_t dropsBefore = server.disconnected.size();
+    fromLoRa(0, "!ponte reset");
+    run(100);
+    CHECK(fakeApp.size() == 3 && app(2).find("restarts in 3 s") != std::string::npos);
+    CHECK(fakeServiceChanges == 1 && server.disconnected.size() == dropsBefore);
+    run(3100);
+    CHECK(fakeServiceChanges == 1 && server.disconnected.size() == dropsBefore + 3);
+    run(5000);
+    CHECK(server.disconnected.size() == dropsBefore + 3);
+
     // No phone connected: nothing is signed, queued or written to flash for nobody.
     for (const auto *phone : {&ana, &bia, &caio})
         bleDisconnect(phone->handle);
@@ -430,6 +476,26 @@ int main()
     fromLoRa(0x1234, "ninguem ouvindo");
     run(25000);
     CHECK(fakeSent.empty() && Preferences::writes == writes);
+    // A bonded phone's old subscription returns by itself when the Meshtastic app
+    // reconnects. That is not a Bitchat phone: it is not counted, nothing is
+    // imported for it, and the self-test says so.
+    Phone ghost("ghost", 20, 15);
+    ghost.connect();
+    run(200);
+    CHECK(bleConnections() == 1 && bleSubscribers() == 1 && blePhones() == 0);
+    fromLoRa(0x1234, "para ninguem");
+    fakeApp.clear();
+    fromLoRa(0, "!bridge");
+    run(3000);
+    CHECK(chat(ghost.handle).empty() && fakeApp.size() == 2);
+    CHECK(app(0).find("\nBluetooth 1, Bitchat 0, people ") != std::string::npos);
+    CHECK(app(1).find("No Bitchat app has talked to this radio") != std::string::npos && app(1).size() <= 200);
+    // Once the app writes its announcement, it counts.
+    ghost.write(ghost.announce());
+    run(200);
+    CHECK(blePhones() == 1);
+    bleDisconnect(ghost.handle);
+    CHECK(blePhones() == 0 && bleConnections() == 0);
 
     // Settings survive a restart.
     CHECK(bridge->setPrefixOnly(true) && bridge->setEconomy(true));
@@ -504,6 +570,13 @@ int main()
     run(15000);
     CHECK(channels.items[1].role == meshtastic_Channel_Role_DISABLED);
     CHECK(std::string(bridge->status()) == "Ready: Bitchat only");
+    // The self-test answers even with the bridge turned off.
+    CHECK(bridge->setEnabled(false));
+    fakeApp.clear();
+    fromLoRa(0, "!bridge", 0);
+    run(1100);
+    CHECK(fakeApp.size() == 2 && fakeApp[0].channel == 0 && app(0).rfind("[bridge] Bridge is off\n", 0) == 0);
+    CHECK(app(1) == "[bridge] Menu: System > Bitchat");
     delete bridge;
     bleDetach();
     CHECK(liveBytes == 0);

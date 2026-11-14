@@ -142,6 +142,15 @@ static void identitiesAndText()
     CHECK(publicTextForLoRa(typed, body) == Result::Policy);
     typed.payload = utf8("[MT Ana] hello");
     CHECK(publicTextForLoRa(typed, body) == Result::Policy);
+    typed.payload = utf8("[bridge] Ready");
+    CHECK(publicTextForLoRa(typed, body) == Result::Policy);
+    // The self-test word, as phone keyboards send it; anything longer is ordinary
+    // text.
+    CHECK(bridgeCommand(utf8("!bridge")) == Command::Status && bridgeCommand(utf8(" !Ponte \n")) == Command::Status);
+    CHECK(bridgeCommand(utf8("!BRIDGE RESET")) == Command::Reset && bridgeCommand(utf8("!ponte reset")) == Command::Reset);
+    CHECK(bridgeCommand(utf8("!bridge is nice")) == Command::None && bridgeCommand(utf8("bridge")) == Command::None);
+    CHECK(bridgeCommand(utf8("!bridges")) == Command::None && bridgeCommand(utf8("")) == Command::None);
+    CHECK(bridgeCommand(utf8("!lora !bridge")) == Command::None && bridgeCommand(utf8("!ponte  reset")) == Command::None);
     typed.payload = utf8("ok");
     typed.flags &= uint8_t(~2);
     CHECK(publicTextForLoRa(typed, body) == Result::Policy);

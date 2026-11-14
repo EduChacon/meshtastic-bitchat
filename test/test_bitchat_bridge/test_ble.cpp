@@ -57,6 +57,9 @@ int main()
     c.callbacks->onSubscribe(&c, &b, 1);
     c.callbacks->onSubscribe(&c, &d, 1);
     assert(bleSubscribers() == 3);
+    // A subscription alone may be a bonded phone's restored one; a write is what
+    // shows the app.
+    assert(blePhones() == 0 && bleConnections() == 3);
     Frame frame;
     const uint8_t body[] = {'h', 'i'};
     assert(encode(2, PeerId{1}, nullptr, 1, 7, {body, sizeof(body)}, {}, frame) == Result::Ok);
@@ -68,6 +71,13 @@ int main()
     c.callbacks->onWrite(&c, &a);
     assert(bleReceive(received));
     assert(received.link == 7 && equalConstantTime(received.frame.bytes(), frame.bytes()));
+    assert(blePhones() == 1);
+    const size_t droppedLinks = server.disconnected.size();
+    bleDropConnections();
+    assert(server.disconnected.size() == droppedLinks + 3);
+    server.disconnected.resize(droppedLinks);
+    bleServicesChanged();
+    assert(fakeServiceChanges == 1);
 
     c.value.assign(reinterpret_cast<const char *>(frame.data.data()), frame.size);
     const auto before = bleDrops();

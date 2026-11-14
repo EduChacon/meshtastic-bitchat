@@ -11,7 +11,7 @@
 using Digest = std::array<uint8_t, 32>;
 namespace bitchat
 {
-size_t bleSubscribers()
+size_t blePhones()
 {
     return 1;
 }
@@ -113,6 +113,8 @@ class BitchatBridgeModule
         return persist();
     }
     void openNativeWindow() { nativeWindow = true; }
+    unsigned restarts = 0;
+    void restartLinks() { ++restarts; }
     const char *status() const { return storageOk ? "Check connection" : "Storage error"; }
 } bridge;
 static constexpr uint32_t BUDGET_MS = 12000;
@@ -309,9 +311,12 @@ int main()
     click(4);
     assert(shows("#mesh"));
     click(0);
-    assert(display.options.size() == 7);
+    assert(display.options.size() == 8);
     click(6);
     assert(shows("UTC 12:00:00 app") && shows("rx 1 ok 1"));
+    click(0);
+    click(7);
+    assert(bridge.restarts == 1 && shows("Bluetooth restarts"));
     click(0);
     click(5);
     click(2);

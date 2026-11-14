@@ -6,7 +6,7 @@ Ponte embarcada derivada do firmware oficial Meshtastic. O objetivo é usar
 os aplicativos originais Bitchat e Meshtastic, sem computador, MQTT, Nostr ou internet na
 operação. Computador continua necessário para compilar, instalar e diagnosticar.
 
-**Versão atual (beta): [v1.0.0-beta.2](https://github.com/EduChacon/meshtastic-bitchat/releases/tag/v1.0.0-beta.2).** Dispensa o `!lora`, corrige perdas
+**Versão atual (beta): [v1.0.0-beta.3](https://github.com/EduChacon/meshtastic-bitchat/releases/tag/v1.0.0-beta.3).** Dispensa o `!lora`, corrige perdas
 de mensagem em conversa de grupo, recupera a hora sem o aplicativo Meshtastic, simplifica o
 menu e acrescenta oito aparelhos ESP32-S3. [O que mudou e por quê](docs/bridge/CHANGES.md).
 
@@ -53,8 +53,8 @@ servem como nós com firmware original no modo B. [Matriz e condições](docs/br
 
 ## Instalar
 
-1. Em [v1.0.0-beta.2](https://github.com/EduChacon/meshtastic-bitchat/releases/tag/v1.0.0-beta.2), baixar
-   **`meshtastic-bitchat-1.0.0-beta.2.zip`**. É um arquivo só, para os dez aparelhos.
+1. Em [v1.0.0-beta.3](https://github.com/EduChacon/meshtastic-bitchat/releases/tag/v1.0.0-beta.3), baixar
+   **`meshtastic-bitchat-1.0.0-beta.3.zip`**. É um arquivo só, para os dez aparelhos.
 2. No [Web Flasher oficial](https://flasher.meshtastic.org/), escolher a placa, carregar o ZIP
    e usar **Atualizar / Update**. Não selecionar **Apagar Flash e Instalar**. Se a placa
    oferecer a interface colorida (MUI), deixar desmarcada.
@@ -82,9 +82,17 @@ Depois de gravar, a ponte já está ligada, com o canal público `Bitchat` criad
 compartilha a mesma sala. Para um grupo fechado, criar um canal secundário com chave própria
 no aplicativo Meshtastic e escolhê-lo em `System → Bitchat bridge → Bitchat + LoRa`.
 
+**Testar a ponte.** No aplicativo Meshtastic conectado ao rádio da ponte, enviar `!bridge` (ou
+`!ponte`) no canal `Bitchat`: a ponte responde ali mesmo, só para esse aplicativo, com o
+estado, quantos telefones Bitchat estão de fato falando com ela e o que fazer. No Bitchat,
+enviar `!bridge` no `#mesh`: a resposta `[bridge] …` prova que o Bluetooth funciona nos dois
+sentidos. `!bridge reset`, só pelo aplicativo Meshtastic, derruba as conexões Bluetooth e
+manda os telefones lerem de novo os serviços do rádio. O texto do comando segue pelo LoRa como
+qualquer mensagem do canal, e as demais pontes o ignoram.
+
 Ajustes opcionais, no rádio com tela: `Bitchat only`, `Bitchat + LoRa`, `Turn bridge off`,
 `Status` e `Settings` (`LoRa: all messages` ou `LoRa: only !lora`, `Battery saver`,
-`Find Meshtastic app`). A tela de estado mostra em frases o que acontece e o que fazer.
+`Find Meshtastic app`, `Reconnect phones`). A tela de estado mostra em frases o que acontece e o que fazer.
 
 ## Construção e documentação
 
@@ -92,8 +100,8 @@ Base: Meshtastic **2.7.26.54e0d8d**, commit `54e0d8d0ab2ff56b3a9ce967e53f79e49af
 Bitchat de referência: iOS **1.8.0**, commit `30c58eee349e172b37f69faa2113c9d5f2c76c23`.
 
 ```sh
-git fetch origin tag v1.0.0-beta.2
-git checkout --detach v1.0.0-beta.2
+git fetch origin tag v1.0.0-beta.3
+git checkout --detach v1.0.0-beta.3
 python3 -m venv .venv
 .venv/bin/python -m pip install platformio==6.2.0 intelhex==2.3.0
 git submodule update --init protobufs

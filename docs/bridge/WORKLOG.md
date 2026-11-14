@@ -124,6 +124,19 @@ sentidos. A `.2` acrescenta `Settings → Diagnostics` para separar essas hipót
 exame do aplicativo foi encontrado e corrigido outro defeito, sem relação demonstrada com esse
 sintoma: texto de 100 bytes ou mais assinado pela ponte era recusado pelo telefone.
 
+Terceiro passo do mesmo relato. O aplicativo instalado é o 1.8.0 de referência, o que afasta a
+hipótese de versão. A leitura da biblioteca NimBLE-Arduino 1.4.3 mostrou que a inscrição de um
+telefone pareado é gravada e restaurada sozinha a cada reconexão, e que a ponte contava essa
+inscrição como `Phones`. O `Phones 1` da foto, portanto, não prova que o Bitchat estava
+conectado. Hipótese compatível com a evidência, **não confirmada**: o Bitchat não se conectou
+enquanto o aplicativo Meshtastic estava conectado ao mesmo rádio pelo mesmo telefone. O rádio
+é periférico e não consegue iniciar a conexão; consegue anunciar, limpar o próprio estado e
+informar o que vê. A `.3` faz as três coisas: `Phones` conta só o telefone que enviou dado do
+Bitchat; `!bridge`, digitado no aplicativo Meshtastic ou no Bitchat, devolve o relatório; e
+`!bridge reset` ou `Reconnect phones` envia a indicação de serviços alterados e derruba as
+conexões. Não verificado em aparelho: como cada aplicativo exibe a resposta e o efeito da
+indicação de serviços alterados no iOS.
+
 ## Investigação de boot — 2026-11-13
 
 As instalações foram suspensas nos dois READMEs e nas pré-releases, preservando os arquivos

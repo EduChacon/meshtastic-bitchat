@@ -18,6 +18,7 @@ constexpr size_t TEXT_BUFFER = 280;
 constexpr char LORA_PREFIX[] = "!lora ";
 constexpr char TUNNEL_PREFIX[] = "!bctun ";
 constexpr char IMPORT_PREFIX[] = "[MT ";
+constexpr char REPLY_PREFIX[] = "[bridge] ";
 constexpr size_t TUNNEL_TEXT_LIMIT = 127;
 
 struct NativeText {
@@ -31,6 +32,10 @@ struct TextPlan {
     std::array<uint16_t, BITCHAT_PARTS + 1> offsets{};
 };
 
+enum class Command : uint8_t { None, Status, Reset };
+// "!bridge" or "!ponte" in any letter case asks for a self-test; " reset" after
+// it restarts the Bluetooth links.
+Command bridgeCommand(Bytes text);
 Result publicTextForLoRa(const Packet &packet, Bytes &body);
 size_t cleanLabel(Bytes name, char *output, size_t capacity);
 Result planNativeText(size_t labelSize, Bytes body, TextPlan &plan);

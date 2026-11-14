@@ -129,7 +129,12 @@ System → Bitchat bridge
     Find Meshtastic app (5 min) / Back to Bitchat now
     Help
     Advanced: tunnel  laboratório, com confirmação própria
+    Diagnostics       relógio, pacotes e recusas por motivo
+    Reconnect phones  derruba as conexões Bluetooth para recomeçar
 ```
+
+O mesmo relatório sai por mensagem: `!bridge` (ou `!ponte`) no aplicativo Meshtastic conectado
+ao rádio da ponte ou no `#mesh` do Bitchat. [Comando de teste](DEFAULTS.md#comando-de-teste).
 
 A tela de estado mostra, na última linha, o que fazer quando há algo a fazer (`Open
 Bitchat nearby`, `Choose it again in menu`, `Restart the radio`). `Not delivered` conta

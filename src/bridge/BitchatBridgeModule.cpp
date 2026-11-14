@@ -515,6 +515,96 @@ void BitchatBridgeModule::diagnostics(char *out, size_t size) const
              count(Result::Unsupported), count(Result::Policy), count(Result::Full));
 }
 
+static void displayCount(uint32_t value, char out[8])
+{
+    const char *suffix = "";
+    if (value >= 1000000000) {
+        value /= 1000000000;
+        suffix = "G";
+    } else if (value >= 1000000) {
+        value /= 1000000;
+        suffix = "M";
+    } else if (value >= 100000) {
+        value /= 1000;
+        suffix = "k";
+    }
+    snprintf(out, 8, "%lu%s", static_cast<unsigned long>(value), suffix);
+}
+
+void BitchatBridgeModule::replyToApp(const char *text)
+{
+    auto *reply = router->allocForSending();
+    if (!reply)
+        return;
+    reply->to = NODENUM_BROADCAST;
+    reply->channel = appChannel;
+    reply->decoded.portnum = meshtastic_PortNum_TEXT_MESSAGE_APP;
+    reply->decoded.payload.size = std::min(strlen(text), LORA_TEXT_LIMIT);
+    std::copy_n(text, reply->decoded.payload.size, reply->decoded.payload.bytes);
+    // Shown only in the app attached to this radio; nothing goes on the air.
+    service->sendToPhone(reply);
+}
+
+// Self-test asked from the Meshtastic app: what the bridge sees, then what to
+// do about it.
+void BitchatBridgeModule::answerApp()
+{
+    const Command command = appCommand;
+    appCommand = Command::None;
+    char text[LORA_TEXT_LIMIT + 1];
+    if (command == Command::Reset) {
+        restartLinks();
+        replyToApp("[bridge] Bluetooth restarts in 3 s. Then open Bitchat near the "
+                   "radio and wait 1 min.");
+        return;
+    }
+    const unsigned phones = unsigned(blePhones()), people = unsigned(runtime ? runtime->peers->size() : 0);
+    char detail[100], tx[8], rx[8], missed[8];
+    diagnostics(detail, sizeof(detail));
+    displayCount(submittedRadio, tx);
+    displayCount(importedRadio, rx);
+    displayCount(drops(), missed);
+    snprintf(text, sizeof(text),
+             "[bridge] %s\nBluetooth %u, Bitchat %u, people %u\nLoRa %.11s out "
+             "%s in %s lost %s\n%s",
+             status(), unsigned(bleConnections()), phones, people, textReady ? channels.getName(settings.textChannel) : "off", tx,
+             rx, missed, detail);
+    replyToApp(text);
+    if (hint()[0])
+        snprintf(text, sizeof(text), "[bridge] %s", hint());
+    else if (!wasActive)
+        snprintf(text, sizeof(text), "[bridge] The bridge is not running: %s", status());
+    else if (!phones)
+        snprintf(text, sizeof(text),
+                 "[bridge] No Bitchat app has talked to this radio. Open Bitchat "
+                 "nearby and wait 1 min. If it stays at 0, "
+                 "close this app and try again, or send: !bridge reset");
+    else if (!people)
+        snprintf(text, sizeof(text),
+                 "[bridge] Bitchat is talking but nobody was accepted: see old, "
+                 "sig and fmt above.");
+    else
+        snprintf(text, sizeof(text),
+                 "[bridge] Bitchat link OK. Send !bridge in Bitchat #mesh to test "
+                 "the way back.");
+    replyToApp(text);
+}
+
+// Self-test asked from Bitchat: seeing this answer proves both directions of
+// the Bluetooth link.
+void BitchatBridgeModule::answerBitchat()
+{
+    char text[BITCHAT_TEXT_LIMIT + 1], tx[8], rx[8], missed[8];
+    displayCount(submittedRadio, tx);
+    displayCount(importedRadio, rx);
+    displayCount(drops(), missed);
+    const int size = snprintf(text, sizeof(text), "%s%s. Phones %u, people %u. LoRa out %s, in %s, lost %s", REPLY_PREFIX,
+                              status(), unsigned(blePhones()), unsigned(runtime->peers->size()), tx, rx, missed);
+    if (!Throttle::isWithinTimespanMsAt(announcedAt, 5000, millis()))
+        announce();
+    originate(2, {reinterpret_cast<const uint8_t *>(text), std::min<size_t>(size, BITCHAT_TEXT_LIMIT)});
+}
+
 void BitchatBridgeModule::reject(Result result)
 {
     if (result != Result::Ok && result != Result::Incomplete)
@@ -741,6 +831,15 @@ bool BitchatBridgeModule::handleFrame(Bytes frame, uint16_t source, bool fromTun
     if (fromTunnel)
         return true;
     const bool publicMessage = packet.type == 2 && !packet.directed();
+    if (publicMessage && !packet.compressed() && bridgeCommand(packet.payload) != Command::None) {
+        // Anyone nearby may ask, so answers are spaced out; a reset is accepted
+        // only from the owner's app.
+        if (!Throttle::isWithinTimespanMsAt(repliedAt, 5000, now)) {
+            repliedAt = now;
+            answerBitchat();
+        }
+        return true;
+    }
     if (textReady && publicMessage && !startsWith(packet.payload, TUNNEL_PREFIX) &&
         (!settings.reserved[1] || startsWith(packet.payload, LORA_PREFIX))) {
         exportText(packet, *peer, id);
@@ -799,22 +898,37 @@ void BitchatBridgeModule::exportText(const Packet &packet, Peer &peer, const Dig
 
 bool BitchatBridgeModule::wantPacket(const meshtastic_MeshPacket *packet)
 {
-    return settings.enabled && runtime && wasActive &&
-           (packet->decoded.portnum == meshtastic_PortNum_TEXT_MESSAGE_APP ||
-            packet->decoded.portnum == meshtastic_PortNum_PRIVATE_APP);
+    // Text is always read so the self-test answers even while the bridge is off
+    // or waiting.
+    return packet->decoded.portnum == meshtastic_PortNum_TEXT_MESSAGE_APP ||
+           (settings.enabled && runtime && wasActive && packet->decoded.portnum == meshtastic_PortNum_PRIVATE_APP);
 }
 
 ProcessMessage BitchatBridgeModule::handleReceived(const meshtastic_MeshPacket &packet)
 {
-    if (!wantPacket(&packet) || !storageReady || !identityReady || !utc() || packet.to != NODENUM_BROADCAST || packet.via_mqtt ||
+    if (!wantPacket(&packet) || packet.to != NODENUM_BROADCAST || packet.via_mqtt ||
         packet.which_payload_variant != meshtastic_MeshPacket_decoded_tag)
         return ProcessMessage::CONTINUE;
-    refreshChannels();
     Bytes payload{packet.decoded.payload.bytes, packet.decoded.payload.size};
+    if (packet.decoded.portnum == meshtastic_PortNum_TEXT_MESSAGE_APP) {
+        const Command command = bridgeCommand(payload);
+        if (command != Command::None) {
+            // Answered on the next tick, and only to the app attached to this radio;
+            // never forwarded to Bitchat.
+            if (isFromUs(&packet)) {
+                appCommand = command;
+                appChannel = packet.channel;
+            }
+            return ProcessMessage::CONTINUE;
+        }
+    }
+    if (!settings.enabled || !runtime || !wasActive || !storageReady || !identityReady || !utc())
+        return ProcessMessage::CONTINUE;
+    refreshChannels();
     if (textReady && !textConflict && !textGuard() && packet.channel == settings.textChannel &&
         packet.decoded.portnum == meshtastic_PortNum_TEXT_MESSAGE_APP) {
         // Bitchat keeps no mailbox on the bridge: without a phone connected there is nobody to deliver to.
-        if (!bleSubscribers())
+        if (!blePhones())
             return ProcessMessage::CONTINUE;
         const NodeNum from = getFrom(&packet);
         std::array<uint8_t, 42> material{};
@@ -953,6 +1067,18 @@ int32_t BitchatBridgeModule::runOnce()
         wasActive = active;
     }
     updateClockWindow();
+    if (appCommand != Command::None)
+        answerApp();
+    if (restart == 1 && bluetoothReady) {
+        bleServicesChanged();
+        restart = 2;
+        restartAt = now;
+    } else if (restart == 2 && !Throttle::isWithinTimespanMsAt(restartAt, 3000, now)) {
+        restart = 0;
+        if (bluetoothReady)
+            bleDropConnections();
+        advertisingChanged = true;
+    }
     if (advertisingChanged) {
         bleConfigure(active, nativeWindow || clockWindow, settings.economy);
         if (nimbleBluetooth && nimbleBluetooth->isActive() && !nimbleBluetooth->isDeInit)
@@ -999,22 +1125,6 @@ int32_t BitchatBridgeModule::runOnce()
 }
 
 #if HAS_SCREEN
-static void displayCount(uint32_t value, char out[8])
-{
-    const char *suffix = "";
-    if (value >= 1000000000) {
-        value /= 1000000000;
-        suffix = "G";
-    } else if (value >= 1000000) {
-        value /= 1000000;
-        suffix = "M";
-    } else if (value >= 100000) {
-        value /= 1000;
-        suffix = "k";
-    }
-    snprintf(out, 8, "%lu%s", static_cast<unsigned long>(value), suffix);
-}
-
 void BitchatBridgeModule::drawFrame(OLEDDisplay *display, OLEDDisplayUiState *, int16_t x, int16_t y)
 {
     display->setFont(FONT_SMALL);
@@ -1023,8 +1133,7 @@ void BitchatBridgeModule::drawFrame(OLEDDisplay *display, OLEDDisplayUiState *, 
     display->drawString(x, y, "Bitchat bridge");
     display->drawString(x, y + row, status());
     char line[60];
-    snprintf(line, sizeof(line), "Phones %u  People %u", unsigned(bleSubscribers()),
-             unsigned(runtime ? runtime->peers->size() : 0));
+    snprintf(line, sizeof(line), "Phones %u  People %u", unsigned(blePhones()), unsigned(runtime ? runtime->peers->size() : 0));
     display->drawString(x, y + 2 * row, line);
     char tx[8], rx[8], missed[8];
     displayCount(submittedRadio, tx);

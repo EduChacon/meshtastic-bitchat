@@ -103,3 +103,8 @@ inline int ble_gatts_notify_custom(uint16_t handle, uint16_t, os_mbuf *buffer)
     return fakeNotifyResult;
 }
 constexpr int BLE_HS_ENOMEM = 6;
+inline unsigned fakeServiceChanges = 0;
+inline void ble_svc_gatt_changed(uint16_t, uint16_t)
+{
+    ++fakeServiceChanges;
+}

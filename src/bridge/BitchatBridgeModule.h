@@ -33,6 +33,7 @@ class BitchatBridgeModule : public MeshModule, private concurrency::OSThread
     const char *status() const;
     const char *hint() const;
     void diagnostics(char *out, size_t size) const;
+    void restartLinks() { restart = 1; }
     uint32_t drops() const;
 #if HAS_SCREEN
     void drawFrame(OLEDDisplay *, OLEDDisplayUiState *, int16_t x, int16_t y) override;
@@ -105,6 +106,15 @@ class BitchatBridgeModule : public MeshModule, private concurrency::OSThread
     };
     std::unique_ptr<Runtime> runtime;
     bool resourceError = false;
+    // 0 idle, 1 requested, 2 phones were told to read the services again and the
+    // links drop next.
+    uint8_t restart = 0;
+    bitchat::Command appCommand = bitchat::Command::None;
+    uint8_t appChannel = 0;
+    uint32_t restartAt = 0, repliedAt = 0;
+    void answerApp();
+    void answerBitchat();
+    void replyToApp(const char *text);
     bool ensureRuntime();
     void applyDefaults();
     uint8_t provisionPublicChannel();

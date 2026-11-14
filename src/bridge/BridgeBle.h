@@ -25,6 +25,10 @@ bool bleReceive(BleInput &output);
 bool bleBroadcast(Bytes frame, uint16_t exclude = NO_LINK);
 void blePoll();
 size_t bleSubscribers();
+size_t blePhones();
+size_t bleConnections();
+void bleServicesChanged();
+void bleDropConnections();
 uint32_t bleDrops();
 bool bleNeedsAnnouncement();
 } // namespace bitchat

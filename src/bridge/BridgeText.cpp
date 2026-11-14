@@ -79,11 +79,36 @@ static Result splitText(Bytes body, size_t room, size_t reach, size_t parts, Tex
     return Result::Ok;
 }
 
+Command bridgeCommand(Bytes text)
+{
+    while (text.size && (text.data[0] == ' ' || text.data[0] == '\n'))
+        text = {text.data + 1, text.size - 1};
+    while (text.size && (text.data[text.size - 1] == ' ' || text.data[text.size - 1] == '\n' || text.data[text.size - 1] == '\r'))
+        --text.size;
+    char word[16];
+    if (text.size < 6 || text.size >= sizeof(word) || text.data[0] != '!')
+        return Command::None;
+    // Phone keyboards capitalise on their own.
+    for (size_t i = 0; i < text.size; ++i)
+        word[i] = text.data[i] >= 'A' && text.data[i] <= 'Z' ? char(text.data[i] + 32) : char(text.data[i]);
+    word[text.size] = 0;
+    for (const char *name : {"!bridge", "!ponte"}) {
+        const size_t length = std::strlen(name);
+        if (!std::strncmp(word, name, length)) {
+            if (!word[length])
+                return Command::Status;
+            if (!std::strcmp(word + length, " reset"))
+                return Command::Reset;
+        }
+    }
+    return Command::None;
+}
+
 Result publicTextForLoRa(const Packet &p, Bytes &body)
 {
     body = {};
     if (p.type != 2 || p.directed() || !p.signedPacket() || p.compressed() || p.replay() ||
-        startsWith(p.payload, TUNNEL_PREFIX) || startsWith(p.payload, IMPORT_PREFIX))
+        startsWith(p.payload, TUNNEL_PREFIX) || startsWith(p.payload, IMPORT_PREFIX) || startsWith(p.payload, REPLY_PREFIX))
         return Result::Policy;
     body = p.payload;
     if (startsWith(body, LORA_PREFIX))

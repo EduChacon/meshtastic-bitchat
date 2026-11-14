@@ -136,7 +136,11 @@ inline uint32_t getValidTime(RTCQuality)
 }
 
 enum RxSource { RX_SRC_LOCAL };
-inline std::vector<meshtastic_MeshPacket> fakeRadio;
+inline std::vector<meshtastic_MeshPacket> fakeRadio, fakeApp;
+inline bool isFromUs(const meshtastic_MeshPacket *p)
+{
+    return p->from == 0 || p->from == nodeDB->getNodeNum();
+}
 inline unsigned fakeQueueFree = 8;
 struct Router {
     uint32_t nextId = 100;
@@ -163,6 +167,11 @@ inline struct MeshService {
     void sendToMesh(meshtastic_MeshPacket *packet, RxSource, bool)
     {
         fakeRadio.push_back(*packet);
+        delete packet;
+    }
+    void sendToPhone(meshtastic_MeshPacket *packet)
+    {
+        fakeApp.push_back(*packet);
         delete packet;
     }
 } fakeService;

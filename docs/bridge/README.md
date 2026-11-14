@@ -1,7 +1,7 @@
 # Documentação da ponte
 
-Versão descrita: **1.0 beta**. Nenhum aparelho foi ensaiado com ela; os documentos dizem, em
-cada ponto, o que foi apenas simulado ou compilado.
+Versão descrita: **1.0 beta**. Um Heltec V3 foi relatado em funcionamento com a `1.0.0-beta.4`,
+em uma sessão; os documentos dizem, em cada ponto, o que foi apenas simulado ou compilado.
 
 ## Para usar
 
@@ -9,6 +9,8 @@ cada ponto, o que foi apenas simulado ou compilado.
   primeiro uso, menu e tela.
 - [Aparelhos e cobertura](COMPATIBILITY.md): os dez alvos, os que ficaram de fora e o que
   cada modo cobre.
+- [SenseCAP T1000-E, experimental](T1000E.md): compilação de ensaio para o chip nRF52840, ainda
+  sem ensaio em aparelho.
 - [O que mudou na 1.0](CHANGES.md): mudanças desde a `experimental.5`, motivos, limites e
   custos assumidos.
 

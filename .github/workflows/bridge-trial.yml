@@ -1,6 +1,6 @@
-name: Bridge nRF52 experimental build
+name: Bridge trial builds
 
-# Builds the nRF52 targets of the bridge on working branches. It publishes nothing.
+# Builds trial firmware on working branches: the nRF52 targets and one ESP32 package. It publishes nothing.
 on:
   push:
     branches: ["claude/**"]
@@ -67,3 +67,45 @@ jobs:
             .pio/build/${{ matrix.environment }}/firmware*.uf2
             .pio/build/${{ matrix.environment }}/firmware*.hex
             .pio/build/${{ matrix.environment }}/firmware*.zip
+
+  esp32:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    env:
+      BRIDGE_ENV: heltec-v3-bitchat
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          fetch-depth: 0
+          submodules: recursive
+          persist-credentials: false
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        with:
+          python-version: "3.12.8"
+      - name: Install isolated build tools
+        run: python -m pip install platformio==6.2.0 intelhex==2.3.0
+      - name: Compile
+        run: |
+          set -o pipefail
+          mkdir -p evidence dist
+          pio run -e "$BRIDGE_ENV" -t buildprog 2>&1 | tee evidence/build.log
+      - name: Package for the web flasher
+        run: |
+          python tools/bridge/package_release.py --environment "$BRIDGE_ENV"
+          python tools/bridge/verify_artifact.py dist/meshtastic-bitchat-*.zip --model "${BRIDGE_ENV%-bitchat}" --package-only
+      - name: Report
+        if: always()
+        run: |
+          grep -E "^(RAM|Flash):" evidence/build.log | while read -r line; do echo "::notice::$line"; done || true
+          errors="$(grep -E "error:|overflowed|undefined reference" evidence/build.log | sort -u | head -40 |
+            sed 's/%/%25/g' | awk '{printf "%s%%0A", $0}')"
+          [ -z "$errors" ] || echo "::error::$errors"
+      - name: Keep the build
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: esp32-heltec-v3-bitchat
+          if-no-files-found: warn
+          path: |
+            evidence/build.log
+            dist/*.zip

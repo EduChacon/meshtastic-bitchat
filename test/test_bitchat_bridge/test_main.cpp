@@ -151,6 +151,10 @@ static void identitiesAndText()
     CHECK(bridgeCommand(utf8("!bridge is nice")) == Command::None && bridgeCommand(utf8("bridge")) == Command::None);
     CHECK(bridgeCommand(utf8("!bridges")) == Command::None && bridgeCommand(utf8("")) == Command::None);
     CHECK(bridgeCommand(utf8("!lora !bridge")) == Command::None && bridgeCommand(utf8("!ponte  reset")) == Command::None);
+    CHECK(bridgeCommand(utf8("!bridge on")) == Command::On && bridgeCommand(utf8("!PONTE OFF")) == Command::Off);
+    CHECK(bridgeCommand(utf8("!Bridge Local")) == Command::Local && bridgeCommand(utf8("!ponte lora")) == Command::Lora);
+    CHECK(bridgeCommand(utf8("!bridge help")) == Command::Help && bridgeCommand(utf8("!bridge onn")) == Command::None);
+    CHECK(bridgeCommand(utf8("!bridge o")) == Command::None && bridgeCommand(utf8("!bridge off now")) == Command::None);
     typed.payload = utf8("ok");
     typed.flags &= uint8_t(~2);
     CHECK(publicTextForLoRa(typed, body) == Result::Policy);

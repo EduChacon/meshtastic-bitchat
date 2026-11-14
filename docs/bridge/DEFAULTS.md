@@ -102,6 +102,15 @@ O comando é uma mensagem de texto comum; maiúsculas e minúsculas não importa
 | Aplicativo Meshtastic conectado ao rádio da ponte | `!bridge` ou `!ponte`           | Três respostas `[bridge] …` naquele aplicativo: o relatório, as conexões e o que fazer. Nada é transmitido |
 | Aplicativo Meshtastic conectado ao rádio da ponte | `!bridge reset`, `!ponte reset` | O mesmo que `Reconnect phones`                                                                             |
 | Bitchat, no `#mesh`                               | `!bridge` ou `!ponte`           | Uma resposta `[bridge] …` assinada pela ponte, no máximo uma a cada 5 segundos                             |
+| Aplicativo Meshtastic conectado ao rádio da ponte | `!bridge off`                   | Desliga a ponte (o mesmo que `Turn bridge off`)                                                            |
+| Aplicativo Meshtastic conectado ao rádio da ponte | `!bridge on`                    | Liga a ponte de novo, no modo que estava salvo                                                             |
+| Aplicativo Meshtastic conectado ao rádio da ponte | `!bridge local`                 | `Bitchat only`: só o relé por Bluetooth, nada vai ao LoRa                                                  |
+| Aplicativo Meshtastic conectado ao rádio da ponte | `!bridge lora`                  | `Bitchat + LoRa` no canal em que o comando foi enviado; o canal precisa ser secundário, com nome e chave   |
+| Aplicativo Meshtastic conectado ao rádio da ponte | `!bridge help`                  | Lista os comandos                                                                                          |
+
+Os comandos que mudam o estado (`on`, `off`, `local`, `lora`, `reset`) só valem quando digitados
+no aplicativo Meshtastic conectado ao próprio rádio. Vindos de outro rádio ou do Bitchat, não
+mudam nada. `!ponte` aceita as mesmas palavras.
 
 No relatório, `Bluetooth` é o número de conexões Bluetooth de qualquer aplicativo, `Bitchat` é
 o número de telefones que enviaram algum dado do Bitchat nesta conexão e `people` é o número
@@ -133,9 +142,21 @@ conectou e ficou mudo, ou a inscrição restaurada de um telefone pareado; `Not 
 Os padrões automáticos não dependem de tela. O pareamento do aplicativo Meshtastic continua
 exigindo o PIN ou um vínculo existente; esta versão não remove autenticação nem troca o PIN.
 A [documentação oficial de Bluetooth](https://meshtastic.org/docs/configuration/radio/bluetooth/)
-explica os modos de PIN. Em ESP32, Wi-Fi habilitado impede o Bluetooth nesta base. Sem tela
-não há como mudar o modo da ponte: desligar o Bluetooth pelo aplicativo interrompe também a
-ponte. Nenhum aparelho sem tela foi ensaiado.
+explica os modos de PIN. Em ESP32, Wi-Fi habilitado impede o Bluetooth nesta base.
+
+Depois da `1.0.0-beta.4`, ainda sem publicação:
+
+a) os modos da ponte podem ser trocados pelos comandos `!bridge on`, `off`, `local` e `lora`,
+descritos acima, sem tela;
+
+b) o serviço do Meshtastic passou a constar da resposta de varredura do anúncio da ponte, para
+que o aplicativo Meshtastic encontre o rádio sem a janela `Find Meshtastic app`, que depende
+do menu. Não foi verificado em aparelho se todo telefone encontra um serviço anunciado só ali.
+
+O uso diário não exige o aplicativo Meshtastic: o canal `Bitchat` é criado pela ponte e a hora
+pode vir do primeiro telefone Bitchat. A exceção é a **região do LoRa**: um rádio que nunca foi
+configurado não transmite até que a região seja definida por um cliente Meshtastic, uma vez. A
+instalação por `Update` preserva a região já definida. Nenhum aparelho sem tela foi ensaiado.
 
 ## Testes e limites
 

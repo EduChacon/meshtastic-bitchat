@@ -16,6 +16,7 @@ namespace bitchat
 {
 static constexpr const char *SERVICE_UUID = "F47B5E2D-4A9E-4C5A-9B3F-8E1D2C3A4B5C";
 static constexpr const char *CHAR_UUID = "A1B2C3D4-E5F6-4A5B-8C9D-0E1F2A3B4C5D";
+static constexpr const char *MESHTASTIC_UUID = "6ba1b218-15a8-461f-9fa8-5dcae273eafd";
 static constexpr size_t LINKS = 3;
 static concurrency::Lock lock;
 static NimBLEServer *server = nullptr;
@@ -617,7 +618,10 @@ bool bleAdvertise()
     NimBLEAdvertisementData primary, response;
     primary.setFlags(0x06);
     primary.setCompleteServices(NimBLEUUID(SERVICE_UUID));
-    response.setName("BC Mesh Bridge");
+    // The Meshtastic service stays in the scan response, so its app finds a radio that has no menu to
+    // bring the firmware's own advertisement back. With it, 11 bytes are left for the name.
+    response.setCompleteServices(NimBLEUUID(MESHTASTIC_UUID));
+    response.setName("BC Bridge");
     advertising->setAdvertisementData(primary);
     advertising->setScanResponseData(response);
     advertising->setScanResponse(true);

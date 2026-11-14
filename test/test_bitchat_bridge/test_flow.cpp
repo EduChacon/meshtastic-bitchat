@@ -736,7 +736,41 @@ int main()
     fromLoRa(0, "!bridge", 0);
     run(1100);
     CHECK(fakeApp.size() == 3 && fakeApp[0].channel == 0 && app(0).rfind("[bridge] Bridge is off\n", 0) == 0);
-    CHECK(app(2) == "[bridge] Menu: System > Bitchat");
+    CHECK(app(2) == "[bridge] To turn it on, send: !bridge on");
+    // Radios without a screen: the choices of the menu, typed in the app attached to the radio. The
+    // same words coming from another radio change nothing and get no answer.
+    fakeApp.clear();
+    const size_t onAir = radio().size();
+    fromLoRa(0x1234, "!bridge on", 0);
+    run(1100);
+    CHECK(fakeApp.empty() && !bridge->enabled());
+    fromLoRa(0, "!bridge on", 0);
+    run(1100);
+    CHECK(bridge->enabled() && fakeApp.size() == 1 && app(0) == "[bridge] Bridge turned on. Send !bridge to see its state.");
+    CHECK(std::string(bridge->status()) == "Ready: Bitchat only");
+    // LoRa is taken from the channel where the command is typed, when that channel may be used.
+    fromLoRa(0, "!bridge lora", 0);
+    run(1100);
+    CHECK(bridge->textChannel() == 255 && fakeApp.size() == 2 &&
+          app(1).rfind("[bridge] Not changed: send !bridge lora in", 0) == 0);
+    channels.items[1].role = meshtastic_Channel_Role_SECONDARY;
+    strcpy(channels.items[1].settings.name, "Grupo");
+    channels.items[1].settings.psk.size = 32;
+    memset(channels.items[1].settings.psk.bytes, 7, 32);
+    fromLoRa(0, "!Bridge LoRa", 1);
+    run(1100);
+    CHECK(bridge->textChannel() == 1 && fakeApp.size() == 3 && app(2) == "[bridge] Bitchat + LoRa on this channel.");
+    CHECK(fakeApp[2].channel == 1 && bridge->enabled());
+    fromLoRa(0, "!ponte local", 1);
+    run(1100);
+    CHECK(bridge->textChannel() == 255 && bridge->enabled() && app(3).rfind("[bridge] Bitchat only:", 0) == 0);
+    fromLoRa(0, "!ponte off", 1);
+    run(1100);
+    CHECK(!bridge->enabled() && app(4).rfind("[bridge] Bridge turned off.", 0) == 0);
+    fromLoRa(0, "!bridge help", 1);
+    run(1100);
+    CHECK(fakeApp.size() == 6 && app(5).rfind("[bridge] !bridge shows the state.", 0) == 0 && app(5).size() <= 200);
+    CHECK(radio().size() == onAir);
     delete bridge;
     bleDetach();
     CHECK(liveBytes == 0);

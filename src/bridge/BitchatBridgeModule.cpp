@@ -562,6 +562,38 @@ void BitchatBridgeModule::answerApp()
                    "radio and wait 1 min.");
         return;
     }
+    if (command == Command::Help) {
+        replyToApp("[bridge] !bridge shows the state. !bridge on, off, local (Bluetooth only), lora (Bitchat + LoRa on the "
+                   "channel where you send it), reset.");
+        return;
+    }
+    if (command != Command::Status) {
+        // The same choices as the screen menu, for radios without one.
+        bool done = false;
+        const char *result = "";
+        if (command == Command::Off) {
+            done = setEnabled(false);
+            result = "Bridge turned off. Send !bridge on to turn it back on.";
+        } else if (command == Command::On) {
+            done = setEnabled(true);
+            result = "Bridge turned on. Send !bridge to see its state.";
+        } else if (command == Command::Local) {
+            done = startBasicMode();
+            result = "Bitchat only: phones are relayed by Bluetooth, nothing goes to LoRa.";
+        } else if (!eligibleChannel(appChannel)) {
+            replyToApp("[bridge] Not changed: send !bridge lora in a secondary channel that has a name and its own key.");
+            return;
+        } else {
+            done = startBasicMode(appChannel);
+            result = "Bitchat + LoRa on this channel.";
+        }
+        if (done)
+            snprintf(text, sizeof(text), "[bridge] %s", result);
+        else
+            snprintf(text, sizeof(text), "[bridge] Not changed: %s", status());
+        replyToApp(text);
+        return;
+    }
     const unsigned phones = unsigned(blePhones()), people = unsigned(runtime ? runtime->peers->size() : 0);
     char detail[100], tx[8], rx[8], missed[8];
     diagnostics(detail, sizeof(detail));
@@ -577,7 +609,9 @@ void BitchatBridgeModule::answerApp()
     const int prefix = snprintf(text, sizeof(text), "%s", REPLY_PREFIX);
     bleDescribe(text + prefix, sizeof(text) - prefix);
     replyToApp(text);
-    if (hint()[0])
+    if (!settings.enabled && storageReady && !resourceError)
+        snprintf(text, sizeof(text), "[bridge] To turn it on, send: !bridge on");
+    else if (hint()[0])
         snprintf(text, sizeof(text), "[bridge] %s", hint());
     else if (!wasActive)
         snprintf(text, sizeof(text), "[bridge] The bridge is not running: %s", status());
@@ -1105,8 +1139,11 @@ int32_t BitchatBridgeModule::work()
         wasActive = active;
     }
     updateClockWindow();
-    if (appCommand != Command::None)
+    if (appCommand != Command::None) {
+        // A command may turn the bridge off or change its mode, so this tick ends here.
         answerApp();
+        return 20;
+    }
     if (restart == 1 && bluetoothReady) {
         bleServicesChanged();
         restart = 2;

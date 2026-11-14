@@ -95,8 +95,14 @@ Command bridgeCommand(Bytes text)
         if (!std::strncmp(word, name, length)) {
             if (!word[length])
                 return Command::Status;
-            if (!std::strcmp(word + length, " reset"))
-                return Command::Reset;
+            static const struct {
+                const char *word;
+                Command command;
+            } choices[] = {{" reset", Command::Reset}, {" on", Command::On},     {" off", Command::Off},
+                           {" local", Command::Local}, {" lora", Command::Lora}, {" help", Command::Help}};
+            for (const auto &choice : choices)
+                if (!std::strcmp(word + length, choice.word))
+                    return choice.command;
         }
     }
     return Command::None;

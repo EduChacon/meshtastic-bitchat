@@ -224,6 +224,19 @@ Décimo passo. A execução 43634808137 da `main` (commit `768b6e1`) terminou co
 a `v1.0.0-beta.4` às 20:09 UTC de 2026-11-14, com o ZIP único, o `SHA256SUMS` e o pacote técnico.
 A pasta provisória `downloads` foi removida.
 
+Décimo primeiro passo, no ramo de trabalho, sem publicação. a) Alvo de ensaio para o SenseCAP
+T1000-E (nRF52840): o código de enlace dos ESP32 compila sem alteração sobre a camada
+`src/bridge/nrf52`; o firmware passa a aceitar duas conexões, a pilha Bluetooth recebe 40 KB e o
+trabalho da ponte roda em tarefa própria de 12 KB, porque a tarefa principal tem 4 KB de pilha
+nesse chip. Compilou com 517444 de 815104 bytes de flash; o binário usa a origem de RAM
+`0x2000A000`. Não foi ligado em aparelho. Detalhes e roteiro em T1000E.md. b) Comandos para
+rádios sem tela: `!bridge on`, `off`, `local`, `lora` e `help`, aceitos só do aplicativo
+conectado ao próprio rádio. O teste novo revelou um defeito: um comando que desligava a ponte
+deixava o mesmo ciclo seguir com a memória já liberada; o ciclo agora termina após o comando.
+c) O serviço do Meshtastic entrou na resposta de varredura do anúncio da ponte nos ESP32, com o
+nome reduzido para `BC Bridge` para caber. Muda o anúncio do Heltec V3 já ensaiado; precisa de
+novo ensaio antes de publicar.
+
 ## Investigação de boot — 2026-11-13
 
 As instalações foram suspensas nos dois READMEs e nas pré-releases, preservando os arquivos

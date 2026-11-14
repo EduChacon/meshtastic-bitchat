@@ -79,7 +79,9 @@ class BitchatBridgeModule : public MeshModule, private concurrency::OSThread
     bool nativeWindow = false;
     uint32_t bootId = 0, sequence = 0, lastBudget = 0;
     uint32_t tokens = 0;
-    uint64_t lastOriginTimestamp = 0;
+    uint64_t lastOriginTimestamp = 0, peerClockUtc = 0, clockFloor = 0;
+    uint32_t peerClockAt = 0, clockSavedAt = 0;
+    bool clockSaved = false;
     uint32_t forwardedBle = 0, submittedRadio = 0, importedRadio = 0, lost = 0;
     std::array<uint32_t, 12> rejected{};
     std::array<uint8_t, 64> identity{};
@@ -122,6 +124,9 @@ class BitchatBridgeModule : public MeshModule, private concurrency::OSThread
     void sendRadio();
     void reject(bitchat::Result result);
     uint64_t utc() const;
+    uint64_t trustedUtc() const;
+    void adoptPeerClock(bitchat::Bytes frame, const bitchat::Packet &packet);
+    void keepClock(uint32_t now);
 };
 extern BitchatBridgeModule *bitchatBridge;
 static_assert(sizeof(BitchatBridgeModule) <= 4096, "Keep bridge buffers out of module construction");

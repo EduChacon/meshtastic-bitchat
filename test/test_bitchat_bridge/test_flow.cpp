@@ -27,7 +27,7 @@ struct Bridge : BitchatBridgeModule {
 };
 static Bridge *bridge;
 static NimBLEServer server;
-static uint64_t stamp = 0;
+static uint64_t stamp = 0, forcedStamp = 0;
 
 static uint64_t nowUtc()
 {
@@ -67,7 +67,7 @@ struct Phone {
     Frame packet(uint8_t type, Bytes payload, uint8_t ttl = 7) const
     {
         Frame unsignedFrame, canonical, frame;
-        stamp = std::max(stamp + 1, nowUtc());
+        stamp = forcedStamp ? forcedStamp : std::max(stamp + 1, nowUtc());
         CHECK(encode(type, id, nullptr, stamp, ttl, payload, {}, unsignedFrame) == Result::Ok);
         CHECK(signingBytes(unsignedFrame.bytes(), canonical) == Result::Ok);
         std::array<uint8_t, 64> signature;
@@ -214,7 +214,8 @@ int main()
     run(2000);
     CHECK(radio() == std::vector<std::string>{"ana: oi pessoal"});
     CHECK(fakeRadio[0].channel == 1 && fakeRadio[0].priority == meshtastic_MeshPacket_Priority_DEFAULT);
-    CHECK(fakeRadio[0].to == NODENUM_BROADCAST && !fakeRadio[0].want_ack);
+    // Like text typed in the Meshtastic app: the radio repeats it when nobody is heard relaying.
+    CHECK(fakeRadio[0].to == NODENUM_BROADCAST && fakeRadio[0].want_ack);
     CHECK(chat(bia.handle).size() == 1 && bridge->drops() == lostBefore);
 
     // A conversation: quick replies from everyone, the old prefix still accepted and hidden.
@@ -405,6 +406,53 @@ int main()
     delete bridge;
     bridge = new Bridge;
     CHECK(bridge->prefixOnly() && bridge->economy() && bridge->enabled() && bridge->textChannel() == 1);
+    CHECK(bridge->setPrefixOnly(false) && bridge->setEconomy(false));
+    delete bridge;
+
+    // Power was cut and the radio has no clock. No app is needed to recover: the first phone that
+    // connects supplies the time, and both apps can find the radio while it waits.
+    const uint64_t lastTrusted = nowUtc();
+    lastSetFromPhoneNtpOrGps = false;
+    fakeNow += 6 * 3600 * 1000;
+    fakeRadio.clear();
+    fakeSent.clear();
+    bridge = new Bridge;
+    const unsigned advertising = fakeBluetooth.refreshes;
+    run(61000);
+    CHECK(std::string(bridge->status()) == "Clock not set" && std::string(bridge->hint()) == "Open Bitchat nearby");
+    CHECK(fakeBluetooth.refreshes >= advertising + 3);
+    Phone dora("dora", 9, 14);
+    dora.connect();
+    run(200);
+    CHECK(received(dora.handle).empty());
+    // A recording from before the outage cannot set the clock back.
+    forcedStamp = lastTrusted - 3600000;
+    dora.write(dora.announce());
+    forcedStamp = 0;
+    run(200);
+    CHECK(std::string(bridge->status()) == "Clock not set");
+    dora.write(dora.announce());
+    run(200);
+    CHECK(std::string(bridge->status()) == "Ready: Bitchat + LoRa");
+    CHECK(received(dora.handle).size() == 1);
+    dora.write(dora.say("voltei sozinha"));
+    fromLoRa(0x1234, "bem-vinda");
+    run(3000);
+    CHECK(radio() == std::vector<std::string>{"dora: voltei sozinha"});
+    CHECK(chat(dora.handle).size() == 1 && chat(dora.handle)[0].find("bem-vinda") != std::string::npos);
+    // Once set, the time only moves forward: an older announcement is ignored, a replayed message is stale.
+    forcedStamp = nowUtc() - 600000;
+    const Frame old = dora.say("mensagem antiga");
+    dora.write(dora.announce());
+    dora.write(old);
+    forcedStamp = 0;
+    run(3000);
+    CHECK(radio().size() == 1 && std::string(bridge->status()) == "Ready: Bitchat + LoRa");
+    // When the Meshtastic app sets the time again, that source takes over.
+    lastSetFromPhoneNtpOrGps = true;
+    dora.write(dora.say("hora confiavel"));
+    run(3000);
+    CHECK(radio().size() == 2);
     delete bridge;
     bleDetach();
     CHECK(liveBytes == 0);

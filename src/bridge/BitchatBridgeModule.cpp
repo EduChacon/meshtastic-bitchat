@@ -45,17 +45,66 @@ BitchatBridgeModule::BitchatBridgeModule() : MeshModule("bitchat"), OSThread("bi
             (storage.getBytesLength(key) != sizeof(entry) || storage.getBytes(key, &entry, sizeof(entry)) != sizeof(entry)))
             storageReady = false;
     }
+    if (storageReady && storage.isKey("clock") && storage.getBytesLength("clock") == sizeof(clockFloor))
+        storage.getBytes("clock", &clockFloor, sizeof(clockFloor));
+#ifdef BUILD_EPOCH
+    clockFloor = std::max<uint64_t>(clockFloor, uint64_t(BUILD_EPOCH) * 1000);
+#endif
     bootId = esp_random();
     refreshChannels();
     bleConfigure(false, false, settings.economy);
     setIntervalFromNow(1000);
 }
 
-uint64_t BitchatBridgeModule::utc() const
+uint64_t BitchatBridgeModule::trustedUtc() const
 {
     if (!lastSetFromPhoneNtpOrGps && getRTCQuality() != RTCQualityDevice)
         return 0;
     return uint64_t(getValidTime(RTCQualityDevice)) * 1000;
+}
+
+uint64_t BitchatBridgeModule::utc() const
+{
+    const uint64_t trusted = trustedUtc();
+    if (trusted || !peerClockUtc)
+        return trusted;
+    return peerClockUtc + uint32_t(millis() - peerClockAt);
+}
+
+// A radio without RTC forgets the time when power is cut. Until a trusted source returns, a phone that
+// announces itself directly supplies it: never before the last trusted time, and afterwards only forward.
+void BitchatBridgeModule::adoptPeerClock(Bytes frame, const Packet &packet)
+{
+    if (trustedUtc() || packet.type != 1 || packet.ttl != 7 || packet.timestamp < clockFloor)
+        return;
+    const uint64_t current = utc();
+    if (current && packet.timestamp <= current + FRESHNESS_MS)
+        return;
+    Peer *peer = nullptr;
+    if (runtime->peers->announce(crypto, frame, packet.timestamp, millis(), peer) != Result::Ok)
+        return;
+    peerClockUtc = packet.timestamp;
+    peerClockAt = millis();
+    announcedAt = peerClockAt - 60000;
+}
+
+void BitchatBridgeModule::keepClock(uint32_t now)
+{
+    const uint64_t trusted = trustedUtc();
+    if (trusted ? (clockSaved && Throttle::isWithinTimespanMsAt(clockSavedAt, 3600000, now))
+                : (!peerClockUtc || Throttle::isWithinTimespanMsAt(peerClockAt, 3600000, now)))
+        return;
+    if (trusted) {
+        // Only a trusted time raises the floor kept across restarts; a phone could otherwise lock the bridge in the future.
+        clockFloor = trusted;
+        clockSaved = true;
+        clockSavedAt = now;
+        if (storageReady)
+            storage.putBytes("clock", &clockFloor, sizeof(clockFloor));
+    } else {
+        peerClockUtc += uint32_t(now - peerClockAt);
+        peerClockAt = now;
+    }
 }
 
 bool BitchatBridgeModule::persist()
@@ -141,7 +190,8 @@ void BitchatBridgeModule::applyDefaults()
 
 void BitchatBridgeModule::updateClockWindow()
 {
-    const bool needed = settings.enabled && !utc();
+    // Either app can supply the time, so discovery alternates between the two until one does.
+    const bool needed = settings.enabled && !utc() && (millis() / 20000) % 2 == 0;
     if (clockWindow != needed) {
         clockWindow = needed;
         advertisingChanged = true;
@@ -401,7 +451,7 @@ const char *BitchatBridgeModule::hint() const
     if (!config.bluetooth.enabled || config.power.is_power_saving)
         return "Fix in Meshtastic app";
     if (identityReady && !utc())
-        return "Open Meshtastic app";
+        return "Open Bitchat nearby";
     if ((settings.textChannel != 255 && !textReady) || (settings.tunnelChannel != 255 && !tunnelReady))
         return "Choose it again in menu";
     if (defaultChannelUnavailable && settings.textChannel == 255)
@@ -458,7 +508,10 @@ void BitchatBridgeModule::originate(uint8_t type, Bytes payload)
         reject(Result::NoClock);
         return;
     }
-    uint64_t timestamp = std::max(utc(), lastOriginTimestamp + 1);
+    // Two messages in the same instant still need distinct timestamps; a corrected clock must not keep an old lead.
+    uint64_t timestamp = utc();
+    if (lastOriginTimestamp >= timestamp && lastOriginTimestamp - timestamp < 1000)
+        timestamp = lastOriginTimestamp + 1;
     lastOriginTimestamp = timestamp;
     if (encode(type, ownId, nullptr, timestamp, 7, payload, {}, runtime->working) != Result::Ok ||
         signingBytes(runtime->working.bytes(), runtime->canonical) != Result::Ok)
@@ -480,6 +533,8 @@ void BitchatBridgeModule::originate(uint8_t type, Bytes payload)
 
 void BitchatBridgeModule::announce()
 {
+    if (!utc())
+        return;
     std::array<uint8_t, 150> payload{};
     char name[24];
     snprintf(name, sizeof(name), "LoRa bridge %04lx", static_cast<unsigned long>(nodeDB->getNodeNum() & 0xffff));
@@ -583,6 +638,8 @@ bool BitchatBridgeModule::handleFrame(Bytes frame, uint16_t source, bool fromTun
         reject(Result::Policy);
         return false;
     }
+    if (!fromTunnel)
+        adoptPeerClock(frame, packet);
     Digest id;
     result = packetDigest(crypto, frame, id);
     // Every phone relays what it hears, so most arrivals are copies: drop them before the signature check.
@@ -788,7 +845,8 @@ void BitchatBridgeModule::sendRadio()
     packet->decoded.portnum = static_cast<meshtastic_PortNum>(item->port);
     packet->decoded.payload.size = item->size;
     std::copy_n(item->payload.begin(), item->size, packet->decoded.payload.bytes);
-    packet->want_ack = false;
+    // As with text typed in the Meshtastic app, the radio repeats chat text nobody was heard relaying.
+    packet->want_ack = item->port == meshtastic_PortNum_TEXT_MESSAGE_APP && !settings.economy;
     // Chat text travels like text typed in the Meshtastic app; tunnel fragments yield to everything else.
     packet->priority = item->port == meshtastic_PortNum_TEXT_MESSAGE_APP ? meshtastic_MeshPacket_Priority_DEFAULT
                                                                          : meshtastic_MeshPacket_Priority_BACKGROUND;
@@ -835,6 +893,7 @@ int32_t BitchatBridgeModule::runOnce()
     }
     if (!active)
         return 1000;
+    keepClock(now);
     if (!Throttle::isWithinTimespanMsAt(channelsAt, 1000, now))
         refreshChannels();
     if (textConflict && !Throttle::isWithinTimespanMsAt(conflictAt, CONFLICT_MS, now)) {

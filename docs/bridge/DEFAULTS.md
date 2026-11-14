@@ -60,7 +60,10 @@ Na tela: `System → Bitchat bridge → More options → Status` mostra estado, 
 canal de texto. `BLE clients: 0` não confirma conexão Bitchat. `Open Meshtastic: clock`
 significa que falta hora confiável; a ponte não aprende a hora de mensagens BLE arbitrárias.
 **Candidata:** `Status` fica no primeiro nível do menu; os textos equivalentes são
-`Phones connected: 0` e `Clock not set`, com a orientação `Open Meshtastic app`.
+`Phones connected: 0` e `Clock not set`, com a orientação `Open Bitchat nearby`. Sem hora
+confiável, a candidata aceita a hora do primeiro telefone Bitchat que conecta, com os limites
+descritos em [CANDIDATE.md](CANDIDATE.md); as frases desta página que negam esse recurso
+valem para a `.5`.
 Se o Meshtastic não aparecer na lista após a hora estar ajustada, usar **Switch phone app →
 Find Meshtastic: 5m**. Existência dos dois serviços GATT não demonstra uso simultâneo em iOS.
 

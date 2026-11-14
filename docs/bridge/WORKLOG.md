@@ -86,7 +86,7 @@ e os limites estão em [CANDIDATE.md](CANDIDATE.md). O firmware `.5`, até entã
 foi incorporado ao ramo de trabalho com a documentação da `main`.
 
 Evidência: todos os testes de host anteriores, ajustados ao novo comportamento, e o teste novo
-de fluxo completo (`tools/bridge/test_flow.py`, 666 verificações), que compila o módulo de
+de fluxo completo (`tools/bridge/test_flow.py`, 709 verificações), que compila o módulo de
 produção. O ambiente de trabalho não alcança o registro do PlatformIO; a compilação dos dois
 alvos depende da CI do repositório. Nenhum comando acessou ou gravou rádio. Entrega entre
 aparelhos, tela, consumo e estabilidade prolongada permanecem não validados.

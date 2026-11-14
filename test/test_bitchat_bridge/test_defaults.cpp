@@ -126,7 +126,7 @@ class BitchatBridgeModule : MeshModule, OSThread
     bool defaultsPending = false, defaultChannelUnavailable = false, clockWindow = false;
     bool memoryOk = true, identityOk = true;
     uint32_t bootId = 0, textGuardAt = 0;
-    uint64_t time = 0;
+    uint64_t time = 0, clockFloor = 0;
     BitchatBridgeModule();
     bool persist();
     uint8_t provisionPublicChannel();

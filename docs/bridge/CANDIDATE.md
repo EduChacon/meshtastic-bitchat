@@ -16,6 +16,8 @@ classificada como confirmada em hardware; os gates de [TESTING.md](TESTING.md) c
 | Ritmo por pessoa       | Uma mensagem a cada 30 s (120 s no modo econômico) | Rajada de seis; depois, uma a cada 6 s (30 s no modo econômico)    |
 | Duas pontes próximas   | As duas bloqueiam até intervenção no menu          | A de maior número de nó espera; retoma sozinha em cerca de 2 min   |
 | Tela de estado         | Siglas (`BLE1 P2 D37`, `TX3 RX5 Q0`)               | Frases (`Phones 2  People 5`, `LoRa out 3  in 5`) e orientação     |
+| Hora após falta de luz | Parada até o aplicativo Meshtastic conectar        | O primeiro telefone Bitchat que conecta fornece a hora             |
+| Entrega no canal LoRa  | Uma transmissão, sem repetição                     | Repetição nativa do Meshtastic, como no texto digitado no app      |
 
 O prefixo continua disponível como opção: `System → Bitchat bridge → Settings → LoRa: all
 messages` alterna para `LoRa: only !lora`. A escolha é persistida.
@@ -61,6 +63,10 @@ host; **não há medição em aparelho que atribua a eles a instabilidade observ
 8. **Conflito permanente entre pontes.** Descrito na tabela acima.
 9. **Frame parcial preso.** Um pedaço incompleto fazia o frame seguinte ser colado a ele e os
    dois se perdiam. Um frame inteiro em uma escrita agora substitui o parcial.
+10. **Texto sem repetição no LoRa.** A ponte enviava com `want_ack` desligado. O texto digitado
+    no aplicativo Meshtastic sai com `want_ack`, e o roteador repete até três vezes quando não
+    ouve outro nó retransmitir. O texto da ponte passa a usar o mesmo mecanismo no perfil fixo;
+    com `Battery saver`, continua em transmissão única.
 
 Eficiência: as chaves de canal eram derivadas a cada 20 ms e agora só quando o canal muda; a
 ponte deixa de assinar anúncios e de registrar importações quando nenhum telefone está inscrito.
@@ -75,7 +81,7 @@ ponte deixa de assinar anúncios e de registrar importações quando nenhum tele
 | Filas Bluetooth          | 6 frames por telefone em cada sentido; 16 posições; 16 KiB no total         |
 | Memória inicial modelada | 24.496 bytes no modelo de host (antes 23.392); reserva de 24 KiB inalterada |
 | Espera diante de outra   | 90 s sem prova da outra ponte e 30 s de observação                          |
-| Relógio                  | Inalterado: sem hora confiável a ponte não opera (ver decisões em aberto)   |
+| Relógio                  | Hora confiável do Meshtastic; na falta dela, hora do telefone (ver abaixo)  |
 
 O marcador `mb1` deixou de ser emitido e lido. Ele reconhecia o mesmo texto exportado por duas
 pontes sobrepostas. A sobreposição passa a ser tratada pela espera automática; se a detecção
@@ -105,21 +111,35 @@ somente mensagens perdidas; cópias e recusas de política deixaram de entrar ne
 
 ## Evidência
 
-Executado nesta revisão, sem rádio: 565 verificações de protocolo com os 19 vetores oficiais
-e 100.000 entradas malformadas; adaptador Bluetooth; modelo de memória; menu; padrões;
-inicialização; pacote; e o teste novo `tools/bridge/test_flow.py`, com 666 verificações. Esse
+Executado nesta revisão, sem rádio: 565 verificações de protocolo com os 19 vetores oficiais e
+100.000 entradas malformadas; adaptador Bluetooth; modelo de memória; menu; padrões;
+inicialização; pacote; e o teste novo `tools/bridge/test_flow.py`, com 709 verificações. Esse
 teste compila o módulo e o adaptador de produção e simula três telefones e um rádio, com
-assinaturas reais: conversa em grupo, cópias, texto com e sem prefixo, divisão, importação
-do LoRa, segunda ponte, local lotado, limite de transmissão e reinício. É simulação: não há
-controlador Bluetooth, iOS, RF nem temporização real.
+assinaturas reais: conversa em grupo, cópias, texto com e sem prefixo, divisão, importação do
+LoRa, segunda ponte, local lotado, limite de transmissão, reinício e retorno sem relógio. É
+simulação: não há controlador Bluetooth, iOS, RF nem temporização real.
+
+## Hora após falta de energia
+
+Sem RTC, o Heltec V3 volta sem hora. Na `.5`, a ponte ficava parada até o aplicativo
+Meshtastic conectar. Nesta revisão, por decisão do operador, a ponte aceita a hora de um
+telefone Bitchat enquanto não houver fonte confiável (aplicativo Meshtastic, GPS ou RTC):
+
+- a hora vem do primeiro anúncio assinado e direto (TTL 7) recebido por Bluetooth;
+- nunca é aceita hora anterior à última hora confiável conhecida, gravada a cada hora, nem
+  anterior à data de compilação do firmware;
+- depois de definida, a hora só avança; anúncio mais antigo é ignorado;
+- quando uma fonte confiável reaparece, ela prevalece;
+- enquanto não há hora, o anúncio Bluetooth alterna a cada 20 s entre o serviço Bitchat e o
+  serviço Meshtastic, para que qualquer um dos aplicativos encontre o rádio.
+
+Custo assumido: essa hora não é autenticada por terceiro. Um telefone ao alcance do Bluetooth
+pode adiantar o relógio e fazer a ponte recusar as mensagens dos demais até a hora confiável
+voltar. Mensagens antigas continuam recusadas, porque o relógio não retrocede. A hora do
+telefone nunca é gravada como piso, para que um adiantamento não sobreviva ao reinício.
 
 ## Decisões em aberto
 
-- **Relógio após falta de energia.** Sem RTC, o Heltec V3 volta sem hora e a ponte fica
-  parada até o aplicativo Meshtastic conectar. É provável que essa seja a interrupção mais
-  frequente em uso desassistido. Aceitar a hora de um anúncio Bitchat assinado resolveria o
-  caso, ao custo de permitir que um telefone próximo reapresente mensagens antigas. A
-  proteção atual foi mantida; a mudança depende de decisão do operador.
 - **Padrão de envio.** `all messages` foi adotado como padrão a pedido do operador. Em local
   público, `only !lora` preserva a intenção de quem escreve.
 
@@ -136,5 +156,8 @@ two-frame BLE queues, one notification per 20 ms against the app's 250 ms assemb
 signature checks spent on relayed copies, one LoRa message per person per 30 s, a journal and
 an identity table that refused new entries when full, `BACKGROUND` LoRa priority, a permanent
 block when two bridges met, and a stalled partial frame swallowing the next one. No device
-measurement attributes the field instability to these defects. The clock requirement after a
-power loss is unchanged and remains an operator decision.
+measurement attributes the field instability to these defects. Chat text now uses Meshtastic's
+own retransmission (`want_ack`) outside battery saver. After a power loss, a radio without a
+trusted time takes it from the first directly received signed Bitchat announcement, never
+before the last trusted time and only forward afterwards; a nearby phone can therefore push
+the clock ahead until a trusted source returns. This was an operator decision.

@@ -89,6 +89,16 @@ falhar (pontes que não se ouvem por Bluetooth), pode haver texto duplicado, mas
 Uma ponte com revisão anterior na mesma sala continua bloqueando a si mesma ao ver a prova
 desta; a mistura de revisões não foi ensaiada.
 
+## Aparelhos
+
+Além do Heltec V3 e do Cardputer ADV, a candidata tem alvos de compilação para Heltec V4,
+Heltec Wireless Stick Lite V3, Heltec Wireless Tracker, Heltec Wireless Paper, LILYGO T-Beam
+Supreme, Seeed XIAO ESP32-S3, LILYGO T-Deck e Station G2. Todos são ESP32-S3 com 8 ou 16 MB e
+usam a interface padrão; as variantes com interface `MUI` não têm o menu da ponte. O
+empacotador, o verificador e o backup passaram a aceitar o leiaute de 16 MB, com a primeira
+partição de aplicação de `0x640000` em `0x10000`. A [matriz](COMPATIBILITY.md) lista as
+condições de cada um e os aparelhos que ficaram de fora. Nenhum alvo novo foi ensaiado.
+
 ## Menu
 
 ```text

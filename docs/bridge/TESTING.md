@@ -51,7 +51,7 @@ o controlador ou o escalonador FreeRTOS; a inicialização real ainda exige banc
 
 Logs da CI identificam commit, ferramenta, comando e resultado real. Desde o incidente de
 boot, publicação exige acionamento explícito após os gates físicos; push só verifica e
-gera candidatos. Não interpretar um job ignorado como aprovado. A `.6` foi publicada como pré-release
+gera candidatos. Não interpretar um job ignorado como aprovado. A `1.0.0-beta` foi publicada como beta
 por decisão do operador, **sem** os gates físicos abaixo; eles continuam pendentes para
 qualquer afirmação de funcionamento em aparelho.
 

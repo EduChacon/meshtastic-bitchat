@@ -1,10 +1,10 @@
-# Meshtastic ↔ Bitchat 0.1.0-experimental.6
+# Meshtastic ↔ Bitchat 1.0.0-beta
 
-**Pré-release sem aceite em aparelho.** Os testes desta versão são simulações em computador e
+**Versão beta, sem aceite em aparelho.** Os testes desta versão são simulações em computador e
 compilação. Nenhum dos dez alvos foi ligado com este firmware, e oito deles nunca receberam
 versão alguma da ponte. Fazer backup privado antes de instalar. Não há garantia de risco zero.
 
-## O que muda em relação à `.5`
+## O que muda em relação à `experimental.5`
 
 - **`!lora` opcional.** Todo texto público do `#mesh` segue para o canal LoRa como
   `apelido: texto`. Em `Settings`, `LoRa: only !lora` volta a exigir o prefixo.
@@ -17,7 +17,7 @@ versão alguma da ponte. Fazer backup privado antes de instalar. Não há garant
 - **Menu e tela de estado** em frases, com orientação do que fazer.
 - **Oito aparelhos novos**, todos ESP32-S3.
 
-[Mudanças, motivos, limites e evidência](https://github.com/EduChacon/meshtastic-bitchat/blob/v0.1.0-experimental.6/docs/bridge/CANDIDATE.md).
+[Mudanças, motivos, limites e evidência](https://github.com/EduChacon/meshtastic-bitchat/blob/v1.0.0-beta/docs/bridge/CANDIDATE.md).
 
 **Atenção ao padrão novo:** qualquer pessoa que escreva no `#mesh` ao alcance da ponte tem o
 texto publicado no canal LoRa `Bitchat`, cuja chave é pública.
@@ -39,7 +39,7 @@ Escolher nos anexos o ZIP do modelo exato:
 | Station G2                       | `meshtastic-bitchat-station-g2-`              |
 | Cardputer ADV + Cap LoRa-1262    | `meshtastic-bitchat-m5stack-cardputer-adv-`   |
 
-Fazer backup privado e conferência pelo [roteiro Windows](https://github.com/EduChacon/meshtastic-bitchat/blob/v0.1.0-experimental.6/docs/bridge/WINDOWS_RECOVERY.md). No
+Fazer backup privado e conferência pelo [roteiro Windows](https://github.com/EduChacon/meshtastic-bitchat/blob/v1.0.0-beta/docs/bridge/WINDOWS_RECOVERY.md). No
 [flasher oficial](https://flasher.meshtastic.org/), selecionar o modelo, carregar o ZIP e usar
 **Atualizar / Update**. Não usar **Apagar Flash e Instalar**. O ZIP contém só a aplicação; o
 `-update.bin` do mesmo modelo é a alternativa. Conferir os hashes em `SHA256SUMS`.
@@ -51,7 +51,7 @@ pelo verificador para o próprio modelo.
 ## Usar
 
 Abrir o Bitchat perto do rádio e conversar no `#mesh`. No rádio remoto com firmware original,
-adicionar somente o canal `Bitchat` com a [chave pública](https://github.com/EduChacon/meshtastic-bitchat/blob/v0.1.0-experimental.6/docs/bridge/DEFAULTS.md). O texto do canal
+adicionar somente o canal `Bitchat` com a [chave pública](https://github.com/EduChacon/meshtastic-bitchat/blob/v1.0.0-beta/docs/bridge/DEFAULTS.md). O texto do canal
 aparece no `#mesh` como `[MT nome do nó] texto`. Para mudar o modo: `System → Bitchat bridge`.
 Em rádio sem tela valem os padrões automáticos.
 
@@ -63,7 +63,7 @@ malformadas, adaptador Bluetooth, memória, menu, padrões, inicialização, pac
 completo com três telefones e um rádio simulados. Nada disso equivale a ensaio com
 controlador Bluetooth, iOS ou rádio reais.
 
-`technical-package-0.1.0-experimental.6.tar.gz` reúne fontes correspondentes, dependências,
+`technical-package-1.0.0-beta.tar.gz` reúne fontes correspondentes, dependências,
 licenças, símbolos, manifestos e resultados dos testes. Não é arquivo para o flasher.
 A base permanece Meshtastic 2.7.26.54e0d8d.
 
@@ -72,7 +72,7 @@ A base permanece Meshtastic 2.7.26.54e0d8d.
 **No hardware acceptance.** This version was checked by host simulation and compilation only.
 None of the ten targets has been run with it; eight never ran any version of the bridge.
 
-Changes since `.5`: `!lora` is optional (every public `#mesh` message goes to the LoRa channel
+Changes since `experimental.5`: `!lora` is optional (every public `#mesh` message goes to the LoRa channel
 as `nick: text`; `Settings → LoRa: only !lora` restores the prefix); group chat losses fixed
 (deeper Bluetooth queues, relayed copies recognised before signature checks, a burst of six
 messages per person, Meshtastic's own retransmission, no permanent block between two bridges);
@@ -83,4 +83,4 @@ trusted source returns); plain-language menu and status; eight more ESP32-S3 dev
 Choose the ZIP for the exact model from the table above, make a private backup, and use
 **Update** in the official flasher. Do not erase flash. With the new default, anyone writing
 in `#mesh` within reach of the bridge has that text published on the public `Bitchat` LoRa
-channel. [Details in English](https://github.com/EduChacon/meshtastic-bitchat/blob/v0.1.0-experimental.6/docs/bridge/CANDIDATE.md#english).
+channel. [Details in English](https://github.com/EduChacon/meshtastic-bitchat/blob/v1.0.0-beta/docs/bridge/CANDIDATE.md#english).

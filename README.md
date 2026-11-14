@@ -2,15 +2,15 @@
 
 [Português](README.md) | [English](README.en.md)
 
-Ponte embarcada experimental, derivada do firmware oficial Meshtastic. O objetivo é usar
+Ponte embarcada derivada do firmware oficial Meshtastic. O objetivo é usar
 os aplicativos originais Bitchat e Meshtastic, sem computador, MQTT, Nostr ou internet na
 operação. Computador continua necessário para compilar, instalar e diagnosticar.
 
-**Pré-release atual: [v0.1.0-experimental.6](https://github.com/EduChacon/meshtastic-bitchat/releases/tag/v0.1.0-experimental.6).** Dispensa o `!lora`, corrige perdas
+**Versão atual (beta): [v1.0.0-beta](https://github.com/EduChacon/meshtastic-bitchat/releases/tag/v1.0.0-beta).** Dispensa o `!lora`, corrige perdas
 de mensagem em conversa de grupo, recupera a hora sem o aplicativo Meshtastic, simplifica o
 menu e acrescenta oito aparelhos ESP32-S3. [O que mudou e por quê](docs/bridge/CANDIDATE.md).
 
-**Estado: experimental, sem aceite em aparelho.** Os testes desta versão são simulações em
+**Estado: beta, sem aceite em aparelho.** Os testes desta versão são simulações em
 computador e compilação. Nenhum dos dez alvos foi ligado com este firmware; oito deles nunca
 receberam versão alguma da ponte. Fazer backup antes de instalar e ler os
 [limites](docs/bridge/CANDIDATE.md) e o [roteiro de ensaio](docs/bridge/TESTING.md).
@@ -53,7 +53,7 @@ servem como nós com firmware original no modo B. [Matriz e condições](docs/br
 
 ## Instalar
 
-1. Em [v0.1.0-experimental.6](https://github.com/EduChacon/meshtastic-bitchat/releases/tag/v0.1.0-experimental.6), baixar o ZIP do modelo exato, `prepare_flash.py`,
+1. Em [v1.0.0-beta](https://github.com/EduChacon/meshtastic-bitchat/releases/tag/v1.0.0-beta), baixar o ZIP do modelo exato, `prepare_flash.py`,
    `verify_artifact.py` e `SHA256SUMS`.
 2. Seguir o [roteiro Windows de backup privado](docs/bridge/WINDOWS_RECOVERY.md) e conferir o hash.
 3. No [Web Flasher oficial](https://flasher.meshtastic.org/), selecionar a placa e o ZIP e
@@ -83,8 +83,8 @@ Base: Meshtastic **2.7.26.54e0d8d**, commit `54e0d8d0ab2ff56b3a9ce967e53f79e49af
 Bitchat de referência: iOS **1.8.0**, commit `30c58eee349e172b37f69faa2113c9d5f2c76c23`.
 
 ```sh
-git fetch origin tag v0.1.0-experimental.6
-git checkout --detach v0.1.0-experimental.6
+git fetch origin tag v1.0.0-beta
+git checkout --detach v1.0.0-beta
 python3 -m venv .venv
 .venv/bin/python -m pip install platformio==6.2.0 intelhex==2.3.0
 git submodule update --init protobufs

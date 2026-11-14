@@ -151,7 +151,7 @@ def main():
         ).encode(),
         "LICENSE": (root / "LICENSE").read_bytes(),
         "LEIA-ANTES.txt": (
-            "EXPERIMENTAL. Nenhum ensaio desta revisao em hardware. BLE e texto publico Bitchat ativos por padrao.\n"
+            "VERSAO BETA. Nenhum ensaio desta revisao em hardware. BLE e texto publico Bitchat ativos por padrao.\n"
             "No primeiro boot desta revisao: cria canal publico Bitchat em espaco livre; nao exporta o primario.\n"
             "Todo texto publico do #mesh ao alcance e publicado no canal LoRa Bitchat. Leia docs/bridge/CANDIDATE.md.\n"
             "Sem hora confiavel, o primeiro telefone Bitchat que conecta fornece a hora.\n"

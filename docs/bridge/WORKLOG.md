@@ -78,7 +78,7 @@ critérios de aprovação e registros estão em [TESTING](TESTING.md); recupera�
 [INSTALL](INSTALL.md). Não executar o harness upstream de hardware como teste de software:
 seu fluxo de instalação pode gravar rádios conectados.
 
-## Experimental .6 — 2026-11-14
+## Versão 1.0 beta — 2026-11-14
 
 Revisão do código da `.5` comparada com o Bitchat iOS 1.8.0, motivada por relato do operador
 de funcionamento inconstante, sobretudo em grupo. As causas de perda encontradas, as mudanças
@@ -94,7 +94,9 @@ aparelhos, tela, consumo e estabilidade prolongada permanecem não validados.
 Na mesma data, por decisão do operador: hora fornecida pelo telefone Bitchat na falta de fonte
 confiável; repetição nativa do Meshtastic para o texto da ponte; alvos de compilação para mais
 oito aparelhos ESP32-S3, com as ferramentas de pacote aceitando 16 MB; e publicação como
-pré-release `.6`, sem os gates físicos de [TESTING.md](TESTING.md), que continuam pendentes.
+`1.0.0-beta`, a partir da `main`, sem os gates físicos de [TESTING.md](TESTING.md), que continuam pendentes.
+O firmware das revisões `.3` a `.5`, que estava nos ramos `fix/heltec-boot-memory` e
+`fix/bridge-menu`, passou a integrar a `main`; os ramos e as tags anteriores foram preservados.
 
 ## Investigação de boot — 2026-11-13
 

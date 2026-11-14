@@ -1,6 +1,6 @@
 # Instalação e recuperação
 
-> **`.6`:** há pacotes para dez aparelhos ESP32-S3, de 8 e de 16 MB; a lista está em
+> **`1.0`:** há pacotes para dez aparelhos ESP32-S3, de 8 e de 16 MB; a lista está em
 > [COMPATIBILITY.md](COMPATIBILITY.md). O procedimento abaixo vale para todos, trocando o nome
 > do modelo. As tabelas desta página citam o Heltec V3 e o Cardputer ADV como exemplos.
 

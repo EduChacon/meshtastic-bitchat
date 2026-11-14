@@ -3,15 +3,15 @@
 O exemplo usa o Heltec WiFi LoRa 32 V3. Para outro aparelho da [lista](COMPATIBILITY.md), trocar
 `heltec-v3` pelo nome do modelo nos arquivos e no parâmetro `--model` (por exemplo `heltec-v4`,
 `t-deck`, `tbeam-s3-core`). O programa confere chip ESP32-S3 e tamanho da flash (8 ou 16 MB),
-mas não distingue modelos de placa. **Boot físico da `.6` ainda não validado em nenhum
+mas não distingue modelos de placa. **Boot físico da `1.0` ainda não validado em nenhum
 aparelho.** Ler [o padrão antes de instalar](DEFAULTS.md). Não há garantia de risco zero.
 
 ## 1. Baixar os arquivos
 
-Em [v0.1.0-experimental.6](https://github.com/EduChacon/meshtastic-bitchat/releases/tag/v0.1.0-experimental.6),
+Em [v1.0.0-beta](https://github.com/EduChacon/meshtastic-bitchat/releases/tag/v1.0.0-beta),
 baixar para a mesma pasta:
 
-- `meshtastic-bitchat-heltec-v3-0.1.0-experimental.6-<commit>.zip`;
+- `meshtastic-bitchat-heltec-v3-1.0.0-beta-<commit>.zip`;
 - `prepare_flash.py` e `verify_artifact.py`;
 - `SHA256SUMS`.
 
@@ -39,8 +39,8 @@ No **PowerShell**, dentro da pasta dos arquivos baixados:
 ```powershell
 py -3 -m venv "$env:LOCALAPPDATA\MeshtasticBitchat\tools"
 & "$env:LOCALAPPDATA\MeshtasticBitchat\tools\Scripts\python.exe" -m pip install esptool==4.11.0
-$pacotes = @(Get-ChildItem .\meshtastic-bitchat-heltec-v3-0.1.0-experimental.6-*.zip)
-if ($pacotes.Count -ne 1) { throw "Mantenha somente um ZIP .6 do modelo nesta pasta" }
+$pacotes = @(Get-ChildItem .\meshtastic-bitchat-heltec-v3-1.0.0-beta-*.zip)
+if ($pacotes.Count -ne 1) { throw "Mantenha somente um ZIP 1.0.0-beta do modelo nesta pasta" }
 & "$env:LOCALAPPDATA\MeshtasticBitchat\tools\Scripts\python.exe" .\prepare_flash.py $pacotes[0].FullName --model heltec-v3 --port COM3 --read-backup
 ```
 

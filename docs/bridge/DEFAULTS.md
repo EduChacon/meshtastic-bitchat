@@ -1,6 +1,6 @@
 # Integração padrão — experimental .5
 
-> A `.6` muda parte deste guia; ver [mudanças](CANDIDATE.md). Os trechos marcados com **`.6`**
+> A `1.0` muda parte deste guia; ver [mudanças](CANDIDATE.md). Os trechos marcados com **`1.0`**
 > descrevem a versão atual; os demais valem para as duas.
 
 ## O que a instalação ativa
@@ -50,7 +50,7 @@ persistidas. O aviso `Low memory: bridge OFF` é descrito em [MEMORY_FIX.md](MEM
 5. Enviar `Teste 1` pelo canal `Bitchat` do Meshtastic remoto: deve aparecer em `#mesh` com
    atribuição `[MT !…]`. Enviar `!lora Teste 2` em `#mesh`: deve aparecer nesse canal remoto.
 
-Na `.5`, texto sem `!lora ` não é exportado para LoRa. **`.6`:** todo texto público do
+Na `.5`, texto sem `!lora ` não é exportado para LoRa. **`1.0`:** todo texto público do
 `#mesh` é exportado como `apelido: texto`, o prefixo é opcional e pode voltar a ser exigido em
 `Settings → LoRa: only !lora`; a atribuição de entrada usa o nome do nó (`[MT nome] …`).
 DMs, posição, credenciais, telemetria, arquivos e voz não são traduzidos. O túnel C continua de laboratório e exige ativação separada; não
@@ -59,9 +59,9 @@ DMs, posição, credenciais, telemetria, arquivos e voz não são traduzidos. O 
 Na tela: `System → Bitchat bridge → More options → Status` mostra estado, clientes BLE e
 canal de texto. `BLE clients: 0` não confirma conexão Bitchat. `Open Meshtastic: clock`
 significa que falta hora confiável; a ponte não aprende a hora de mensagens BLE arbitrárias.
-**`.6`:** `Status` fica no primeiro nível do menu; os textos equivalentes são
+**`1.0`:** `Status` fica no primeiro nível do menu; os textos equivalentes são
 `Phones connected: 0` e `Clock not set`, com a orientação `Open Bitchat nearby`. Sem hora
-confiável, a `.6` aceita a hora do primeiro telefone Bitchat que conecta, com os limites
+confiável, a `1.0` aceita a hora do primeiro telefone Bitchat que conecta, com os limites
 descritos em [CANDIDATE.md](CANDIDATE.md); as frases desta página que negam esse recurso
 valem para a `.5`.
 Se o Meshtastic não aparecer na lista após a hora estar ajustada, usar **Switch phone app →

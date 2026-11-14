@@ -1,4 +1,4 @@
-name: Bridge verification and experimental release
+name: Bridge verification and release
 
 on:
   push:
@@ -8,7 +8,6 @@ on:
         "integration/upstream-2.7.26",
         "fix/heltec-boot-memory",
         "fix/bridge-menu",
-        "claude/**",
       ]
   workflow_dispatch:
     inputs:
@@ -137,7 +136,7 @@ jobs:
       (github.ref == 'refs/heads/main' && github.event_name == 'workflow_dispatch' && inputs.publish_release) ||
       (github.ref == 'refs/heads/fix/heltec-boot-memory' && github.event_name == 'push' && contains(github.event.head_commit.message, '[release-bootfix]')) ||
       (github.ref == 'refs/heads/fix/bridge-menu' && github.event_name == 'push' && contains(github.event.head_commit.message, '[release-memory]')) ||
-      (startsWith(github.ref, 'refs/heads/claude/') && github.event_name == 'push' && contains(github.event.head_commit.message, '[release-experimental6]'))
+      (github.ref == 'refs/heads/main' && github.event_name == 'push' && contains(github.event.head_commit.message, '[release-1.0.0-beta]'))
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     permissions:
@@ -182,7 +181,7 @@ jobs:
           cp release/prepare_flash.py release/verify_artifact.py release/WINDOWS_RECOVERY.md published/
           cd published
           sha256sum * > SHA256SUMS
-      - name: Publish experimental prerelease
+      - name: Publish beta release
         env:
           GH_TOKEN: ${{ github.token }}
           RELEASE_BRANCH: ${{ github.ref_name }}
@@ -193,4 +192,4 @@ jobs:
             echo "Refusing to publish a superseded source commit."
             exit 1
           fi
-          gh release create "v$version" published/* --target "$GITHUB_SHA" --prerelease --title "Bridge $version — experimental" --notes-file docs/bridge/RELEASE.md
+          gh release create "v$version" published/* --target "$GITHUB_SHA" --prerelease --title "Bridge $version" --notes-file docs/bridge/RELEASE.md

@@ -623,7 +623,7 @@ size_t Preferences::putBytes(const char *key, const void *in, size_t size)
 {
     auto *entry = entryFor(key);
     if (!entry)
-        return key[0] == 'j' ? size : 0;
+        return key[0] == 'j' || !strcmp(key, "link") ? size : 0; // accepted, not kept across restarts
     if (!size || size > sizeof(entry->bytes))
         return 0;
     const bool same = entry->size == size && !memcmp(entry->bytes, in, size);

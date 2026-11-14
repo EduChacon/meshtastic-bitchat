@@ -6,7 +6,7 @@ Ponte embarcada derivada do firmware oficial Meshtastic. O objetivo é usar
 os aplicativos originais Bitchat e Meshtastic, sem computador, MQTT, Nostr ou internet na
 operação. Computador continua necessário para compilar, instalar e diagnosticar.
 
-**Versão atual (beta): [v1.0.0-beta.5](https://github.com/EduChacon/meshtastic-bitchat/releases/tag/v1.0.0-beta.5).** Dispensa o `!lora`, corrige perdas
+**Versão atual (beta): [v1.0.0-beta.6](https://github.com/EduChacon/meshtastic-bitchat/releases/tag/v1.0.0-beta.6).** Dispensa o `!lora`, corrige perdas
 de mensagem em conversa de grupo, recupera a hora sem o aplicativo Meshtastic, simplifica o
 menu e acrescenta oito aparelhos ESP32-S3. [O que mudou e por quê](docs/bridge/CHANGES.md).
 
@@ -18,8 +18,9 @@ relatou o telefone reconhecido (`Phones 1/1`, `People 2`) e texto nos dois senti
 (`path 9`, 230 quadros recebidos e 59 enviados pelo serviço do telefone, nenhuma escrita do
 telefone no serviço da ponte), com o aplicativo Meshtastic na mesma conexão. É uma sessão em
 um aparelho, sem ensaio de duração. Os demais nove alvos só foram compilados.
-A `1.0.0-beta.5` acrescenta os comandos para rádios sem tela e muda o anúncio Bluetooth; essas
-duas mudanças foram simuladas e compiladas, **sem ensaio em aparelho**.
+A `1.0.0-beta.5` acrescentou os comandos para rádios sem tela e mudou o anúncio Bluetooth; a
+`1.0.0-beta.6` acrescenta a [ligação com pontes MeshCore](docs/bridge/DEFAULTS.md#ligação-com-o-meshcore).
+Essas mudanças foram simuladas e compiladas, **sem ensaio em aparelho**.
 Fazer backup antes de instalar e ler os [limites](docs/bridge/CHANGES.md) e o [roteiro de ensaio](docs/bridge/TESTING.md).
 
 ## Como funciona
@@ -64,8 +65,8 @@ nunca foi ligado em aparelho e está fora das verificações da versão.
 
 ## Instalar
 
-1. Em [v1.0.0-beta.5](https://github.com/EduChacon/meshtastic-bitchat/releases/tag/v1.0.0-beta.5), baixar
-   **`meshtastic-bitchat-1.0.0-beta.5.zip`**. É um arquivo só, para os dez aparelhos.
+1. Em [v1.0.0-beta.6](https://github.com/EduChacon/meshtastic-bitchat/releases/tag/v1.0.0-beta.6), baixar
+   **`meshtastic-bitchat-1.0.0-beta.6.zip`**. É um arquivo só, para os dez aparelhos.
 2. No [Web Flasher oficial](https://flasher.meshtastic.org/), escolher a placa, carregar o ZIP
    e usar **Atualizar / Update**. Não selecionar **Apagar Flash e Instalar**. Se a placa
    oferecer a interface colorida (MUI), deixar desmarcada.
@@ -118,8 +119,8 @@ Base: Meshtastic **2.7.26.54e0d8d**, commit `54e0d8d0ab2ff56b3a9ce967e53f79e49af
 Bitchat de referência: iOS **1.8.0**, commit `30c58eee349e172b37f69faa2113c9d5f2c76c23`.
 
 ```sh
-git fetch origin tag v1.0.0-beta.5
-git checkout --detach v1.0.0-beta.5
+git fetch origin tag v1.0.0-beta.6
+git checkout --detach v1.0.0-beta.6
 python3 -m venv .venv
 .venv/bin/python -m pip install platformio==6.2.0 intelhex==2.3.0
 git submodule update --init protobufs

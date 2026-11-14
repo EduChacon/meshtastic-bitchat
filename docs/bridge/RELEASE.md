@@ -1,14 +1,25 @@
-# Meshtastic ↔ Bitchat 1.0.0-beta.5
+# Meshtastic ↔ Bitchat 1.0.0-beta.6
 
 **Versão beta, com um aparelho relatado em funcionamento na versão anterior.** Em um Heltec V3
 com Bitchat iOS 1.8.0, a `1.0.0-beta.4` teve o telefone reconhecido (`Phones 1/1`, `People 2`)
 e texto nos dois sentidos (`LoRa out 2 in 1`); o relatório `!bridge` dessa sessão mostrou o
 caminho novo em uso: `path 9`, `in 230 out 59`, `wr 0`. É uma sessão em um aparelho, sem ensaio
-de duração. **As mudanças da `1.0.0-beta.5` foram simuladas e compiladas, sem ensaio em
-aparelho.** Os outros nove alvos foram apenas compilados. Fazer backup privado antes de
+de duração. **As mudanças da `1.0.0-beta.5` e da `1.0.0-beta.6` foram simuladas e compiladas,
+sem ensaio em aparelho.** Os outros nove alvos foram apenas compilados. Fazer backup privado antes de
 instalar. Não há garantia de risco zero.
 
-**O que a `1.0.0-beta.5` muda em relação à `1.0.0-beta.4`:**
+**O que a `1.0.0-beta.6` muda em relação à `1.0.0-beta.5`:**
+
+- **Ligação com o MeshCore pelo Bitchat.** Quando esta ponte e uma ponte
+  [MeshCore–Bitchat](https://github.com/EduChacon/Meshcore-Bitchat) estão ao alcance Bluetooth
+  dos mesmos telefones Bitchat, o que a ponte MeshCore traz ao Bitchat, `[MC nome] texto`, sai
+  no canal do Meshtastic como `MC nome: texto`. Cada texto atravessa uma vez só: o que já veio
+  da outra rede chega marcado e nenhuma ponte o leva de volta. Vem ligada; `!bridge link off`
+  desliga e `!bridge link on` religa, pelo aplicativo Meshtastic conectado ao próprio rádio.
+  Com mais de um lugar ligando as mesmas duas redes, o mesmo texto pode aparecer repetido.
+  **Só simulada; não foi ensaiada em aparelho.**
+
+**O que a `1.0.0-beta.5` mudou em relação à `1.0.0-beta.4`:**
 
 - **Rádio sem tela.** Os modos do menu passam a ter comandos de texto, aceitos somente do
   aplicativo Meshtastic conectado ao próprio rádio: `!bridge off`, `!bridge on`,
@@ -21,10 +32,10 @@ instalar. Não há garantia de risco zero.
   só aparecia na janela `Find Meshtastic app`, que depende de tela. **Isso muda o anúncio
   Bluetooth do Heltec V3 já ensaiado e não foi verificado em aparelho.**
 - **`!bridge` com a ponte desligada** passa a orientar o comando `!bridge on`.
-- **SenseCAP T1000-E, experimental.** O arquivo `EXPERIMENTAL-t1000-e-bitchat-1.0.0-beta.5.uf2`
+- **SenseCAP T1000-E, experimental.** O arquivo `EXPERIMENTAL-t1000-e-bitchat-1.0.0-beta.6.uf2`
   acompanha esta versão, à parte. Compila, mas **nunca foi ligado em aparelho**, não entra no
   ZIP de instalação nem nas verificações da versão, e grava-se por UF2, não pelo flasher. Antes
-  de usar, ler [estado, riscos e roteiro](https://github.com/EduChacon/meshtastic-bitchat/blob/v1.0.0-beta.5/docs/bridge/T1000E.md).
+  de usar, ler [estado, riscos e roteiro](https://github.com/EduChacon/meshtastic-bitchat/blob/v1.0.0-beta.6/docs/bridge/T1000E.md).
 
 O uso diário não exige o aplicativo Meshtastic: o canal `Bitchat` é criado pela ponte e a hora
 pode vir do primeiro telefone Bitchat. A exceção é a região do LoRa, que um rádio nunca
@@ -80,14 +91,14 @@ recriado sempre que faltar; texto longo do Meshtastic entregue ao Bitchat em par
 - **Menu e tela de estado** em frases, com orientação do que fazer.
 - **Oito aparelhos novos**, todos ESP32-S3.
 
-[Mudanças, motivos, limites e evidência](https://github.com/EduChacon/meshtastic-bitchat/blob/v1.0.0-beta.5/docs/bridge/CHANGES.md).
+[Mudanças, motivos, limites e evidência](https://github.com/EduChacon/meshtastic-bitchat/blob/v1.0.0-beta.6/docs/bridge/CHANGES.md).
 
 **Atenção ao padrão novo:** qualquer pessoa que escreva no `#mesh` ao alcance da ponte tem o
 texto publicado no canal LoRa `Bitchat`, cuja chave é pública.
 
 ## Baixar para instalar
 
-Baixar **`meshtastic-bitchat-1.0.0-beta.5.zip`**. É um arquivo só, para todos os aparelhos. No
+Baixar **`meshtastic-bitchat-1.0.0-beta.6.zip`**. É um arquivo só, para todos os aparelhos. No
 [flasher oficial](https://flasher.meshtastic.org/), escolher a placa, carregar o ZIP e usar
 **Atualizar / Update**. Não usar **Apagar Flash e Instalar**. O flasher grava somente a
 aplicação da placa escolhida; escolher a placa errada pode impedir o boot. Nas placas com
@@ -101,14 +112,14 @@ Não há binário para T1000-E, RAK4631, T-Echo, T-Beam clássico, T-LoRa32, T3-
 Cardputer original nem para as variantes com interface colorida (`-tft`).
 
 O `technical-package` traz os pacotes por modelo, o verificador e o
-[roteiro opcional de backup](https://github.com/EduChacon/meshtastic-bitchat/blob/v1.0.0-beta.5/docs/bridge/WINDOWS_RECOVERY.md).
+[roteiro opcional de backup](https://github.com/EduChacon/meshtastic-bitchat/blob/v1.0.0-beta.6/docs/bridge/WINDOWS_RECOVERY.md).
 
 ## Usar
 
 A ponte sai configurada; os ajustes do menu são opcionais. Abrir o Bitchat perto do rádio e
 conversar no `#mesh`. O canal padrão é comum a todas as pontes ao alcance do LoRa; para um
 grupo fechado, escolher no menu um canal com chave própria. No rádio remoto com firmware original,
-adicionar somente o canal `Bitchat` com a [chave pública](https://github.com/EduChacon/meshtastic-bitchat/blob/v1.0.0-beta.5/docs/bridge/DEFAULTS.md). O texto do canal
+adicionar somente o canal `Bitchat` com a [chave pública](https://github.com/EduChacon/meshtastic-bitchat/blob/v1.0.0-beta.6/docs/bridge/DEFAULTS.md). O texto do canal
 aparece no `#mesh` como `[MT nome do nó] texto`. Para mudar o modo: `System → Bitchat bridge`.
 Em rádio sem tela valem os padrões automáticos.
 
@@ -120,7 +131,7 @@ malformadas, adaptador Bluetooth, memória, menu, padrões, inicialização, pac
 completo com três telefones e um rádio simulados. Nada disso equivale a ensaio com
 controlador Bluetooth, iOS ou rádio reais.
 
-`technical-package-1.0.0-beta.5.tar.gz` reúne fontes correspondentes, dependências,
+`technical-package-1.0.0-beta.6.tar.gz` reúne fontes correspondentes, dependências,
 licenças, símbolos, manifestos e resultados dos testes. Não é arquivo para o flasher.
 A base permanece Meshtastic 2.7.26.54e0d8d.
 
@@ -128,7 +139,9 @@ A base permanece Meshtastic 2.7.26.54e0d8d.
 
 **One device reported working, on the previous version.** With `1.0.0-beta.4` on a Heltec V3 and Bitchat iOS 1.8.0, the operator reported the phone recognised (`Phones 1/1`, `People 2`) and text in both directions (`LoRa out 2 in 1`); the `!bridge` report of that session showed the new path in use (`path 9`, `in 230 out 59`, `wr 0`). It is one session on one device, with no endurance test. Versions up to `1.0.0-beta.3` did not exchange messages with the app: the phone connects and subscribes to the bridge service, but the bridge receives no write from it, with the Meshtastic app open or closed. The earlier `experimental.5` fails the same way on the same phone. The cause is not determined; the app only writes when iOS reports that the link accepts writes without response, and it has no other way to deliver data to a peripheral.
 
-**Since `1.0.0-beta.4` (simulated and compiled, not tested on a device):** text commands for radios without a screen, accepted only from the Meshtastic app connected to the radio itself (`!bridge off`, `!bridge on`, `!bridge local`, `!bridge lora` on the channel where it is sent, `!bridge help`); the Meshtastic service and the radio's own name in the scan response of the bridge advertisement, so that app finds the radio without the screen menu (this changes the advertisement of the Heltec V3 already tried); and a separate, experimental `EXPERIMENTAL-t1000-e-bitchat-1.0.0-beta.5.uf2` for the SenseCAP T1000-E, which compiles but has never run on a device and is outside the release checks.
+**New in `1.0.0-beta.6` (simulated and compiled, not tested on a device):** text that a [MeshCore–Bitchat bridge](https://github.com/EduChacon/Meshcore-Bitchat) brings to Bitchat (`[MC name] text`) is taken to the Meshtastic channel once, as `MC name: text`, when both bridges are within Bluetooth range of the same Bitchat phones; text that already crossed is marked and never crosses again; on by default, `!bridge link off` / `!bridge link on`.
+
+**Since `1.0.0-beta.4` (simulated and compiled, not tested on a device):** text commands for radios without a screen, accepted only from the Meshtastic app connected to the radio itself (`!bridge off`, `!bridge on`, `!bridge local`, `!bridge lora` on the channel where it is sent, `!bridge help`); the Meshtastic service and the radio's own name in the scan response of the bridge advertisement, so that app finds the radio without the screen menu (this changes the advertisement of the Heltec V3 already tried); and a separate, experimental `EXPERIMENTAL-t1000-e-bitchat-1.0.0-beta.6.uf2` for the SenseCAP T1000-E, which compiles but has never run on a device and is outside the release checks.
 
 **From `1.0.0-beta.3` to `1.0.0-beta.4`:** a second data path, in which the bridge looks for the Bitchat service the app itself publishes, over the same link, and subscribes to it, so the phone's packets arrive as notifications and the bridge's leave as whole-frame writes (the path in use in the session reported above); an MTU exchange requested on connect; notifications only to phones whose writes have arrived; LoRa text in parts of at most 96 bytes; per-link measurements in `!bridge`; `Phones talking/subscribed` on the screen; a real countdown for `Starting LoRa`. Correction: the 22-byte bridge marker was already present in `experimental.5`, not introduced in `1.0.0-beta` as the `1.0.0-beta.3` notes said.
 
@@ -142,8 +155,8 @@ long text is split in up to three parts; a radio without a trusted clock takes t
 the first Bitchat phone that connects (a nearby phone can push that clock ahead until a
 trusted source returns); plain-language menu and status; eight more ESP32-S3 devices.
 
-Download the single `meshtastic-bitchat-1.0.0-beta.5.zip`, select the board in the official flasher,
+Download the single `meshtastic-bitchat-1.0.0-beta.6.zip`, select the board in the official flasher,
 load the ZIP and use **Update**. Do not erase flash. The bridge comes configured; menu
 adjustments are optional. With the new default, anyone writing
 in `#mesh` within reach of the bridge has that text published on the public `Bitchat` LoRa
-channel. [Details in English](https://github.com/EduChacon/meshtastic-bitchat/blob/v1.0.0-beta.5/docs/bridge/CHANGES.md#english).
+channel. [Details in English](https://github.com/EduChacon/meshtastic-bitchat/blob/v1.0.0-beta.6/docs/bridge/CHANGES.md#english).

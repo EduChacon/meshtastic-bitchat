@@ -27,6 +27,9 @@ class BitchatBridgeModule : public MeshModule, private concurrency::OSThread
     bool setChannel(bool tunnel, uint8_t index);
     bool setPrivateTunnel(bool value);
     bool setPrefixOnly(bool value);
+    // Text a MeshCore bridge brought to Bitchat is taken to this network. Kept in its own stored entry.
+    bool linked() const { return link; }
+    bool setLink(bool value);
     bool eligibleChannel(uint8_t index) const;
     void openNativeWindow();
     void closeNativeWindow();
@@ -76,6 +79,7 @@ class BitchatBridgeModule : public MeshModule, private concurrency::OSThread
     Preferences storage;
     bool storageReady = false, identityReady = false, advertisingChanged = true;
     bool defaultsPending = false, defaultChannelUnavailable = false, clockWindow = false;
+    bool link = true;
     bool textReady = false, tunnelReady = false;
     bool wasActive = false;
     bool textConflict = false;

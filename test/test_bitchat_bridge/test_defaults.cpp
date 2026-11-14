@@ -125,7 +125,7 @@ class BitchatBridgeModule : MeshModule, OSThread
     Preferences storage;
     bool storageReady = false, identityReady = false, advertisingChanged = true;
     bool defaultsPending = false, defaultChannelUnavailable = false, clockWindow = false;
-    bool memoryOk = true, identityOk = true, textReady = false;
+    bool memoryOk = true, identityOk = true, textReady = false, link = true;
     unsigned publicIndex = 1;
     uint32_t bootId = 0, textGuardAt = 0;
     uint64_t time = 0, clockFloor = 0;

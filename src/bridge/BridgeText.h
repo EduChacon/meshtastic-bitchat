@@ -19,6 +19,9 @@ constexpr size_t TEXT_BUFFER = 280;
 constexpr char LORA_PREFIX[] = "!lora ";
 constexpr char TUNNEL_PREFIX[] = "!bctun ";
 constexpr char IMPORT_PREFIX[] = "[MT ";
+// The bridge of the other LoRa network tags what it brings to Bitchat in the same way, with its own letters.
+constexpr char FOREIGN_PREFIX[] = "[MC ";
+constexpr char FOREIGN_TAG[] = "MC";
 constexpr char REPLY_PREFIX[] = "[bridge] ";
 constexpr size_t TUNNEL_TEXT_LIMIT = 127;
 
@@ -34,11 +37,18 @@ struct TextPlan {
 };
 
 // Status may be asked from either app; the others are accepted only from the app attached to the radio.
-enum class Command : uint8_t { None, Status, Reset, On, Off, Local, Lora, Help };
+enum class Command : uint8_t { None, Status, Reset, On, Off, Local, Lora, Help, LinkOn, LinkOff };
 // "!bridge" or "!ponte" in any letter case asks for a self-test; " reset" after
 // it restarts the Bluetooth links.
 Command bridgeCommand(Bytes text);
 Result publicTextForLoRa(const Packet &packet, Bytes &body);
+// "MT " or "MC " opens the label of text that already went from one LoRa network to the other.
+bool networkTag(Bytes text);
+// Text the other network's bridge brought to Bitchat, "[MC name] text", to be taken across once: the
+// label for this side ("MC name") and the body. Text that already crossed is refused.
+Result foreignTextForLoRa(const Packet &packet, char *label, size_t capacity, size_t &labelSize, Bytes &body);
+// LoRa text that came from the other network, "MC name: text": the marked name and where the text starts.
+bool crossedLoRaText(Bytes text, Bytes &name, Bytes &body);
 size_t cleanLabel(Bytes name, char *output, size_t capacity);
 Result planNativeText(size_t labelSize, Bytes body, TextPlan &plan);
 Result makeNativeText(Bytes label, Bytes body, const TextPlan &plan, size_t part, NativeText &out);

@@ -246,6 +246,16 @@ ensaio em aparelho; o ensaio em aparelho continua sendo o da `1.0.0-beta.4`, em 
 Antes do envio à `main`, a execução 43641506857 do ramo de trabalho compilou o Heltec V3 com a
 análise estática e o T1000-E, com e sem a ponte, sem falhas.
 
+Décimo terceiro passo. O operador aprovou ligar as redes Meshtastic e MeshCore pelo Bitchat,
+depois de ver as duas pontes na mesma conversa. Versão `1.0.0-beta.6`: texto que uma ponte
+MeshCore–Bitchat traz ao Bitchat (`[MC nome] texto`) passa a sair no canal do Meshtastic como
+`MC nome: texto`, uma vez só. A regra contra laço é de marcação: nome iniciado por `MT ` ou
+`MC ` indica texto que já atravessou, e nenhuma ponte o leva de volta; ouvido no LoRa, o texto
+marcado chega aos telefones com o nome marcado, em todas as partes. A escolha `!bridge link
+on/off` fica em uma entrada própria da memória, sem mudar o formato das configurações já
+gravadas; no T1000-E ela não sobrevive ao reinício. Verificado só em simulação (643 verificações
+do núcleo e 997 de fluxo) e por compilação.
+
 ## Investigação de boot — 2026-11-13
 
 As instalações foram suspensas nos dois READMEs e nas pré-releases, preservando os arquivos

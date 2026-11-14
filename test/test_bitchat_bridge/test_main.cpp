@@ -154,6 +154,41 @@ static void identitiesAndText()
     CHECK(bridgeCommand(utf8("!bridge on")) == Command::On && bridgeCommand(utf8("!PONTE OFF")) == Command::Off);
     CHECK(bridgeCommand(utf8("!Bridge Local")) == Command::Local && bridgeCommand(utf8("!ponte lora")) == Command::Lora);
     CHECK(bridgeCommand(utf8("!bridge help")) == Command::Help && bridgeCommand(utf8("!bridge onn")) == Command::None);
+    CHECK(bridgeCommand(utf8("!bridge link on")) == Command::LinkOn &&
+          bridgeCommand(utf8("!Ponte Link Off ")) == Command::LinkOff);
+    CHECK(bridgeCommand(utf8("!bridge link")) == Command::None && bridgeCommand(utf8("!bridge link offf")) == Command::None);
+    {
+        // Text of the other network's bridge: taken across once, with that network's letters before the name.
+        char crossing[LABEL_LIMIT + 8];
+        size_t crossingSize = 0;
+        Bytes rest, crossedName, crossedBody;
+        Packet foreign = p;
+        foreign.payload = utf8("[MC Maria] oi");
+        CHECK(foreignTextForLoRa(foreign, crossing, sizeof(crossing), crossingSize, rest) == Result::Ok);
+        CHECK(std::string(crossing, crossingSize) == "MC Maria" && rest.size == 2);
+        foreign.payload = utf8("[MC um nome de r\xc3\xa1"
+                               "dio muito comprido mesmo] oi");
+        CHECK(foreignTextForLoRa(foreign, crossing, sizeof(crossing), crossingSize, rest) == Result::Ok);
+        CHECK(crossingSize <= LABEL_LIMIT && validUtf8({reinterpret_cast<const uint8_t *>(crossing), crossingSize}));
+        TextPlan crossingPlan;
+        CHECK(planNativeText(crossingSize, rest, crossingPlan) == Result::Ok);
+        for (const char *refused : {"[MC MT ana] de volta", "[MC MC ana] de volta", "[MC Maria] MT ana: de volta",
+                                    "[MT ana] daqui", "plain", "[MC Maria]sem espa\xc3\xa7o"}) {
+            foreign.payload = utf8(refused);
+            CHECK(foreignTextForLoRa(foreign, crossing, sizeof(crossing), crossingSize, rest) != Result::Ok);
+        }
+        // A name that merely starts with the same letters is not a marking.
+        foreign.payload = utf8("[MC MCZ Clube] pedal amanh\xc3\xa3");
+        CHECK(foreignTextForLoRa(foreign, crossing, sizeof(crossing), crossingSize, rest) == Result::Ok);
+        foreign.payload = utf8("[MC Maria] MT sem dois pontos");
+        CHECK(foreignTextForLoRa(foreign, crossing, sizeof(crossing), crossingSize, rest) == Result::Ok);
+        foreign.flags |= 1;
+        CHECK(foreignTextForLoRa(foreign, crossing, sizeof(crossing), crossingSize, rest) == Result::Policy);
+        CHECK(crossedLoRaText(utf8("MC Maria: oi"), crossedName, crossedBody) && crossedName.size == 8 && crossedBody.size == 2);
+        CHECK(!crossedLoRaText(utf8("MC Maria sem dois pontos"), crossedName, crossedBody));
+        CHECK(!crossedLoRaText(utf8("Maria: oi"), crossedName, crossedBody) &&
+              !crossedLoRaText(utf8("MC x: "), crossedName, crossedBody));
+    }
     CHECK(bridgeCommand(utf8("!bridge o")) == Command::None && bridgeCommand(utf8("!bridge off now")) == Command::None);
     typed.payload = utf8("ok");
     typed.flags &= uint8_t(~2);

@@ -414,6 +414,29 @@ int main()
     CHECK(std::string(bridge->status()) == "Ready: Bitchat + LoRa");
     CHECK(radio().size() == 1 && radio()[0].find("continua") != std::string::npos);
     fakeRadio.clear();
+    // What a MeshCore bridge brought to Bitchat crosses to this network once, under the name it had there.
+    CHECK(bridge->linked());
+    caio.write(other.say("[MC Maria] oi do MeshCore"), caio.handle);
+    run(3000);
+    CHECK(radio() == std::vector<std::string>{"MC Maria: oi do MeshCore"});
+    fakeRadio.clear();
+    // Text that already crossed, in either marking, stays where it is.
+    caio.write(other.say("[MC MT Node Fixo] de volta"), caio.handle);
+    caio.write(other.say("[MC Maria] MT Node Fixo: de volta"), caio.handle);
+    caio.write(other.say("[MC ] sem nome"), caio.handle);
+    caio.write(other.say("[MC sem fim"), caio.handle);
+    run(3000);
+    CHECK(radio().empty());
+    CHECK(bridge->setLink(false));
+    caio.write(other.say("[MC Maria] com a liga\xc3\xa7\xc3\xa3o desligada"), caio.handle);
+    run(3000);
+    CHECK(radio().empty() && bridge->setLink(true));
+    // Heard on LoRa, crossed text reaches the phones under its marked name, whichever node relayed it.
+    fakeSent.clear();
+    fromLoRa(0x1234, "MC Maria: oi do MeshCore");
+    run(300);
+    CHECK(chat(bia.handle, &bridgeId) == std::vector<std::string>{"[MT MC Maria] oi do MeshCore"});
+    fakeSent.clear();
     auto lower = proof(fakeNodeDB.number - 1);
     caio.write(other.announce({lower.data(), lower.size()}, 6), caio.handle);
     run(200);
@@ -772,6 +795,12 @@ int main()
     fromLoRa(0, "!bridge help", 1);
     run(1100);
     CHECK(fakeApp.size() == 6 && app(5).rfind("[bridge] !bridge shows the state.", 0) == 0 && app(5).size() <= 200);
+    fromLoRa(0, "!bridge link off", 1);
+    run(1100);
+    CHECK(!bridge->linked() && app(6).rfind("[bridge] Link off", 0) == 0);
+    fromLoRa(0, "!Ponte Link On", 1);
+    run(1100);
+    CHECK(bridge->linked() && app(7).rfind("[bridge] Link on", 0) == 0);
     CHECK(radio().size() == onAir);
     delete bridge;
     bleDetach();

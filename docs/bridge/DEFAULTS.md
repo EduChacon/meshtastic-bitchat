@@ -107,8 +107,10 @@ O comando é uma mensagem de texto comum; maiúsculas e minúsculas não importa
 | Aplicativo Meshtastic conectado ao rádio da ponte | `!bridge local`                 | `Bitchat only`: só o relé por Bluetooth, nada vai ao LoRa                                                  |
 | Aplicativo Meshtastic conectado ao rádio da ponte | `!bridge lora`                  | `Bitchat + LoRa` no canal em que o comando foi enviado; o canal precisa ser secundário, com nome e chave   |
 | Aplicativo Meshtastic conectado ao rádio da ponte | `!bridge help`                  | Lista os comandos                                                                                          |
+| Aplicativo Meshtastic conectado ao rádio da ponte | `!bridge link off`              | Deixa de levar ao LoRa o texto que pontes MeshCore trazem ao Bitchat                                       |
+| Aplicativo Meshtastic conectado ao rádio da ponte | `!bridge link on`               | Volta a levar esse texto (é o padrão)                                                                      |
 
-Os comandos que mudam o estado (`on`, `off`, `local`, `lora`, `reset`) só valem quando digitados
+Os comandos que mudam o estado (`on`, `off`, `local`, `lora`, `link`, `reset`) só valem quando digitados
 no aplicativo Meshtastic conectado ao próprio rádio. Vindos de outro rádio ou do Bitchat, não
 mudam nada. `!ponte` aceita as mesmas palavras.
 
@@ -136,6 +138,30 @@ A tela de estado mostra uma frase (`Ready: Bitchat + LoRa`, `Clock not set`, `St
 bridge`, `LoRa channel changed`) e, na última linha, o que fazer. `Phones 1/2` significa dois
 telefones inscritos, dos quais um já enviou algum dado do Bitchat; `0/1` é um telefone que se
 conectou e ficou mudo, ou a inscrição restaurada de um telefone pareado; `Not delivered` conta somente mensagens perdidas.
+
+## Ligação com o MeshCore
+
+A partir da `1.0.0-beta.6`. Quando esta ponte e uma ponte
+[MeshCore–Bitchat](https://github.com/EduChacon/Meshcore-Bitchat) estão ao alcance Bluetooth dos
+mesmos telefones Bitchat, as duas redes LoRa passam a conversar pelo Bitchat, sem ajuste algum:
+
+a) o que a ponte MeshCore traz ao Bitchat, `[MC nome] texto`, sai no canal do Meshtastic como
+`MC nome: texto`;
+
+b) no sentido contrário, a ponte MeshCore leva `[MT nome] texto` à rede dela como
+`MT nome: texto`.
+
+Cada texto atravessa **uma vez só**. O que já veio da outra rede chega marcado (`MC …` ou
+`MT …` antes do nome) e nenhuma ponte o leva de volta; ouvido no LoRa, ele chega aos telefones
+com esse nome marcado, por exemplo `[MT MC Maria] oi`. É preciso haver ao menos um telefone com
+o Bitchat aberto entre as duas pontes, porque elas não se conectam uma à outra.
+
+`!bridge link off` desliga a passagem neste rádio e `!bridge link on` religa. No T1000-E a
+escolha vale até o próximo reinício.
+
+Limites: com mais de um lugar ligando as mesmas duas redes, o mesmo texto pode aparecer
+repetido; um nome que comece por `MT ` ou `MC ` é tratado como marcação e não atravessa; e a
+ligação **não foi ensaiada em aparelho**, só em simulação.
 
 ## Rádio sem tela
 

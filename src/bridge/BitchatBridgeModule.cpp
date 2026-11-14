@@ -45,6 +45,9 @@ BitchatBridgeModule::BitchatBridgeModule() : MeshModule("bitchat"), OSThread("bi
             (storage.getBytesLength(key) != sizeof(entry) || storage.getBytes(key, &entry, sizeof(entry)) != sizeof(entry)))
             storageReady = false;
     }
+    uint8_t stored = 1;
+    if (storageReady && storage.isKey("link") && storage.getBytesLength("link") == 1 && storage.getBytes("link", &stored, 1) == 1)
+        link = stored != 0;
     if (storageReady && storage.isKey("clock") && storage.getBytesLength("clock") == sizeof(clockFloor))
         storage.getBytes("clock", &clockFloor, sizeof(clockFloor));
 #ifdef BUILD_EPOCH
@@ -342,6 +345,14 @@ bool BitchatBridgeModule::setPrivateTunnel(bool value)
     settings.privateTunnel = value;
     return persist();
 }
+bool BitchatBridgeModule::setLink(bool value)
+{
+    const uint8_t stored = value;
+    if (!storageReady || storage.putBytes("link", &stored, 1) != 1)
+        return false;
+    link = value;
+    return true;
+}
 bool BitchatBridgeModule::setPrefixOnly(bool value)
 {
     settings.reserved[1] = value;
@@ -564,7 +575,16 @@ void BitchatBridgeModule::answerApp()
     }
     if (command == Command::Help) {
         replyToApp("[bridge] !bridge shows the state. !bridge on, off, local (Bluetooth only), lora (Bitchat + LoRa on the "
-                   "channel where you send it), reset.");
+                   "channel where you send it), link on, link off, reset.");
+        return;
+    }
+    if (command == Command::LinkOn || command == Command::LinkOff) {
+        const bool value = command == Command::LinkOn;
+        if (!setLink(value))
+            replyToApp("[bridge] Not changed: Storage error");
+        else
+            replyToApp(value ? "[bridge] Link on: text a MeshCore bridge brings to Bitchat also goes to this channel."
+                             : "[bridge] Link off: text from MeshCore bridges stays in Bitchat.");
         return;
     }
     if (command != Command::Status) {
@@ -903,9 +923,17 @@ bool BitchatBridgeModule::handleFrame(Bytes frame, uint16_t source, bool fromTun
 void BitchatBridgeModule::exportText(const Packet &packet, Peer &peer, const Digest &id)
 {
     Bytes body;
-    Result result = publicTextForLoRa(packet, body);
-    // Text from another bridge already came from LoRa: sending it back would loop.
-    if (result == Result::Ok && (peer.announcement.gateway || textConflict))
+    char label[LABEL_LIMIT + 8];
+    size_t labelSize = 0;
+    Result result;
+    if (peer.announcement.gateway) {
+        // Text from a bridge of this network already came from LoRa: sending it back would loop. What a
+        // bridge of the other network brought crosses to this one, once.
+        result = link ? foreignTextForLoRa(packet, label, sizeof(label), labelSize, body) : Result::Policy;
+    } else {
+        result = publicTextForLoRa(packet, body);
+    }
+    if (result == Result::Ok && textConflict)
         result = Result::Policy;
     if (result == Result::Ok && seen(id))
         result = Result::Duplicate;
@@ -913,13 +941,14 @@ void BitchatBridgeModule::exportText(const Packet &packet, Peer &peer, const Dig
         reject(result);
         return;
     }
-    char label[LABEL_LIMIT + 8];
-    size_t labelSize = cleanLabel({reinterpret_cast<const uint8_t *>(peer.announcement.nickname.data()),
-                                   strnlen(peer.announcement.nickname.data(), peer.announcement.nickname.size())},
-                                  label, LABEL_LIMIT - 4);
-    // Same rule as the Bitchat app: equal nicknames are told apart by the start of the peer ID.
-    if (!labelSize || runtime->peers->nicknameShared(peer))
-        labelSize += snprintf(label + labelSize, 6, "#%02x%02x", peer.id[0], peer.id[1]);
+    if (!peer.announcement.gateway) {
+        labelSize = cleanLabel({reinterpret_cast<const uint8_t *>(peer.announcement.nickname.data()),
+                                strnlen(peer.announcement.nickname.data(), peer.announcement.nickname.size())},
+                               label, LABEL_LIMIT - 4);
+        // Same rule as the Bitchat app: equal nicknames are told apart by the start of the peer ID.
+        if (!labelSize || runtime->peers->nicknameShared(peer))
+            labelSize += snprintf(label + labelSize, 6, "#%02x%02x", peer.id[0], peer.id[1]);
+    }
     TextPlan plan;
     result = planNativeText(labelSize, body, plan);
     if (result == Result::Ok && (textGuard() || runtime->radioQueue.size() + plan.count > RadioItem::QUEUE ||
@@ -1009,6 +1038,16 @@ ProcessMessage BitchatBridgeModule::accept(const meshtastic_MeshPacket &packet)
                                    label, sizeof(label));
         if (!labelSize)
             labelSize = snprintf(label, sizeof(label), "!%08lx", static_cast<unsigned long>(from));
+        // Text that came from the other LoRa network keeps the marked name it has there instead of the
+        // relaying node's, so that every piece of it is recognised and no bridge takes it back.
+        Bytes crossedName, crossedBody;
+        if (crossedLoRaText(payload, crossedName, crossedBody)) {
+            const size_t cleaned = cleanLabel(crossedName, label, sizeof(label));
+            if (cleaned) {
+                labelSize = cleaned;
+                payload = crossedBody;
+            }
+        }
         const Bytes name{reinterpret_cast<const uint8_t *>(label), labelSize};
         TextPlan plan;
         Result result = planBitchatText(labelSize, payload, plan);

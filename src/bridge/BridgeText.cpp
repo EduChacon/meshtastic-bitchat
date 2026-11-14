@@ -83,7 +83,7 @@ Command bridgeCommand(Bytes text)
         text = {text.data + 1, text.size - 1};
     while (text.size && (text.data[text.size - 1] == ' ' || text.data[text.size - 1] == '\n' || text.data[text.size - 1] == '\r'))
         --text.size;
-    char word[16];
+    char word[24];
     if (text.size < 6 || text.size >= sizeof(word) || text.data[0] != '!')
         return Command::None;
     // Phone keyboards capitalise on their own.
@@ -98,8 +98,9 @@ Command bridgeCommand(Bytes text)
             static const struct {
                 const char *word;
                 Command command;
-            } choices[] = {{" reset", Command::Reset}, {" on", Command::On},     {" off", Command::Off},
-                           {" local", Command::Local}, {" lora", Command::Lora}, {" help", Command::Help}};
+            } choices[] = {{" reset", Command::Reset},    {" on", Command::On},           {" off", Command::Off},
+                           {" local", Command::Local},    {" lora", Command::Lora},       {" help", Command::Help},
+                           {" link on", Command::LinkOn}, {" link off", Command::LinkOff}};
             for (const auto &choice : choices)
                 if (!std::strcmp(word + length, choice.word))
                     return choice.command;
@@ -118,6 +119,54 @@ Result publicTextForLoRa(const Packet &p, Bytes &body)
     if (startsWith(body, LORA_PREFIX))
         body = {body.data + sizeof(LORA_PREFIX) - 1, body.size - (sizeof(LORA_PREFIX) - 1)};
     return body.size && validUtf8(body) ? Result::Ok : Result::Malformed;
+}
+
+bool networkTag(Bytes text)
+{
+    return text.size >= 3 && text.data[0] == 'M' && (text.data[1] == 'T' || text.data[1] == 'C') && text.data[2] == ' ';
+}
+
+bool crossedLoRaText(Bytes text, Bytes &name, Bytes &body)
+{
+    if (!networkTag(text))
+        return false;
+    for (size_t i = 3; i + 1 < text.size && i < LABEL_LIMIT + 12; ++i)
+        if (text.data[i] == ':' && text.data[i + 1] == ' ') {
+            name = {text.data, i};
+            body = {text.data + i + 2, text.size - i - 2};
+            return body.size != 0;
+        }
+    return false;
+}
+
+Result foreignTextForLoRa(const Packet &p, char *label, size_t capacity, size_t &labelSize, Bytes &body)
+{
+    labelSize = 0;
+    body = {};
+    const size_t prefix = sizeof(FOREIGN_PREFIX) - 1, tag = sizeof(FOREIGN_TAG);
+    if (p.type != 2 || p.directed() || !p.signedPacket() || p.compressed() || p.replay() ||
+        !startsWith(p.payload, FOREIGN_PREFIX) || capacity < LABEL_LIMIT + 1)
+        return Result::Policy;
+    size_t close = prefix;
+    while (close + 1 < p.payload.size && !(p.payload.data[close] == ']' && p.payload.data[close + 1] == ' '))
+        ++close;
+    if (close + 1 >= p.payload.size)
+        return Result::Malformed;
+    const Bytes name{p.payload.data + prefix, close - prefix};
+    body = {p.payload.data + close + 2, p.payload.size - close - 2};
+    if (!name.size || !body.size || !validUtf8(body))
+        return Result::Malformed;
+    // One crossing only: text that came from this network must not return to it through the other one.
+    Bytes inner, rest;
+    if (networkTag(name) || crossedLoRaText(body, inner, rest))
+        return Result::Policy;
+    std::memcpy(label, FOREIGN_TAG, tag - 1);
+    label[tag - 1] = ' ';
+    const size_t cleaned = cleanLabel(name, label + tag, LABEL_LIMIT - tag + 1);
+    if (!cleaned)
+        return Result::Malformed;
+    labelSize = tag + cleaned;
+    return Result::Ok;
 }
 
 size_t cleanLabel(Bytes name, char *output, size_t capacity)

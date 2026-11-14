@@ -220,6 +220,10 @@ increased". Era o limite de gastos do GitHub Actions da conta, não o código. O
 o repositório público e mesclou o ramo de trabalho na `main` pelo PR 1, o que trouxe para a
 `main` a pasta provisória `downloads`, a remover quando a versão estiver publicada.
 
+Décimo passo. A execução 43634808137 da `main` (commit `768b6e1`) terminou com sucesso e publicou
+a `v1.0.0-beta.4` às 20:09 UTC de 2026-11-14, com o ZIP único, o `SHA256SUMS` e o pacote técnico.
+A pasta provisória `downloads` foi removida.
+
 ## Investigação de boot — 2026-11-13
 
 As instalações foram suspensas nos dois READMEs e nas pré-releases, preservando os arquivos

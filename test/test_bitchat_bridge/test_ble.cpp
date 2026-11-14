@@ -108,7 +108,8 @@ int main()
     assert(liveBytes == quiet + 6 * (frame.size + 16));
     assert(!bleBroadcast(frame.bytes()));
     blePoll();
-    assert(fakeSent.size() == 2 + 3 * 4);
+    assert(fakeSent.size() == 2 + 3 * 2);
+    blePoll();
     blePoll();
     assert(fakeSent.size() == 2 + 3 * 6 && liveBytes == quiet);
     fakeSent.resize(2);
@@ -161,8 +162,8 @@ int main()
     // streams.
     assert(liveBytes == idle + frame.size + 16);
     blePoll();
-    // The app drops a frame whose pieces arrive 250 ms apart: one poll already sends four of them.
-    assert(fakeSent.size() == 3 * 4 && fakeSent[3].first == 7 && fakeSent[4].first == 8);
+    // The app drops a frame whose pieces arrive 250 ms apart: one poll sends two of them to each phone.
+    assert(fakeSent.size() == 3 * 2 && fakeSent[1].first == 7 && fakeSent[2].first == 8);
     bleDisconnect(8);
     while (liveBytes > idle)
         blePoll();

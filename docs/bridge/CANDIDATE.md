@@ -44,8 +44,9 @@ host; **não há medição em aparelho que atribua a eles a instabilidade observ
    descartada. Agora são seis frames por telefone em cada sentido, com buffers do tamanho
    exato de cada frame e o mesmo teto de memória anterior (16 KiB).
 2. **Uma notificação a cada 20 ms.** O aplicativo descarta um frame cujos pedaços chegam com
-   mais de 250 ms de intervalo (`bleAssemblerStallResetMs`). Qualquer atraso do laço principal
-   quebrava frames de três ou mais pedaços. Agora cada ciclo envia até quatro pedaços.
+   mais de 250 ms de intervalo (`bleAssemblerStallResetMs`). Um atraso do laço principal
+   acima disso quebrava frames de três ou mais pedaços. Agora cada ciclo envia dois pedaços
+   por telefone, metade dos 12 buffers que o NimBLE divide com o aplicativo Meshtastic.
 3. **Cópias verificadas uma a uma.** Em grupo, cada telefone retransmite o que ouve. A ponte
    conferia a assinatura Ed25519 de cada cópia antes de reconhecê-la como repetida, e a fila
    de entrada enchia. Agora a cópia é reconhecida antes da assinatura.

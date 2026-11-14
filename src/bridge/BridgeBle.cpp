@@ -28,7 +28,8 @@ struct Connection {
 static std::array<Connection, LINKS> connections;
 static constexpr uint8_t NO_FRAME = 255;
 static constexpr size_t QUEUE = 6;
-static constexpr unsigned BURST = 4;
+// Three phones at two pieces each use half of NimBLE's twelve shared buffers per poll.
+static constexpr unsigned BURST = 2;
 struct Outgoing {
     uint8_t frame = NO_FRAME;
     uint16_t offset = 0;
@@ -462,7 +463,7 @@ void blePoll()
 {
     if (!enabled)
         return;
-    // Bitchat discards a frame whose pieces arrive more than 250 ms apart, so each poll sends a burst.
+    // Bitchat discards a frame whose pieces arrive more than 250 ms apart, so each poll sends more than one.
     for (size_t index = 0; index < LINKS; ++index)
         for (unsigned sent = 0; sent < BURST && sendChunk(index); ++sent) {
         }

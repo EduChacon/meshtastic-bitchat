@@ -218,6 +218,11 @@ int main()
     CHECK(fakeRadio[0].to == NODENUM_BROADCAST && fakeRadio[0].want_ack);
     CHECK(chat(bia.handle).size() == 1 && bridge->drops() == lostBefore);
 
+    char details[128];
+    bridge->diagnostics(details, sizeof(details));
+    CHECK(std::string(details).find(" app\nrx 6 ok 4 tx ") != std::string::npos);
+    CHECK(std::string(details).find("old 0 sig 0 fmt 0\nver 0 pol 0 full 0") != std::string::npos);
+
     // A conversation: quick replies from everyone, the old prefix still accepted and hidden.
     fakeRadio.clear();
     bia.write(bia.say("tudo bem?"));

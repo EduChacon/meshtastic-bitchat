@@ -84,6 +84,10 @@ pessoa marcou de propósito.
 - `Battery saver: off / on`: menos transmissões LoRa e anúncio Bluetooth mais espaçado.
 - `Find Meshtastic app`: anuncia o serviço Meshtastic por 5 minutos, para parear o aplicativo.
 - `Advanced: tunnel`: laboratório, com confirmação própria.
+- `Diagnostics`: relógio usado pela ponte e sua origem (`app`, `phone` ou `none`), pacotes
+  recebidos do telefone (`rx`), aceitos (`ok`) e enviados (`tx`), e recusas por motivo:
+  `old` (horário fora da tolerância de 2 minutos), `sig` (identidade ou assinatura), `fmt`
+  (formato), `ver` (versão não suportada), `pol` (regra da ponte) e `full` (fila cheia).
 
 A tela de estado mostra uma frase (`Ready: Bitchat + LoRa`, `Clock not set`, `Standby: other
 bridge`, `LoRa channel changed`) e, na última linha, o que fazer. `Phones` é o número de

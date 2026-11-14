@@ -32,6 +32,7 @@ class BitchatBridgeModule : public MeshModule, private concurrency::OSThread
     void closeNativeWindow();
     const char *status() const;
     const char *hint() const;
+    void diagnostics(char *out, size_t size) const;
     uint32_t drops() const;
 #if HAS_SCREEN
     void drawFrame(OLEDDisplay *, OLEDDisplayUiState *, int16_t x, int16_t y) override;
@@ -83,6 +84,7 @@ class BitchatBridgeModule : public MeshModule, private concurrency::OSThread
     uint32_t peerClockAt = 0, clockSavedAt = 0;
     bool clockSaved = false;
     uint32_t forwardedBle = 0, submittedRadio = 0, importedRadio = 0, lost = 0;
+    uint32_t receivedBle = 0, acceptedBle = 0, originatedBle = 0;
     std::array<uint32_t, 12> rejected{};
     std::array<uint8_t, 64> identity{};
     std::array<uint8_t, 32> signingPublic{}, noisePublic{};

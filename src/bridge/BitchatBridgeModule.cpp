@@ -498,6 +498,23 @@ const char *BitchatBridgeModule::hint() const
     return "";
 }
 
+// Four short lines for the menu: the clock the bridge is using and why phone packets were refused.
+void BitchatBridgeModule::diagnostics(char *out, size_t size) const
+{
+    const uint32_t seconds = uint32_t(utc() / 1000);
+    const auto count = [this](Result result) { return static_cast<unsigned long>(rejected[static_cast<size_t>(result)]); };
+    snprintf(out, size, "UTC %02lu:%02lu:%02lu %s\nrx %lu ok %lu tx %lu\nold %lu sig %lu fmt %lu\nver %lu pol %lu full %lu",
+             static_cast<unsigned long>(seconds / 3600 % 24), static_cast<unsigned long>(seconds / 60 % 60),
+             static_cast<unsigned long>(seconds % 60),
+             trustedUtc()   ? "app"
+             : peerClockUtc ? "phone"
+                            : "none",
+             static_cast<unsigned long>(receivedBle), static_cast<unsigned long>(acceptedBle),
+             static_cast<unsigned long>(originatedBle), count(Result::Expired) + count(Result::NoClock),
+             count(Result::Unauthenticated), count(Result::Malformed) + count(Result::Oversize) + count(Result::Incomplete),
+             count(Result::Unsupported), count(Result::Policy), count(Result::Full));
+}
+
 void BitchatBridgeModule::reject(Result result)
 {
     if (result != Result::Ok && result != Result::Incomplete)
@@ -568,6 +585,8 @@ void BitchatBridgeModule::originate(uint8_t type, Bytes payload)
     }
     if (!bleBroadcast(runtime->working.bytes()))
         reject(Result::Full);
+    else
+        ++originatedBle;
 }
 
 void BitchatBridgeModule::announce()
@@ -698,6 +717,7 @@ bool BitchatBridgeModule::handleFrame(Bytes frame, uint16_t source, bool fromTun
         reject(result);
         return true;
     }
+    ++acceptedBle;
     uint32_t other = 0;
     // Two bridges on one channel would duplicate every text: the higher node number stands by.
     if (!fromTunnel && textReady && packet.type == 1 &&
@@ -958,9 +978,11 @@ int32_t BitchatBridgeModule::runOnce()
     if (bleNeedsAnnouncement() || (bleSubscribers() && !Throttle::isWithinTimespanMsAt(announcedAt, 20000, now)))
         announce();
     if (runtime->cryptoGate.admit(now, 30))
-        for (unsigned frames = 0; frames < 4 && bleReceive(runtime->input); ++frames)
+        for (unsigned frames = 0; frames < 4 && bleReceive(runtime->input); ++frames) {
+            ++receivedBle;
             if (handleFrame(runtime->input.frame.bytes(), runtime->input.link, false))
                 break;
+        }
     blePoll();
     if (runtime->fragments) {
         runtime->fragments->expire(now);

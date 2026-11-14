@@ -64,6 +64,7 @@ class BitchatBridgeModule
         return persist();
     }
     const char *hint() const { return storageOk ? "" : "Restart the radio"; }
+    void diagnostics(char *out, size_t size) const { snprintf(out, size, "UTC 12:00:00 app\nrx 1 ok 1 tx 1"); }
     int textChannel() const { return settings.textChannel; }
     bool eligibleChannel(uint8_t i) const { return i == 1 || i == 2; }
     bool binding(uint8_t i, Digest &out) const
@@ -307,6 +308,10 @@ int main()
     click(0);
     click(4);
     assert(shows("#mesh"));
+    click(0);
+    assert(display.options.size() == 7);
+    click(6);
+    assert(shows("UTC 12:00:00 app") && shows("rx 1 ok 1"));
     click(0);
     click(5);
     click(2);

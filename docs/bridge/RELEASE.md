@@ -6,8 +6,15 @@ versão alguma da ponte. Fazer backup privado antes de instalar. Não há garant
 
 **O que a `1.0.0-beta.2` muda em relação à `1.0.0-beta`:** um único ZIP para todos os
 aparelhos, em vez de um pacote por modelo; e o canal padrão `Bitchat` passa a ser recriado
-sempre que faltar. Na `1.0.0-beta`, um rádio que já tinha recebido uma revisão anterior não
-criava o canal de novo, como relatado no primeiro teste em aparelho.
+sempre que faltar; texto longo vindo do Meshtastic chega ao Bitchat em partes curtas, porque o
+aplicativo recusava a assinatura de mensagens de 100 bytes ou mais; e o menu ganhou
+`Settings → Diagnostics`, que mostra o relógio usado pela ponte e por que pacotes do telefone
+foram recusados.
+
+**Problema em aberto, do primeiro teste em aparelho:** em um Heltec V3 com a `1.0.0-beta`, a
+tela mostrou `Ready: Bitchat + LoRa`, `Phones 1` e `People 0`, e a ponte não apareceu na lista
+de pessoas do Bitchat. Nenhuma mensagem passou. A causa não foi determinada; a tela de
+diagnóstico desta versão existe para identificá-la.
 
 ## O que muda em relação à `experimental.5`
 
@@ -68,7 +75,7 @@ A base permanece Meshtastic 2.7.26.54e0d8d.
 
 ## English
 
-**Since `1.0.0-beta`: one ZIP for every board, and the default `Bitchat` channel is created again whenever it is missing. No hardware acceptance.** This version was checked by host simulation and compilation only.
+**Since `1.0.0-beta`: one ZIP for every board; the default `Bitchat` channel is created again whenever it is missing; long LoRa text reaches Bitchat in short parts; `Settings → Diagnostics` shows the bridge clock and refusal reasons. Open problem from the first device test: bridge and phone connected but did not recognise each other (`Phones 1`, `People 0`); cause not yet determined.** This version was checked by host simulation and compilation only.
 None of the ten targets has been run with it; eight never ran any version of the bridge.
 
 Changes since `experimental.5`: `!lora` is optional (every public `#mesh` message goes to the LoRa channel

@@ -129,7 +129,7 @@ void menuHandler::bitchatDetailMenu(screenMenus page)
         return;
     BannerOverlayOptions banner;
     static const char *back[] = {"Back"};
-    static const char *options[6];
+    static const char *options[7];
     static const char *lab[3];
     static const char *confirm[] = {"No - go back", "Yes - allow"};
     banner.optionsArrayPtr = back;
@@ -144,9 +144,10 @@ void menuHandler::bitchatDetailMenu(screenMenus page)
         options[3] = bitchatBridge->nativeWindowOpen() ? "Back to Bitchat now" : "Find Meshtastic app";
         options[4] = "Help";
         options[5] = "Advanced: tunnel";
+        options[6] = "Diagnostics";
         banner.message = "Bridge settings";
         banner.optionsArrayPtr = options;
-        banner.optionsCount = 6;
+        banner.optionsCount = 7;
         banner.bannerCallback = [](int selected) {
             switch (selected) {
             case 1: {
@@ -175,6 +176,10 @@ void menuHandler::bitchatDetailMenu(screenMenus page)
                 break;
             case 5:
                 next(BitchatLab);
+                break;
+            case 6:
+                bitchatBridge->diagnostics(notice, sizeof(notice));
+                showNotice(BitchatOptions);
                 break;
             default:
                 next(BitchatMenu);

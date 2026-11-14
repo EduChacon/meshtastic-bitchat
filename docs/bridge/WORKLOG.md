@@ -114,6 +114,16 @@ aparelho e que uma posição escrita pelo aplicativo com ajustes de módulo padr
 como vazia. A `.2` recria o canal padrão sempre que ele falta, salvo escolha de `Bitchat only`
 ou de outro canal, aceita essas posições e mostra `No LoRa channel` quando não há posição livre.
 
+Segundo relato, mesma versão, com foto da tela: `Ready: Bitchat + LoRa`, `Phones 1  People 0`,
+`LoRa out 0  in 1`, sem `Not delivered`; no Bitchat, a ponte não aparece na lista de pessoas.
+O canal conferido no aplicativo estava correto. Conclusão sustentada pela evidência: o enlace
+Bluetooth existe, o LoRa entrega à ponte, e ponte e telefone não se reconhecem. Causa
+**desconhecida**. Hipóteses que a evidência não distingue: diferença de relógio acima de 2
+minutos; versão do aplicativo diferente da referência 1.8.0; pacotes que não chegam em um dos
+sentidos. A `.2` acrescenta `Settings → Diagnostics` para separar essas hipóteses. No mesmo
+exame do aplicativo foi encontrado e corrigido outro defeito, sem relação demonstrada com esse
+sintoma: texto de 100 bytes ou mais assinado pela ponte era recusado pelo telefone.
+
 ## Investigação de boot — 2026-11-13
 
 As instalações foram suspensas nos dois READMEs e nas pré-releases, preservando os arquivos

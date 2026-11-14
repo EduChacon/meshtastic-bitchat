@@ -214,6 +214,12 @@ fragmentos, pode ser afetado. `pol 104` é o esperado: pedidos de sincronizaçã
 ignora de propósito. Continua sem ensaio: duração, reconexão, queda de energia e Bitchat em
 segundo plano.
 
+Nono passo. Causa da falha de publicação, lida na anotação das execuções: "The job was not
+started because recent account payments have failed or your spending limit needs to be
+increased". Era o limite de gastos do GitHub Actions da conta, não o código. O operador tornou
+o repositório público e mesclou o ramo de trabalho na `main` pelo PR 1, o que trouxe para a
+`main` a pasta provisória `downloads`, a remover quando a versão estiver publicada.
+
 ## Investigação de boot — 2026-11-13
 
 As instalações foram suspensas nos dois READMEs e nas pré-releases, preservando os arquivos

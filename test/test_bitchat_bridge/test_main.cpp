@@ -194,13 +194,32 @@ static void identitiesAndText()
     unbroken += 'y';
     CHECK(planNativeText(3, utf8(unbroken.c_str()), plan) == Result::Oversize);
 
-    CHECK(makeBitchatText(utf8("Ana"), utf8("oi"), native) == Result::Ok && string(native) == "[MT Ana] oi");
+    CHECK(planBitchatText(3, utf8("oi"), plan) == Result::Ok && plan.count == 1);
+    CHECK(makeBitchatText(utf8("Ana"), utf8("oi"), plan, 0, native) == Result::Ok && string(native) == "[MT Ana] oi");
     typed.flags |= 2;
     typed.payload = native.bytes();
     CHECK(publicTextForLoRa(typed, body) == Result::Policy);
-    CHECK(makeBitchatText(utf8(""), utf8("oi"), native) == Result::Malformed);
-    std::string full(233, 'z');
-    CHECK(makeBitchatText(utf8(longName.substr(0, LABEL_LIMIT).c_str()), utf8(full.c_str()), native) == Result::Ok);
+    CHECK(planBitchatText(0, utf8("oi"), plan) == Result::Malformed);
+    // The app re-encodes what it verifies and compresses payloads of 100 bytes or more, so signed text
+    // from the bridge never reaches that size: a full-length LoRa message becomes several short ones.
+    std::string edge(BITCHAT_TEXT_LIMIT - 9, 'e');
+    CHECK(planBitchatText(3, utf8(edge.c_str()), plan) == Result::Ok && plan.count == 1);
+    CHECK(makeBitchatText(utf8("Ana"), utf8(edge.c_str()), plan, 0, native) == Result::Ok && native.size == 99);
+    const std::string widest = longName.substr(0, LABEL_LIMIT);
+    for (const std::string &sample : {longText.substr(0, 200), std::string(200, 'z'), longText.substr(0, 233)}) {
+        CHECK(planBitchatText(widest.size(), utf8(sample.c_str()), plan) == Result::Ok && plan.count > 1);
+        std::string whole;
+        for (size_t part = 0; part < plan.count; ++part) {
+            CHECK(makeBitchatText(utf8(widest.c_str()), utf8(sample.c_str()), plan, part, native) == Result::Ok);
+            CHECK(native.size < 100 && validUtf8(native.bytes()));
+            const std::string head = "[MT " + widest + " " + std::to_string(part + 1) + "/" + std::to_string(plan.count) + "] ";
+            CHECK(string(native).compare(0, head.size(), head) == 0);
+            whole += string(native).substr(head.size());
+        }
+        CHECK(whole == sample);
+    }
+    std::string tooLong(400, 'q');
+    CHECK(planBitchatText(widest.size(), utf8(tooLong.c_str()), plan) == Result::Oversize);
 
     std::array<uint8_t, 24> proof;
     proof[0] = GATEWAY_TLV;

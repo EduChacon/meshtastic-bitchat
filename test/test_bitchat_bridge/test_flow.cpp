@@ -285,6 +285,31 @@ int main()
     }
     CHECK(bridge->drops() == lostBefore);
 
+    // A full-length Meshtastic message arrives as several short signed messages, each below the size at
+    // which the app would compress before verifying, and nothing is lost.
+    fakeSent.clear();
+    std::string fullLength;
+    while (fullLength.size() < 190)
+        fullLength += "texto comprido ";
+    fromLoRa(0x1234, fullLength);
+    run(1500);
+    std::string rebuilt;
+    for (const auto &message : chat(ana.handle, &bridgeId)) {
+        CHECK(message.size() < 100 && message.rfind("[MT R\xc3\xa1"
+                                                    "dio Sul ",
+                                                    0) == 0);
+        rebuilt += message.substr(message.find("] ") + 2);
+    }
+    CHECK(rebuilt == fullLength && chat(caio.handle, &bridgeId).size() == chat(ana.handle, &bridgeId).size());
+    for (const auto &frame : received(bia.handle)) {
+        Packet packet;
+        Frame canonical;
+        CHECK(decode({frame.data(), frame.size()}, packet) == Result::Ok && packet.payload.size < 100);
+        CHECK(signingBytes({frame.data(), frame.size()}, canonical) == Result::Ok);
+        CHECK(crypto.verify(canonical.bytes(), packet.signature, bridgeIdentity.signingKey.data()));
+    }
+    CHECK(bridge->drops() == lostBefore);
+
     // More texts than the persistent journal holds: the oldest entry gives way, nothing is refused.
     fakeSent.clear();
     for (int i = 0; i < 70; ++i) {

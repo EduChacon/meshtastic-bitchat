@@ -818,13 +818,18 @@ ProcessMessage BitchatBridgeModule::handleReceived(const meshtastic_MeshPacket &
                                    label, sizeof(label));
         if (!labelSize)
             labelSize = snprintf(label, sizeof(label), "!%08lx", static_cast<unsigned long>(from));
-        NativeText text;
-        Result result = makeBitchatText({reinterpret_cast<const uint8_t *>(label), labelSize}, payload, text);
+        const Bytes name{reinterpret_cast<const uint8_t *>(label), labelSize};
+        TextPlan plan;
+        Result result = planBitchatText(labelSize, payload, plan);
         if (result == Result::Ok && record(id)) {
             // A phone that just connected may not know the bridge key yet; its messages would be discarded.
             if (!Throttle::isWithinTimespanMsAt(announcedAt, 5000, millis()))
                 announce();
-            originate(2, text.bytes());
+            for (size_t part = 0; part < plan.count; ++part) {
+                NativeText text;
+                if (makeBitchatText(name, payload, plan, part, text) == Result::Ok)
+                    originate(2, text.bytes());
+            }
             ++importedRadio;
         } else {
             reject(result == Result::Ok ? Result::Full : result);

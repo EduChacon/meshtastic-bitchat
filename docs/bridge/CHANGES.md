@@ -71,6 +71,13 @@ host; **não há medição em aparelho que atribua a eles a instabilidade observ
     não o recriava nem avisava. Agora ele é recriado sempre que falta, salvo escolha explícita
     de `Bitchat only` ou de outro canal, e a tela avisa quando não há posição livre.
 
+12. **Texto longo do LoRa recusado pelo telefone.** Para conferir uma assinatura, o aplicativo
+    recodifica o pacote e comprime conteúdo de 100 bytes ou mais (`compressionThresholdBytes`).
+    A ponte assinava o conteúdo sem compressão e não tem como reproduzir a compressão do iOS,
+    de modo que texto longo vindo do Meshtastic chegava com assinatura inválida e era
+    descartado. Agora o texto assinado pela ponte fica abaixo de 100 bytes: uma mensagem longa
+    chega em até cinco partes, `[MT nome 1/3] …`.
+
 Eficiência: as chaves de canal eram derivadas a cada 20 ms e agora só quando o canal muda; a
 ponte deixa de assinar anúncios e de registrar importações quando nenhum telefone está inscrito.
 

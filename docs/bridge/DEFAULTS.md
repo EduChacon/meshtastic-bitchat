@@ -53,7 +53,8 @@ automaticamente: corrigir essas opções pelo aplicativo Meshtastic.
    - texto no canal `Bitchat` do Meshtastic aparece no `#mesh` como `[MT nome do nó] texto`;
    - texto no `#mesh` aparece no canal como `apelido: texto`.
 
-Texto com mais de 200 bytes é dividido em até três partes. DMs, grupos privados, posição,
+No sentido do LoRa, texto com mais de 200 bytes é dividido em até três partes; no sentido do
+Bitchat, texto com 100 bytes ou mais chega em até cinco partes curtas. DMs, grupos privados, posição,
 credenciais, telemetria, arquivos e voz não são traduzidos. O túnel de laboratório exige
 ativação separada e não é necessário para a conversa entre Bitchat e Meshtastic.
 

@@ -53,18 +53,30 @@ void hexEncode(Bytes input, char *output)
     output[input.size * 2] = 0;
 }
 
-// Largest cut of at most `limit` bytes that keeps UTF-8 characters whole, preferring a nearby space.
-static size_t textCut(Bytes text, size_t limit)
+// Largest cut of at most `limit` bytes that keeps UTF-8 characters whole, preferring a space up to `reach` bytes back.
+static size_t textCut(Bytes text, size_t limit, size_t reach)
 {
     if (text.size <= limit)
         return text.size;
     size_t cut = limit;
     while (cut && (text.data[cut] & 0xc0) == 0x80)
         --cut;
-    for (size_t back = 0; back < 24 && back < cut; ++back)
+    for (size_t back = 0; back < reach && back < cut; ++back)
         if (text.data[cut - back - 1] == ' ')
             return cut - back;
     return cut;
+}
+
+static Result splitText(Bytes body, size_t room, size_t reach, size_t parts, TextPlan &plan)
+{
+    size_t offset = 0;
+    while (offset < body.size) {
+        if (plan.count == parts)
+            return Result::Oversize;
+        offset += textCut({body.data + offset, body.size - offset}, room, reach);
+        plan.offsets[++plan.count] = uint16_t(offset);
+    }
+    return Result::Ok;
 }
 
 Result publicTextForLoRa(const Packet &p, Bytes &body)
@@ -114,15 +126,7 @@ Result planNativeText(size_t labelSize, Bytes body, TextPlan &plan)
         return Result::Ok;
     }
     // "label (1/3): text"
-    const size_t room = LORA_TEXT_LIMIT - labelSize - 8;
-    size_t offset = 0;
-    while (offset < body.size) {
-        if (plan.count == TEXT_PARTS)
-            return Result::Oversize;
-        offset += textCut({body.data + offset, body.size - offset}, room);
-        plan.offsets[++plan.count] = uint16_t(offset);
-    }
-    return Result::Ok;
+    return splitText(body, LORA_TEXT_LIMIT - labelSize - 8, 24, TEXT_PARTS, plan);
 }
 
 Result makeNativeText(Bytes label, Bytes body, const TextPlan &plan, size_t part, NativeText &out)
@@ -144,19 +148,37 @@ Result makeNativeText(Bytes label, Bytes body, const TextPlan &plan, size_t part
     return Result::Ok;
 }
 
-Result makeBitchatText(Bytes label, Bytes body, NativeText &out)
+Result planBitchatText(size_t labelSize, Bytes body, TextPlan &plan)
+{
+    plan = {};
+    if (!labelSize || labelSize > LABEL_LIMIT || !body.size || body.size > UINT16_MAX || !validUtf8(body))
+        return Result::Malformed;
+    // "[MT label] text"
+    if (labelSize + 6 + body.size <= BITCHAT_TEXT_LIMIT) {
+        plan.count = 1;
+        plan.offsets[1] = uint16_t(body.size);
+        return Result::Ok;
+    }
+    // "[MT label 1/5] text"
+    return splitText(body, BITCHAT_TEXT_LIMIT - labelSize - 10, 10, BITCHAT_PARTS, plan);
+}
+
+Result makeBitchatText(Bytes label, Bytes body, const TextPlan &plan, size_t part, NativeText &out)
 {
     out.size = 0;
-    if (!label.size || label.size > LABEL_LIMIT || body.size == 0 || !validUtf8(body))
+    if (part >= plan.count || plan.offsets[part + 1] > body.size || plan.offsets[part] >= plan.offsets[part + 1])
         return Result::Malformed;
-    char head[LABEL_LIMIT + 8];
-    const int count =
-        std::snprintf(head, sizeof(head), "%s%.*s] ", IMPORT_PREFIX, int(label.size), reinterpret_cast<const char *>(label.data));
-    if (count < 0 || size_t(count) >= sizeof(head) || body.size + size_t(count) > out.data.size())
+    char head[LABEL_LIMIT + 12];
+    const auto *name = reinterpret_cast<const char *>(label.data);
+    const int count = plan.count == 1 ? std::snprintf(head, sizeof(head), "%s%.*s] ", IMPORT_PREFIX, int(label.size), name)
+                                      : std::snprintf(head, sizeof(head), "%s%.*s %u/%u] ", IMPORT_PREFIX, int(label.size), name,
+                                                      unsigned(part + 1), unsigned(plan.count));
+    const size_t size = plan.offsets[part + 1] - plan.offsets[part];
+    if (count < 0 || size_t(count) >= sizeof(head) || size_t(count) + size > BITCHAT_TEXT_LIMIT)
         return Result::Oversize;
     std::memcpy(out.data.data(), head, count);
-    std::memcpy(out.data.data() + count, body.data, body.size);
-    out.size = size_t(count) + body.size;
+    std::memcpy(out.data.data() + count, body.data + plan.offsets[part], size);
+    out.size = size_t(count) + size;
     return Result::Ok;
 }
 

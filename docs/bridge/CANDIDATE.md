@@ -106,7 +106,7 @@ System → Bitchat bridge
 ```
 
 A tela de estado mostra, na última linha, o que fazer quando há algo a fazer (`Open
-Meshtastic app`, `Choose it again in menu`, `Restart the radio`). `Not delivered` conta
+Bitchat nearby`, `Choose it again in menu`, `Restart the radio`). `Not delivered` conta
 somente mensagens perdidas; cópias e recusas de política deixaram de entrar nessa conta.
 
 ## Evidência

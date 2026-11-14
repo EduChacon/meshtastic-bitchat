@@ -37,8 +37,8 @@ struct Slot {
     void *argument = nullptr;
 };
 Slot slots[3];
-BLEService service;
-BLECharacteristic value;
+BLEService bridgeService;
+BLECharacteristic bridgeValue;
 uint8_t valueBytes[244];
 NimBLEServer shimServer;
 NimBLEService shimService;
@@ -226,7 +226,7 @@ void onBleEvent(ble_evt_t *event)
     case BLE_GAP_EVT_CONN_SEC_UPDATE: {
         // A bonded phone's subscription comes back with the encryption, without a write to report it.
         const auto *slot = find(handle);
-        if (slot && !slot->subscribed && value.notifyEnabled(handle))
+        if (slot && !slot->subscribed && bridgeValue.notifyEnabled(handle))
             report(handle, 1);
         return;
     }
@@ -235,7 +235,7 @@ void onBleEvent(ble_evt_t *event)
     }
 }
 
-bool decode(const bitchat::ble_uuid_t *uuid, ::ble_uuid_t &out)
+bool decodeUuid(const bitchat::ble_uuid_t *uuid, ::ble_uuid_t &out)
 {
     const auto *whole = reinterpret_cast<const bitchat::ble_uuid128_t *>(uuid);
     return uuid && uuid->type == bitchat::BLE_UUID_TYPE_128 && sd_ble_uuid_decode(16, whole->value, &out) == NRF_SUCCESS;
@@ -298,8 +298,8 @@ void bitchat::platformAttach()
 
 NimBLEService *NimBLEServer::createService(const char *uuid)
 {
-    service.setUuid(uuidFromText(uuid));
-    service.begin();
+    bridgeService.setUuid(uuidFromText(uuid));
+    bridgeService.begin();
     return &shimService;
 }
 
@@ -317,21 +317,21 @@ void NimBLEServer::disconnect(uint16_t handle)
 NimBLECharacteristic *NimBLEService::createCharacteristic(const char *uuid, unsigned, size_t)
 {
     // Open to unpaired phones, like the Bitchat app's own service.
-    value.setUuid(uuidFromText(uuid));
-    value.setProperties(CHR_PROPS_READ | CHR_PROPS_WRITE | CHR_PROPS_WRITE_WO_RESP | CHR_PROPS_NOTIFY);
-    value.setPermission(SECMODE_OPEN, SECMODE_OPEN);
-    value.setFixedLen(0);
-    value.setMaxLen(sizeof(valueBytes));
-    value.setBuffer(valueBytes, sizeof(valueBytes));
-    value.setWriteCallback(onValueWrite, false);
-    value.setCccdWriteCallback(onValueCccd, false);
-    value.begin();
+    bridgeValue.setUuid(uuidFromText(uuid));
+    bridgeValue.setProperties(CHR_PROPS_READ | CHR_PROPS_WRITE | CHR_PROPS_WRITE_WO_RESP | CHR_PROPS_NOTIFY);
+    bridgeValue.setPermission(SECMODE_OPEN, SECMODE_OPEN);
+    bridgeValue.setFixedLen(0);
+    bridgeValue.setMaxLen(sizeof(valueBytes));
+    bridgeValue.setBuffer(valueBytes, sizeof(valueBytes));
+    bridgeValue.setWriteCallback(onValueWrite, false);
+    bridgeValue.setCccdWriteCallback(onValueCccd, false);
+    bridgeValue.begin();
     return &shimValue;
 }
 
 uint16_t NimBLECharacteristic::getHandle() const
 {
-    return value.handles().value_handle;
+    return bridgeValue.handles().value_handle;
 }
 
 NimBLEAdvertising *NimBLEDevice::getAdvertising()
@@ -362,7 +362,7 @@ void NimBLEAdvertising::reset()
 void NimBLEAdvertising::setAdvertisementData(const NimBLEAdvertisementData &)
 {
     Bluefruit.Advertising.addFlags(BLE_GAP_ADV_FLAGS_LE_ONLY_GENERAL_DISC_MODE);
-    Bluefruit.Advertising.addService(service);
+    Bluefruit.Advertising.addService(bridgeService);
 }
 
 void NimBLEAdvertising::setScanResponseData(const NimBLEAdvertisementData &)
@@ -393,7 +393,7 @@ int ble_hs_mbuf_to_flat(const os_mbuf *buffer, void *flat, uint16_t capacity, ui
 
 int ble_gatts_notify_custom(uint16_t handle, uint16_t, os_mbuf *buffer)
 {
-    return value.notify(handle, buffer->data, buffer->size) ? 0 : 1;
+    return bridgeValue.notify(handle, buffer->data, buffer->size) ? 0 : 1;
 }
 
 int ble_gap_conn_find(uint16_t handle, ble_gap_conn_desc *out)
@@ -424,7 +424,7 @@ int ble_gattc_disc_svc_by_uuid(uint16_t handle, const ble_uuid_t *uuid, ble_gatt
 {
     auto *slot = find(handle);
     ::ble_uuid_t target{};
-    if (!slot || !decode(uuid, target))
+    if (!slot || !decodeUuid(uuid, target))
         return 1;
     slot->callback.service = callback;
     slot->argument = argument;
@@ -440,7 +440,7 @@ int ble_gattc_disc_chrs_by_uuid(uint16_t handle, uint16_t first, uint16_t last, 
 {
     auto *slot = find(handle);
     ::ble_uuid_t target{};
-    if (!slot || !decode(uuid, target))
+    if (!slot || !decodeUuid(uuid, target))
         return 1;
     slot->callback.characteristic = callback;
     slot->argument = argument;

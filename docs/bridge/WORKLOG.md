@@ -243,6 +243,8 @@ os dez alvos ESP32 pelo fluxo de verificação de sempre e, à parte, o arquivo
 `EXPERIMENTAL-t1000-e-bitchat-1.0.0-beta.5.uf2`, fora das verificações. Estado declarado nas
 notas: as mudanças desta versão foram simuladas (965 verificações de fluxo) e compiladas, sem
 ensaio em aparelho; o ensaio em aparelho continua sendo o da `1.0.0-beta.4`, em um Heltec V3.
+Antes do envio à `main`, a execução 43641506857 do ramo de trabalho compilou o Heltec V3 com a
+análise estática e o T1000-E, com e sem a ponte, sem falhas.
 
 ## Investigação de boot — 2026-11-13
 

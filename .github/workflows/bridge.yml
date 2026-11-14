@@ -8,6 +8,7 @@ on:
         "integration/upstream-2.7.26",
         "fix/heltec-boot-memory",
         "fix/bridge-menu",
+        "claude/**",
       ]
   workflow_dispatch:
     inputs:

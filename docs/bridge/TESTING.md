@@ -65,6 +65,33 @@ gerador como `main.swift` e executar `swift run`. Comparar o JSON semanticamente
 `test/test_bitchat_bridge/official_vectors.json`. A geração original usou Swift 6.4.2.
 Não copiar chaves de um iPhone nem usar tráfego pessoal como fixture.
 
+## Ensaio do defeito aberto no iPhone — `1.0.0-beta.4`
+
+Estado em aparelho (Heltec V3, Bitchat iOS 1.8.0): até a `1.0.0-beta.3` o telefone se inscreve
+no serviço da ponte e não envia nada; a `.4` acrescenta o caminho pelo serviço do próprio
+telefone, **NT**. Este ensaio diz, em uma leitura, se esse caminho funciona e, se não, em qual
+camada parou.
+
+1. Gravar a `.4` pelo flasher, com **Update**.
+2. Abrir o Bitchat perto do rádio e esperar 1 minuto. Anotar a linha `Phones a/b  People c` da
+   tela `Bitchat bridge` e se `LoRa bridge …` aparece na lista de pessoas do aplicativo.
+3. No aplicativo Meshtastic, no canal `Bitchat`, enviar `!bridge` e guardar as três respostas.
+4. Se a ponte apareceu na lista: enviar uma mensagem no `#mesh` e outra, de um rádio remoto ou
+   do próprio aplicativo Meshtastic, no canal `Bitchat`.
+
+Leitura da linha `link …` da segunda resposta:
+
+| Leitura                       | Significado                                                                                    |
+| ----------------------------- | ---------------------------------------------------------------------------------------------- |
+| `path 9`, `in` maior que zero | O caminho novo funciona: o telefone entrega pelo serviço dele                                  |
+| `path 9`, `in 0`              | A ponte se inscreveu no serviço do telefone, mas ele não notificou nada                        |
+| `path 10`, `wr 0`             | O iOS não expôs o serviço do aplicativo ao rádio e o telefone segue mudo: defeito ainda aberto |
+| `path 10`, `wr 1`             | O telefone escreve normalmente; vale o caminho antigo                                          |
+| `mtu 23`                      | A troca de MTU não ocorreu; nesse tamanho nada do aplicativo cabe em uma escrita               |
+| `sub 0`                       | O Bitchat não se inscreveu nesta conexão                                                       |
+
+`enc 1 bond 1` indica conexão do telefone pareado pelo aplicativo Meshtastic; não é defeito.
+
 ## Gates físicos obrigatórios — sem aprovação física
 
 Antes de cada fase, registrar modelo/revisão/antena/banda, versões e flags dos dois apps,

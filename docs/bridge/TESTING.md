@@ -2,7 +2,8 @@
 
 Estados: **COMP** compilado; **SIM** teste executado no host; **PREV** inferido do código;
 **NT** não testado; **HW** confirmado em hardware; **INC** incompatível com a política atual.
-Nenhum sucesso de entrega está classificado como HW nesta release. O boot Heltec `.2`
+Nenhum sucesso de entrega está classificado como HW nesta release; há um relato de uso do
+operador com a `1.0.0-beta.4` (Heltec V3, Bitchat iOS 1.8.0), descrito abaixo. O boot Heltec `.2`
 falhou com watchdog; o operador relatou tela normal na `.3`. A `.4` exige novo aceite de
 boot e de entrega. Ver [BOOT_INCIDENT](BOOT_INCIDENT.md). Simulação e compilação não
 comprovam inicialização real do Bluetooth nem operação no iPhone.
@@ -65,12 +66,12 @@ gerador como `main.swift` e executar `swift run`. Comparar o JSON semanticamente
 `test/test_bitchat_bridge/official_vectors.json`. A geração original usou Swift 6.4.2.
 Não copiar chaves de um iPhone nem usar tráfego pessoal como fixture.
 
-## Ensaio do defeito aberto no iPhone — `1.0.0-beta.4`
+## Ensaio do telefone mudo no iPhone — `1.0.0-beta.4`
 
-Estado em aparelho (Heltec V3, Bitchat iOS 1.8.0): até a `1.0.0-beta.3` o telefone se inscreve
-no serviço da ponte e não envia nada; a `.4` acrescenta o caminho pelo serviço do próprio
-telefone, **NT**. Este ensaio diz, em uma leitura, se esse caminho funciona e, se não, em qual
-camada parou.
+Estado em aparelho (Heltec V3, Bitchat iOS 1.8.0): até a `1.0.0-beta.3` o telefone se
+inscrevia no serviço da ponte e não enviava nada. Com a `.4`, o operador relatou `Phones 1/1`,
+`People 2`, `LoRa out 2 in 1` e mensagens nos dois sentidos. Falta a leitura abaixo, que diz
+qual caminho está em uso; sem ela, a causa da melhora fica **não determinada**.
 
 1. Gravar a `.4` pelo flasher, com **Update**.
 2. Abrir o Bitchat perto do rádio e esperar 1 minuto. Anotar a linha `Phones a/b  People c` da

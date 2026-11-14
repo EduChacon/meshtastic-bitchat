@@ -10,12 +10,13 @@ operação. Computador continua necessário para compilar, instalar e diagnostic
 de mensagem em conversa de grupo, recupera a hora sem o aplicativo Meshtastic, simplifica o
 menu e acrescenta oito aparelhos ESP32-S3. [O que mudou e por quê](docs/bridge/CHANGES.md).
 
-**Estado: beta, com defeito aberto no único aparelho ensaiado.** Em um Heltec V3 com Bitchat
-iOS 1.8.0, as versões até a `1.0.0-beta.3` não trocaram mensagens com o aplicativo: o telefone
-se conecta e se inscreve, mas não envia nada ao rádio. A `1.0.0-beta.4` acrescenta um segundo
-caminho, em que o rádio se inscreve no serviço que o próprio aplicativo publica, **ainda não
-ensaiado em aparelho**. Os demais nove alvos só foram compilados. Fazer backup antes de
-instalar e ler os [limites](docs/bridge/CHANGES.md) e o [roteiro de ensaio](docs/bridge/TESTING.md).
+**Estado: beta, com um aparelho relatado em funcionamento.** Em um Heltec V3 com Bitchat
+iOS 1.8.0, as versões até a `1.0.0-beta.3` não trocavam mensagens com o aplicativo: o telefone
+se conectava e se inscrevia, mas não enviava nada ao rádio. Com a `1.0.0-beta.4`, o operador
+relatou o telefone reconhecido (`Phones 1/1`, `People 2`) e texto nos dois sentidos
+(`LoRa out 2 in 1`). É um relato de uso, não um ensaio completo: não há medição de qual das
+mudanças da versão resolveu, nem ensaio de duração. Os demais nove alvos só foram compilados.
+Fazer backup antes de instalar e ler os [limites](docs/bridge/CHANGES.md) e o [roteiro de ensaio](docs/bridge/TESTING.md).
 
 ## Como funciona
 

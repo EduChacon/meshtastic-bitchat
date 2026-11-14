@@ -61,7 +61,8 @@ ligaria a identidade dela à conexão de escrita do telefone, e o aplicativo pas
 essa conexão. Sem o serviço, a ponte só fala por notificação com o telefone cujas escritas já
 chegaram, e repete a busca a cada 10 s enquanto ele estiver mudo. Ao conectar, a ponte pede a
 troca de MTU: no MTU padrão de 23 bytes nada do que o aplicativo envia cabe em uma escrita.
-**Nada disso foi ensaiado em aparelho**; em particular, não está comprovado que o iOS expõe o
+Com esta lógica, um operador relatou a ponte funcionando em um Heltec V3 com Bitchat iOS
+1.8.0, sem a leitura que diria qual caminho estava em uso; não está comprovado que o iOS expõe o
 serviço do aplicativo a um periférico conectado.
 
 O anúncio principal contém flags e UUID Bitchat; o nome fica em SCAN_RSP. A administração

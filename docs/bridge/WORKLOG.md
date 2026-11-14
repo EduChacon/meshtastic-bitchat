@@ -176,6 +176,18 @@ notificação com telefone cujas escritas chegaram. Hipótese de que depende, **
 o iOS expõe o serviço de um aplicativo a um periférico conectado, como faz com os serviços do
 sistema. Se não expuser, o relatório mostrará `path 10` e `wr 0`, e o defeito continua aberto.
 
+Sétimo passo. Relato do operador com a `.4` no mesmo Heltec V3 e no mesmo telefone: tela
+`Ready: Bitchat + LoRa`, `Phones 1/1`, `People 2` (um segundo aparelho Bitchat estava ligado)
+e `LoRa out 2 in 1`; segundo ele, as mensagens passaram nos dois sentidos. O defeito do
+telefone mudo **não se repetiu** nessa sessão. Não registrado: as respostas do `!bridge`. Por
+isso **não se sabe** qual das mudanças resolveu, o caminho pelo serviço do telefone
+(`path 9`) ou o pedido de MTU ao conectar com o telefone voltando a escrever (`path 10`,
+`wr 1`), nem se a hipótese sobre o iOS expor o serviço do aplicativo foi a que valeu. Também
+não há ensaio de duração, de reconexão ou com o aplicativo Meshtastic aberto ao mesmo tempo.
+A publicação da `.4` ficou pendente porque os trabalhos do GitHub Actions passaram a falhar
+em dois segundos, sem executar passo algum; o pacote do Heltec V3 foi retirado da execução
+verificada do commit `6facd9f` e entregue ao operador diretamente.
+
 ## Investigação de boot — 2026-11-13
 
 As instalações foram suspensas nos dois READMEs e nas pré-releases, preservando os arquivos

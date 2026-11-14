@@ -54,6 +54,30 @@ class RateGate
     bool used = false;
 };
 
+// Token bucket: a short burst, then one admission per refill interval.
+class RateBucket
+{
+  public:
+    bool admit(uint32_t now, uint8_t burst, uint32_t refillMs)
+    {
+        const uint32_t gained = used ? (now - last) / refillMs : burst;
+        if (gained) {
+            tokens = uint8_t(std::min<uint32_t>(burst, tokens + gained));
+            last = (used && tokens < burst) ? last + gained * refillMs : now;
+            used = true;
+        }
+        if (!tokens)
+            return false;
+        --tokens;
+        return true;
+    }
+
+  private:
+    uint32_t last = 0;
+    uint8_t tokens = 0;
+    bool used = false;
+};
+
 template <size_t Capacity> class DedupCache
 {
   public:
@@ -95,7 +119,7 @@ struct Peer {
     uint32_t seenAt = 0;
     bool used = false;
     RateGate traffic;
-    RateGate lora;
+    RateBucket lora;
     RateGate presence;
 };
 
@@ -103,10 +127,12 @@ class PeerTable
 {
   public:
     static constexpr size_t CAPACITY = 24;
+    static constexpr uint32_t STALE_MS = 300000;
     Result announce(Crypto &crypto, Bytes frame, uint64_t nowUtc, uint32_t now, Peer *&peer);
     Result authenticate(Crypto &crypto, Bytes frame, uint64_t nowUtc, uint32_t now, Peer *&peer);
     Peer *find(const PeerId &id);
     size_t size() const;
+    bool nicknameShared(const Peer &peer) const;
 
   private:
     std::array<Peer, CAPACITY> entries{};

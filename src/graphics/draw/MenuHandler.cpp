@@ -2681,9 +2681,7 @@ void menuHandler::handleMenuSwitch(OLEDDisplay *display)
         bitchatChannelMenu(true);
         break;
     case BitchatOptions:
-    case BitchatProfile:
     case BitchatLab:
-    case BitchatApps:
     case BitchatNotice:
     case BitchatConfirm:
     case BitchatHelp:

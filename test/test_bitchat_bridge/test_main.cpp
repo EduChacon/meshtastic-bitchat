@@ -29,9 +29,19 @@ static void check(bool passed, int line, const char *expression)
 static std::vector<uint8_t> unhex(const char *text)
 {
     const size_t length = std::strlen(text);
+    CHECK(length % 2 == 0);
     std::vector<uint8_t> bytes(length / 2);
-    CHECK(hexDecode({reinterpret_cast<const uint8_t *>(text), length}, bytes.data(), bytes.size()));
+    for (size_t i = 0; i < bytes.size(); ++i)
+        bytes[i] = uint8_t(std::stoul(std::string(text + 2 * i, 2), nullptr, 16));
     return bytes;
+}
+static Bytes utf8(const char *value)
+{
+    return {reinterpret_cast<const uint8_t *>(value), std::strlen(value)};
+}
+static std::string string(const NativeText &value)
+{
+    return {reinterpret_cast<const char *>(value.data.data()), value.size};
 }
 static Bytes bytes(const std::vector<uint8_t> &data)
 {
@@ -120,18 +130,23 @@ static void identitiesAndText()
     CHECK(publicTextForLoRa(p, body) == Result::Policy);
     p.flags &= uint8_t(~1);
     CHECK(publicTextForLoRa(p, body) == Result::Ok);
-    Digest digest;
-    CHECK(packetDigest(crypto, bytes(text), digest) == Result::Ok);
+    // The prefix is optional; tunnel text and text another bridge imported never go to LoRa.
+    Packet typed = p;
+    typed.payload = utf8("plain chat");
+    CHECK(publicTextForLoRa(typed, body) == Result::Ok && body.size == 10);
+    typed.payload = utf8("!lora hello");
+    CHECK(publicTextForLoRa(typed, body) == Result::Ok && body.size == 5 && body.data[0] == 'h');
+    typed.payload = utf8("!lora ");
+    CHECK(publicTextForLoRa(typed, body) == Result::Malformed);
+    typed.payload = utf8("!bctun hello");
+    CHECK(publicTextForLoRa(typed, body) == Result::Policy);
+    typed.payload = utf8("[MT Ana] hello");
+    CHECK(publicTextForLoRa(typed, body) == Result::Policy);
+    typed.payload = utf8("ok");
+    typed.flags &= uint8_t(~2);
+    CHECK(publicTextForLoRa(typed, body) == Result::Policy);
     std::array<uint8_t, 32> key{};
     key.fill(0x55);
-    NativeText native;
-    CHECK(makeNativeText(crypto, p.sender, body, digest, key.data(), native) == Result::Ok);
-    CHECK(validUtf8(native.bytes()));
-    std::array<uint8_t, 16> id;
-    CHECK(readBridgeTag(crypto, native.bytes(), key.data(), id));
-    CHECK(std::equal(id.begin(), id.end(), digest.begin()));
-    native.data[25] ^= 1;
-    CHECK(!readBridgeTag(crypto, native.bytes(), key.data(), id));
     const uint8_t malformed[] = {0xf0, 0x80, 0x80, 0x80};
     CHECK(!validUtf8({malformed, sizeof(malformed)}));
     const uint8_t emoji[] = {0xf0, 0x9f, 0x8c, 0x8e};
@@ -139,22 +154,68 @@ static void identitiesAndText()
     CHECK(!validUtf8({emoji, 3}));
     const uint8_t surrogate[] = {0xed, 0xa0, 0x80};
     CHECK(!validUtf8({surrogate, sizeof(surrogate)}));
-    std::array<uint8_t, 121> large;
-    large.fill('x');
-    CHECK(makeNativeText(crypto, p.sender, {large.data(), large.size()}, digest, key.data(), native) == Result::Oversize);
+
+    char label[LABEL_LIMIT + 1];
+    CHECK(cleanLabel(utf8("Ana"), label, sizeof(label)) == 3 && !std::strcmp(label, "Ana"));
+    CHECK(cleanLabel(utf8(" [MT x]:\n Jo\xc3\xa3o  "), label, sizeof(label)) == 11 && !std::strcmp(label, " MT x Jo\xc3\xa3o"));
+    CHECK(cleanLabel({malformed, sizeof(malformed)}, label, sizeof(label)) == 0);
+    CHECK(cleanLabel(utf8("\xc3\xa3\xc3\xa3\xc3\xa3"), label, 6) == 4);
+    std::string longName(80, 'n');
+    CHECK(cleanLabel(utf8(longName.c_str()), label, sizeof(label)) == LABEL_LIMIT);
+
+    NativeText native;
+    TextPlan plan;
+    CHECK(planNativeText(3, utf8("oi"), plan) == Result::Ok && plan.count == 1);
+    CHECK(makeNativeText(utf8("Ana"), utf8("oi"), plan, 0, native) == Result::Ok && string(native) == "Ana: oi");
+    CHECK(makeNativeText(utf8("Ana"), utf8("oi"), plan, 1, native) == Result::Malformed);
+    CHECK(planNativeText(0, utf8("oi"), plan) == Result::Malformed);
+    CHECK(planNativeText(3, {malformed, sizeof(malformed)}, plan) == Result::Malformed);
+    std::string exact(LORA_TEXT_LIMIT - 5, 'x');
+    CHECK(planNativeText(3, utf8(exact.c_str()), plan) == Result::Ok && plan.count == 1);
+    CHECK(makeNativeText(utf8("Ana"), utf8(exact.c_str()), plan, 0, native) == Result::Ok && native.size == LORA_TEXT_LIMIT);
+    // Longer text is split on spaces and never inside a character; nothing is truncated.
+    std::string longText;
+    while (longText.size() < 400)
+        longText += "ol\xc3\xa1 mundo ";
+    CHECK(planNativeText(3, utf8(longText.c_str()), plan) == Result::Ok && plan.count == 3);
+    std::string joined;
+    for (size_t part = 0; part < plan.count; ++part) {
+        CHECK(makeNativeText(utf8("Ana"), utf8(longText.c_str()), plan, part, native) == Result::Ok);
+        CHECK(native.size <= LORA_TEXT_LIMIT && validUtf8(native.bytes()));
+        const std::string head = "Ana (" + std::to_string(part + 1) + "/3): ";
+        CHECK(string(native).compare(0, head.size(), head) == 0);
+        if (part + 1 < plan.count)
+            CHECK(string(native).back() == ' ');
+        joined += string(native).substr(head.size());
+    }
+    CHECK(joined == longText);
+    std::string unbroken(3 * (LORA_TEXT_LIMIT - 11), 'y');
+    CHECK(planNativeText(3, utf8(unbroken.c_str()), plan) == Result::Ok && plan.count == 3);
+    unbroken += 'y';
+    CHECK(planNativeText(3, utf8(unbroken.c_str()), plan) == Result::Oversize);
+
+    CHECK(makeBitchatText(utf8("Ana"), utf8("oi"), native) == Result::Ok && string(native) == "[MT Ana] oi");
+    typed.flags |= 2;
+    typed.payload = native.bytes();
+    CHECK(publicTextForLoRa(typed, body) == Result::Policy);
+    CHECK(makeBitchatText(utf8(""), utf8("oi"), native) == Result::Malformed);
+    std::string full(233, 'z');
+    CHECK(makeBitchatText(utf8(longName.substr(0, LABEL_LIMIT).c_str()), utf8(full.c_str()), native) == Result::Ok);
+
     std::array<uint8_t, 24> proof;
-    proof[0] = 0x7f;
+    proof[0] = GATEWAY_TLV;
     proof[1] = 22;
     makeGatewayProof(crypto, p.sender, 17, key.data(), proof.data() + 2);
     Packet owner = p;
     owner.type = 1;
     owner.payload = {proof.data(), proof.size()};
-    CHECK(containsGatewayProof(crypto, owner, 18, key.data()));
-    CHECK(!containsGatewayProof(crypto, owner, 17, key.data()));
+    uint32_t node = 0;
+    CHECK(gatewayProofNode(crypto, owner, 18, key.data(), node) && node == 17);
+    CHECK(!gatewayProofNode(crypto, owner, 17, key.data(), node));
     proof[20] ^= 1;
-    CHECK(!containsGatewayProof(crypto, owner, 18, key.data()));
+    CHECK(!gatewayProofNode(crypto, owner, 18, key.data(), node));
     proof[1] = 255;
-    CHECK(!containsGatewayProof(crypto, owner, 18, key.data()));
+    CHECK(!gatewayProofNode(crypto, owner, 18, key.data(), node));
 }
 
 static void queuesAndTime()
@@ -174,6 +235,18 @@ static void queuesAndTime()
     CHECK(gate.admit(0xfffffff0U, 50));
     CHECK(!gate.admit(20, 50));
     CHECK(gate.admit(100, 50));
+    // A burst is admitted at once, then one message per refill interval, across a millis() wrap.
+    RateBucket bucket;
+    for (int i = 0; i < 3; ++i)
+        CHECK(bucket.admit(0xfffffff0U, 3, 100));
+    CHECK(!bucket.admit(0xfffffff0U, 3, 100));
+    CHECK(!bucket.admit(50, 3, 100));
+    CHECK(bucket.admit(100, 3, 100));
+    CHECK(!bucket.admit(150, 3, 100));
+    CHECK(bucket.admit(250, 3, 100));
+    for (int i = 0; i < 3; ++i)
+        CHECK(bucket.admit(100000, 3, 100));
+    CHECK(!bucket.admit(100000, 3, 100));
     DedupCache<2> dedup;
     Digest a{}, b{}, c{};
     b[0] = 1;

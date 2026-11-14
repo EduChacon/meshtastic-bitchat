@@ -27,9 +27,11 @@ struct Connection {
 };
 static std::array<Connection, LINKS> connections;
 static constexpr uint8_t NO_FRAME = 255;
+static constexpr size_t QUEUE = 6;
+static constexpr unsigned BURST = 4;
 struct Outgoing {
     uint8_t frame = NO_FRAME;
-    size_t offset = 0;
+    uint16_t offset = 0;
     uint32_t started = 0;
 };
 struct Link {
@@ -38,34 +40,56 @@ struct Link {
     uint32_t generation = 0;
     uint32_t receivedAt = 0;
     uint8_t incoming = NO_FRAME;
-    BoundedQueue<uint8_t, 2> received;
-    BoundedQueue<Outgoing, 2> sent;
+    BoundedQueue<uint8_t, QUEUE> received;
+    BoundedQueue<Outgoing, QUEUE> sent;
 };
 struct Links : std::array<Link, LINKS> {
     struct Slot {
-        std::unique_ptr<Frame> frame;
+        ByteBuffer data;
+        uint16_t size = 0, capacity = 0;
         uint8_t references = 0;
+        Bytes bytes() const { return {data.get(), size}; }
     };
-    std::array<Slot, 8> frames;
-    uint8_t allocate()
+    // Same worst case as eight full frames, shared by many more short ones.
+    static constexpr size_t POOL_BYTES = 8 * MAX_FRAME;
+    std::array<Slot, 16> frames;
+    size_t pooled = 0;
+    uint8_t allocate(size_t capacity)
     {
+        if (!capacity || capacity > MAX_FRAME || capacity > POOL_BYTES - pooled)
+            return NO_FRAME;
         for (uint8_t i = 0; i < frames.size(); ++i) {
             auto &slot = frames[i];
             if (!slot.references) {
-                if (!allocateBuffer(slot.frame))
+                if (!allocateBytes(slot.data, capacity))
                     return NO_FRAME;
+                slot.size = 0;
+                slot.capacity = uint16_t(capacity);
                 slot.references = 1;
+                pooled += capacity;
                 return i;
             }
         }
         return NO_FRAME;
     }
-    Frame &get(uint8_t index) { return *frames[index].frame; }
+    uint8_t store(Bytes frame)
+    {
+        const uint8_t index = allocate(frame.size);
+        if (index != NO_FRAME) {
+            std::copy_n(frame.data, frame.size, frames[index].data.get());
+            frames[index].size = uint16_t(frame.size);
+        }
+        return index;
+    }
+    Slot &get(uint8_t index) { return frames[index]; }
     void retain(uint8_t index) { ++frames[index].references; }
     void release(uint8_t index)
     {
-        if (index != NO_FRAME && --frames[index].references == 0)
-            frames[index].frame.reset();
+        if (index != NO_FRAME && --frames[index].references == 0) {
+            pooled -= frames[index].capacity;
+            frames[index].data.reset();
+            frames[index].size = frames[index].capacity = 0;
+        }
     }
     void clearSent(Link &link)
     {
@@ -102,23 +126,55 @@ static Link *findLink(uint16_t handle)
 
 class Callbacks : public NimBLECharacteristicCallbacks
 {
+    static void dropIncoming(Link &link)
+    {
+        links->release(link.incoming);
+        link.incoming = NO_FRAME;
+        ++dropped;
+    }
+    static void deliver(Link &link, uint8_t frame)
+    {
+        if (!link.received.push(frame)) {
+            links->release(frame);
+            ++dropped;
+        }
+    }
     void onWrite(NimBLECharacteristic *c, ble_gap_conn_desc *desc) override
     {
         if (!enabled || !desc)
             return;
         const auto value = c->getValue();
+        const Bytes chunk{reinterpret_cast<const uint8_t *>(value.data()), value.size()};
+        if (!chunk.size)
+            return;
         concurrency::LockGuard guard(&lock);
         Link *link = findLink(desc->conn_handle);
         if (!link) {
             ++dropped;
             return;
         }
-        if (link->incoming != NO_FRAME && !Throttle::isWithinTimespanMsAt(link->receivedAt, 3000, millis())) {
-            links->release(link->incoming);
-            link->incoming = NO_FRAME;
+        Packet whole;
+        if (decode(chunk, whole) == Result::Ok) {
+            // Bitchat sends one frame per write, so a whole frame ends any stalled partial stream.
+            if (link->incoming != NO_FRAME)
+                dropIncoming(*link);
+            const uint8_t frame = links->store(chunk);
+            if (frame == NO_FRAME)
+                ++dropped;
+            else
+                deliver(*link, frame);
+            return;
         }
+        if (link->incoming != NO_FRAME && !Throttle::isWithinTimespanMsAt(link->receivedAt, 3000, millis()))
+            dropIncoming(*link);
+        size_t length = 0;
         if (link->incoming == NO_FRAME) {
-            link->incoming = links->allocate();
+            const Result start = wireFrameLength(chunk, length);
+            if (start != Result::Ok && start != Result::Incomplete) {
+                ++dropped;
+                return;
+            }
+            link->incoming = links->allocate(start == Result::Ok ? length : MAX_FRAME);
             if (link->incoming == NO_FRAME) {
                 ++dropped;
                 return;
@@ -126,29 +182,19 @@ class Callbacks : public NimBLECharacteristicCallbacks
             link->receivedAt = millis();
         }
         auto &incoming = links->get(link->incoming);
-        if (value.size() > MAX_FRAME - incoming.size) {
-            links->release(link->incoming);
-            link->incoming = NO_FRAME;
-            ++dropped;
+        if (chunk.size > size_t(incoming.capacity - incoming.size)) {
+            dropIncoming(*link);
             return;
         }
-        std::copy_n(value.data(), value.size(), incoming.data.begin() + incoming.size);
-        incoming.size += value.size();
-        size_t length = 0;
-        Result result = wireFrameLength(incoming.bytes(), length);
+        std::copy_n(chunk.data, chunk.size, incoming.data.get() + incoming.size);
+        incoming.size += uint16_t(chunk.size);
+        const Result result = wireFrameLength(incoming.bytes(), length);
         if (result == Result::Incomplete)
             return;
         if (result != Result::Ok || incoming.size > length) {
-            links->release(link->incoming);
-            link->incoming = NO_FRAME;
-            ++dropped;
-            return;
-        }
-        if (incoming.size == length) {
-            if (!link->received.push(link->incoming)) {
-                links->release(link->incoming);
-                ++dropped;
-            }
+            dropIncoming(*link);
+        } else if (incoming.size == length) {
+            deliver(*link, link->incoming);
             link->incoming = NO_FRAME;
         }
     }
@@ -302,7 +348,9 @@ bool bleReceive(BleInput &output)
         size_t index = (nextReceive + offset) % LINKS;
         auto &link = (*links)[index];
         if (auto *frame = link.received.front()) {
-            output.frame = links->get(*frame);
+            const auto &slot = links->get(*frame);
+            std::copy_n(slot.data.get(), slot.size, output.frame.data.begin());
+            output.frame.size = slot.size;
             output.link = link.handle;
             links->release(*frame);
             link.received.pop();
@@ -315,7 +363,7 @@ bool bleReceive(BleInput &output)
 
 bool bleBroadcast(Bytes frame, uint16_t exclude)
 {
-    if (!enabled || frame.size > MAX_FRAME)
+    if (!enabled || !frame.size || frame.size > MAX_FRAME)
         return false;
     concurrency::LockGuard guard(&lock);
     if (!links || !enabled)
@@ -325,14 +373,11 @@ bool bleBroadcast(Bytes frame, uint16_t exclude)
         recipient |= link.subscribed && link.handle != exclude && link.handle != NO_LINK;
     if (!recipient)
         return true;
-    const uint8_t slot = links->allocate();
+    const uint8_t slot = links->store(frame);
     if (slot == NO_FRAME) {
         ++dropped;
         return false;
     }
-    auto &payload = links->get(slot);
-    payload.size = frame.size;
-    std::copy_n(frame.data, frame.size, payload.data.begin());
     Outgoing message{slot, 0, millis()};
     bool accepted = true;
     for (auto &link : *links) {
@@ -349,73 +394,78 @@ bool bleBroadcast(Bytes frame, uint16_t exclude)
     return accepted;
 }
 
+// Sends the next piece of one link's oldest frame; false when that link has nothing more to send now.
+static bool sendChunk(size_t index)
+{
+    uint16_t handle = NO_LINK, attribute = 0;
+    uint32_t generation = 0;
+    std::array<uint8_t, 512> chunk;
+    size_t count = 0;
+    bool expired = false;
+    {
+        concurrency::LockGuard guard(&lock);
+        if (!links || !enabled || !server || !characteristic)
+            return false;
+        auto &link = (*links)[index];
+        if (link.incoming != NO_FRAME && !Throttle::isWithinTimespanMsAt(link.receivedAt, 3000, millis())) {
+            links->release(link.incoming);
+            link.incoming = NO_FRAME;
+            ++dropped;
+        }
+        auto *message = link.sent.front();
+        if (!message)
+            return false;
+        if (!link.subscribed || link.handle == NO_LINK) {
+            links->clearSent(link);
+            return false;
+        }
+        handle = link.handle;
+        generation = link.generation;
+        expired = !Throttle::isWithinTimespanMsAt(message->started, 10000, millis());
+        if (expired) {
+            links->clearSent(link);
+            ++dropped;
+        } else {
+            const auto &payload = links->get(message->frame);
+            const size_t mtu = server->getPeerMTU(handle);
+            count = std::min({size_t(payload.size - message->offset), mtu > 3 ? mtu - 3 : size_t(20), chunk.size()});
+            std::copy_n(payload.data.get() + message->offset, count, chunk.begin());
+            attribute = characteristic->getHandle();
+        }
+    }
+    if (expired) {
+        // Discard incomplete receiver stream before sending another frame.
+        if (server)
+            server->disconnect(handle);
+        return false;
+    }
+    auto *buffer = ble_hs_mbuf_from_flat(chunk.data(), count);
+    if ((buffer ? ble_gatts_notify_custom(handle, attribute, buffer) : BLE_HS_ENOMEM) != 0)
+        return false;
+    concurrency::LockGuard guard(&lock);
+    if (!links)
+        return false;
+    auto &link = (*links)[index];
+    if (link.handle != handle || link.generation != generation)
+        return false;
+    if (auto *message = link.sent.front()) {
+        message->offset += uint16_t(count);
+        if (message->offset == links->get(message->frame).size) {
+            links->release(message->frame);
+            link.sent.pop();
+        }
+    }
+    return true;
+}
+
 void blePoll()
 {
     if (!enabled)
         return;
-    for (size_t i = 0; i < LINKS; ++i) {
-        uint16_t handle = NO_LINK, attribute = 0;
-        uint32_t generation = 0;
-        std::array<uint8_t, 512> chunk;
-        size_t count = 0;
-        bool expired = false;
-        {
-            concurrency::LockGuard guard(&lock);
-            if (!links || !enabled)
-                return;
-            auto &link = (*links)[i];
-            if (link.incoming != NO_FRAME && !Throttle::isWithinTimespanMsAt(link.receivedAt, 3000, millis())) {
-                links->release(link.incoming);
-                link.incoming = NO_FRAME;
-                ++dropped;
-            }
-            auto *message = link.sent.front();
-            if (!server || !characteristic)
-                return;
-            if (!message)
-                continue;
-            if (!link.subscribed || link.handle == NO_LINK) {
-                links->clearSent(link);
-                continue;
-            }
-            handle = link.handle;
-            generation = link.generation;
-            expired = !Throttle::isWithinTimespanMsAt(message->started, 10000, millis());
-            if (expired) {
-                links->clearSent(link);
-                ++dropped;
-            } else {
-                const auto &payload = links->get(message->frame);
-                const size_t mtu = server->getPeerMTU(handle);
-                count = std::min({payload.size - message->offset, mtu > 3 ? mtu - 3 : size_t(20), chunk.size()});
-                std::copy_n(payload.data.data() + message->offset, count, chunk.begin());
-                attribute = characteristic->getHandle();
-            }
+    // Bitchat discards a frame whose pieces arrive more than 250 ms apart, so each poll sends a burst.
+    for (size_t index = 0; index < LINKS; ++index)
+        for (unsigned sent = 0; sent < BURST && sendChunk(index); ++sent) {
         }
-        if (expired) {
-            // Discard incomplete receiver stream before sending another frame.
-            if (server)
-                server->disconnect(handle);
-            continue;
-        }
-        auto *buffer = ble_hs_mbuf_from_flat(chunk.data(), count);
-        int result = buffer ? ble_gatts_notify_custom(handle, attribute, buffer) : BLE_HS_ENOMEM;
-        if (result == 0) {
-            concurrency::LockGuard guard(&lock);
-            if (!links)
-                return;
-            auto &link = (*links)[i];
-            if (link.handle == handle && link.generation == generation) {
-                if (auto *message = link.sent.front()) {
-                    message->offset += count;
-                    if (message->offset == links->get(message->frame).size) {
-                        links->release(message->frame);
-                        link.sent.pop();
-                    }
-                }
-            }
-        }
-    }
 }
 
 size_t bleSubscribers()

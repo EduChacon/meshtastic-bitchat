@@ -19,15 +19,19 @@ class BitchatBridgeModule : public MeshModule, private concurrency::OSThread
     int textChannel() const { return settings.textChannel; }
     int tunnelChannel() const { return settings.tunnelChannel; }
     bool privateTunnel() const { return settings.privateTunnel; }
+    bool prefixOnly() const { return settings.reserved[1]; }
+    bool nativeWindowOpen() const { return nativeWindow; }
     bool setEnabled(bool value);
     bool startBasicMode(uint8_t textChannel = 255);
     bool setEconomy(bool value);
     bool setChannel(bool tunnel, uint8_t index);
     bool setPrivateTunnel(bool value);
+    bool setPrefixOnly(bool value);
     bool eligibleChannel(uint8_t index) const;
     void openNativeWindow();
     void closeNativeWindow();
     const char *status() const;
+    const char *hint() const;
     uint32_t drops() const;
 #if HAS_SCREEN
     void drawFrame(OLEDDisplay *, OLEDDisplayUiState *, int16_t x, int16_t y) override;
@@ -47,6 +51,7 @@ class BitchatBridgeModule : public MeshModule, private concurrency::OSThread
         uint8_t textChannel = 255;
         uint8_t tunnelChannel = 255;
         uint8_t privateTunnel = 0;
+        // [0] defaults applied; [1] export only text typed with the "!lora " prefix
         uint8_t reserved[3]{};
         bitchat::Digest textBinding{};
         bitchat::Digest tunnelBinding{};
@@ -56,6 +61,7 @@ class BitchatBridgeModule : public MeshModule, private concurrency::OSThread
         uint64_t utc = 0;
     };
     struct RadioItem {
+        static constexpr size_t QUEUE = 8;
         std::array<uint8_t, 233> payload{};
         uint16_t size = 0;
         uint16_t port = 0;
@@ -68,18 +74,18 @@ class BitchatBridgeModule : public MeshModule, private concurrency::OSThread
     bool textReady = false, tunnelReady = false;
     bool wasActive = false;
     bool textConflict = false;
-    uint32_t textGuardAt = 0;
+    uint32_t textGuardAt = 0, conflictAt = 0, channelsAt = 0, announcedAt = 0;
     uint32_t nativeOpenedAt = 0;
     bool nativeWindow = false;
     uint32_t bootId = 0, sequence = 0, lastBudget = 0;
     uint32_t tokens = 0;
     uint64_t lastOriginTimestamp = 0;
-    uint32_t forwardedBle = 0, submittedRadio = 0, importedRadio = 0;
+    uint32_t forwardedBle = 0, submittedRadio = 0, importedRadio = 0, lost = 0;
     std::array<uint32_t, 12> rejected{};
     std::array<uint8_t, 64> identity{};
     std::array<uint8_t, 32> signingPublic{}, noisePublic{};
     bitchat::PeerId ownId{};
-    bitchat::Digest textKey{}, tunnelKey{};
+    bitchat::Digest textKey{}, tunnelKey{}, textKeyBinding{}, tunnelKeyBinding{};
     std::array<uint8_t, 8> tunnelDomain{};
     std::array<JournalEntry, 64> journal{};
     bitchat::BridgeCrypto crypto;
@@ -88,8 +94,8 @@ class BitchatBridgeModule : public MeshModule, private concurrency::OSThread
         std::unique_ptr<bitchat::BleReassembly> fragments;
         std::unique_ptr<bitchat::TunnelReassembly> tunnelFragments;
         std::unique_ptr<bitchat::DedupCache<256>> dedup;
-        bitchat::BoundedQueue<RadioItem, 4> radioQueue;
-        bitchat::RateGate announceGate, radioGate, cryptoGate;
+        bitchat::BoundedQueue<RadioItem, RadioItem::QUEUE> radioQueue;
+        bitchat::RateGate radioGate, cryptoGate;
         bitchat::BleInput input;
         bitchat::Frame assembled, working, canonical;
     };
@@ -104,7 +110,9 @@ class BitchatBridgeModule : public MeshModule, private concurrency::OSThread
     bool initIdentity();
     bool binding(uint8_t index, bitchat::Digest &out) const;
     void refreshChannels();
-    void handleFrame(bitchat::Bytes frame, uint16_t source, bool fromTunnel);
+    bool handleFrame(bitchat::Bytes frame, uint16_t source, bool fromTunnel);
+    void exportText(const bitchat::Packet &packet, bitchat::Peer &peer, const bitchat::Digest &id);
+    bool textGuard() const;
     void originate(uint8_t type, bitchat::Bytes payload);
     void announce();
     bool record(const bitchat::Digest &id);

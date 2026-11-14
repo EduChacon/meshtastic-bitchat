@@ -71,18 +71,47 @@ int main()
 
     c.value.assign(reinterpret_cast<const char *>(frame.data.data()), frame.size);
     const auto before = bleDrops();
-    for (int i = 0; i < 3; ++i)
+    // A phone bursts several frames when it connects: six wait their turn, the seventh is counted as lost.
+    for (int i = 0; i < 7; ++i)
         c.callbacks->onWrite(&c, &a);
     c.callbacks->onWrite(&c, &b);
     assert(bleDrops() == before + 1);
     assert(bleReceive(received) && received.link == 8);
-    assert(bleReceive(received) && received.link == 7);
-    assert(bleReceive(received) && received.link == 7);
+    for (int i = 0; i < 6; ++i)
+        assert(bleReceive(received) && received.link == 7);
     assert(!bleReceive(received));
+    // A whole frame replaces a stalled partial one instead of being glued to it.
+    c.value.assign(reinterpret_cast<const char *>(frame.data.data()), half);
+    c.callbacks->onWrite(&c, &a);
+    c.value.assign(reinterpret_cast<const char *>(frame.data.data()), frame.size);
+    c.callbacks->onWrite(&c, &a);
+    assert(bleDrops() == before + 2);
+    assert(bleReceive(received) && equalConstantTime(received.frame.bytes(), frame.bytes()));
+    assert(!bleReceive(received));
+    // Padding is accepted on any frame type when the write holds the whole frame.
+    Frame padded;
+    assert(encode(2, PeerId{1}, nullptr, 1, 7, {body, sizeof(body)}, {}, padded, true) == Result::Ok && padded.size == 256);
+    c.value.assign(reinterpret_cast<const char *>(padded.data.data()), padded.size);
+    c.callbacks->onWrite(&c, &a);
+    assert(bleReceive(received) && equalConstantTime(received.frame.bytes(), padded.bytes()));
+    c.value.assign("\x03junk-not-a-frame", 18);
+    c.callbacks->onWrite(&c, &a);
+    assert(bleDrops() == before + 3 && !bleReceive(received));
     assert(bleBroadcast(frame.bytes(), 8));
     blePoll();
     assert(fakeSent.size() == 2 && fakeSent[0].first == 7 && fakeSent[1].first == 9);
     assert(fakeSent[0].second == std::vector<uint8_t>(frame.data.begin(), frame.data.begin() + frame.size));
+    // Six short frames queue per phone without reserving full-size buffers; the seventh is refused.
+    const size_t quiet = liveBytes;
+    for (int i = 0; i < 6; ++i)
+        assert(bleBroadcast(frame.bytes()));
+    assert(liveBytes == quiet + 6 * (frame.size + 16));
+    assert(!bleBroadcast(frame.bytes()));
+    blePoll();
+    assert(fakeSent.size() == 2 + 3 * 4);
+    blePoll();
+    assert(fakeSent.size() == 2 + 3 * 6 && liveBytes == quiet);
+    fakeSent.resize(2);
 
     assert(bleBroadcast(frame.bytes()));
     fakeNotifyResult = BLE_HS_ENOMEM;
@@ -130,8 +159,10 @@ int main()
     assert(bleBroadcast(frame.bytes()));
     // Broadcast retains one payload across three independent notification
     // streams.
-    assert(liveBytes == idle + sizeof(Frame) + 16);
+    assert(liveBytes == idle + frame.size + 16);
     blePoll();
+    // The app drops a frame whose pieces arrive 250 ms apart: one poll already sends four of them.
+    assert(fakeSent.size() == 3 * 4 && fakeSent[3].first == 7 && fakeSent[4].first == 8);
     bleDisconnect(8);
     while (liveBytes > idle)
         blePoll();
@@ -155,9 +186,10 @@ int main()
         write(desc);
         write(desc);
     }
-    assert(bleBroadcast(frame.bytes()));
-    assert(bleBroadcast(frame.bytes()));
-    assert(liveBytes == idle + 8 * (sizeof(Frame) + 16));
+    // Large frames stay bounded by the pool: nine of these fit in the bytes eight full-size frames used to take.
+    for (int i = 0; i < 3; ++i)
+        assert(bleBroadcast(frame.bytes()));
+    assert(liveBytes == idle + 9 * (frame.size + 16) && 9 * frame.size <= 8 * MAX_FRAME);
     assert(!bleBroadcast(frame.bytes()));
     for (unsigned i = 0; i < 6; ++i) {
         assert(bleReceive(received));

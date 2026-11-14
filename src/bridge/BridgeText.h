@@ -6,22 +6,34 @@
 namespace bitchat
 {
 
-constexpr size_t TEXT_LIMIT = 120;
-constexpr size_t MESH_PAYLOAD_LIMIT = 233;
+// Stock Meshtastic apps cap text at 200 bytes; a full 233-byte payload does not fit beside the routing bitfield.
+constexpr size_t LORA_TEXT_LIMIT = 200;
+constexpr size_t TEXT_PARTS = 3;
+constexpr size_t LABEL_LIMIT = 30;
+constexpr size_t TEXT_BUFFER = 280;
+constexpr char LORA_PREFIX[] = "!lora ";
+constexpr char TUNNEL_PREFIX[] = "!bctun ";
+constexpr char IMPORT_PREFIX[] = "[MT ";
+constexpr size_t TUNNEL_TEXT_LIMIT = 127;
 
 struct NativeText {
-    std::array<uint8_t, MESH_PAYLOAD_LIMIT> data{};
+    std::array<uint8_t, TEXT_BUFFER> data{};
     size_t size = 0;
     Bytes bytes() const { return {data.data(), size}; }
 };
 
+struct TextPlan {
+    uint8_t count = 0;
+    std::array<uint16_t, TEXT_PARTS + 1> offsets{};
+};
+
 Result publicTextForLoRa(const Packet &packet, Bytes &body);
-Result makeNativeText(Crypto &crypto, const PeerId &sender, Bytes body, const Digest &id, const uint8_t key[32], NativeText &out);
-bool readBridgeTag(Crypto &crypto, Bytes text, const uint8_t key[32], std::array<uint8_t, 16> &id);
-Result makeBitchatText(uint32_t from, Bytes body, NativeText &out);
+size_t cleanLabel(Bytes name, char *output, size_t capacity);
+Result planNativeText(size_t labelSize, Bytes body, TextPlan &plan);
+Result makeNativeText(Bytes label, Bytes body, const TextPlan &plan, size_t part, NativeText &out);
+Result makeBitchatText(Bytes label, Bytes body, NativeText &out);
 void hexEncode(Bytes input, char *output);
-bool hexDecode(Bytes input, uint8_t *output, size_t capacity);
 void makeGatewayProof(Crypto &crypto, const PeerId &peer, uint32_t node, const uint8_t key[32], uint8_t output[22]);
-bool containsGatewayProof(Crypto &crypto, const Packet &announce, uint32_t ownNode, const uint8_t key[32]);
+bool gatewayProofNode(Crypto &crypto, const Packet &announce, uint32_t ownNode, const uint8_t key[32], uint32_t &node);
 
 } // namespace bitchat

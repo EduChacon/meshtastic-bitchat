@@ -90,7 +90,10 @@ struct Announcement {
     std::array<char, 33> nickname{};
     std::array<uint8_t, 32> noiseKey{};
     std::array<uint8_t, 32> signingKey{};
+    bool gateway = false; // carries a LoRa bridge TLV, whatever its channel key
 };
+
+constexpr uint8_t GATEWAY_TLV = 0x7f;
 
 Result decodeAnnouncement(Bytes payload, Announcement &output);
 

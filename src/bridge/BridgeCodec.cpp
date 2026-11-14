@@ -312,6 +312,8 @@ Result decodeAnnouncement(Bytes payload, Announcement &out)
                 auto &key = type == 2 ? out.noiseKey : out.signingKey;
                 std::copy_n(value, 32, key.begin());
             }
+        } else if (type == GATEWAY_TLV) {
+            out.gateway = true;
         }
         offset += length;
     }

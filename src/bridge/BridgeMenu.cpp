@@ -22,11 +22,18 @@ void next(menuHandler::screenMenus page)
     screen->runNow();
 }
 
-void showResult(bool ok, const char *message, menuHandler::screenMenus back = menuHandler::BitchatMenu)
+void showNotice(menuHandler::screenMenus back)
 {
-    snprintf(notice, sizeof(notice), "%s\n%s", ok ? message : "Not applied", bitchatBridge->status());
     noticeBack = back;
     next(menuHandler::BitchatNotice);
+}
+
+void showResult(bool ok, const char *message, menuHandler::screenMenus back = menuHandler::BitchatMenu)
+{
+    const char *hint = bitchatBridge->hint();
+    snprintf(notice, sizeof(notice), "%s\n%s%s%s", ok ? message : "Could not apply", bitchatBridge->status(), hint[0] ? "\n" : "",
+             hint);
+    showNotice(back);
 }
 
 void consent(Consent action, uint8_t channel = 255)
@@ -41,23 +48,34 @@ void menuHandler::bitchatMenu()
 {
     if (!bitchatBridge)
         return;
-    static const char *options[] = {"Back", "1. Local Bitchat", "2. Bitchat + LoRa", "Turn bridge OFF", "More options"};
+    static const char *options[] = {"Back", "Bitchat only", "Bitchat + LoRa", "Turn bridge off", "Status", "Settings"};
     BannerOverlayOptions banner;
-    banner.message = "Choose Bitchat mode";
+    banner.message = "Bitchat bridge";
     banner.optionsArrayPtr = options;
-    banner.optionsCount = 5;
+    banner.optionsCount = 6;
     banner.bannerCallback = [](int selected) {
         switch (selected) {
         case 1:
-            showResult(bitchatBridge->startBasicMode(), "Local mode saved");
+            showResult(bitchatBridge->startBasicMode(), "Bitchat only: saved");
             break;
         case 2:
             next(BitchatTextChannel);
             break;
         case 3:
-            showResult(bitchatBridge->setEnabled(false), "Bridge switched off");
+            showResult(bitchatBridge->setEnabled(false), "Bridge turned off");
             break;
-        case 4:
+        case 4: {
+            const char *hint = bitchatBridge->hint();
+            int used = snprintf(notice, sizeof(notice), "%s\n%s%sPhones connected: %u\n", bitchatBridge->status(), hint,
+                                hint[0] ? "\n" : "", unsigned(bitchat::bleSubscribers()));
+            if (bitchatBridge->textChannel() == 255)
+                snprintf(notice + used, sizeof(notice) - used, "LoRa: off");
+            else
+                snprintf(notice + used, sizeof(notice) - used, "LoRa: %.11s", channels.getName(bitchatBridge->textChannel()));
+            showNotice(BitchatMenu);
+            break;
+        }
+        case 5:
             next(BitchatOptions);
             break;
         default:
@@ -76,7 +94,7 @@ void menuHandler::bitchatChannelMenu(bool tunnel)
     static char labels[8][32];
     static int values[10];
     options[0] = "Back";
-    options[1] = tunnel ? "Disable tunnel" : "Local Bitchat only";
+    options[1] = tunnel ? "No tunnel" : "Bitchat only";
     values[0] = -1;
     values[1] = 255;
     size_t count = 2;
@@ -88,7 +106,7 @@ void menuHandler::bitchatChannelMenu(bool tunnel)
         }
     }
     BannerOverlayOptions banner;
-    banner.message = count == 2 ? "No eligible channel\nSet secondary + key\nin Meshtastic app" : "Choose shared channel";
+    banner.message = count == 2 ? "No channel available.\nAdd a secondary one\nin the Meshtastic app" : "Which LoRa channel?";
     banner.optionsArrayPtr = options;
     banner.optionsEnumPtr = values;
     banner.optionsCount = count;
@@ -97,7 +115,7 @@ void menuHandler::bitchatChannelMenu(bool tunnel)
             next(tunnel ? BitchatLab : BitchatMenu);
         } else if (selected == 255) {
             showResult(tunnel ? bitchatBridge->setChannel(true, 255) : bitchatBridge->startBasicMode(),
-                       tunnel ? "Tunnel disabled" : "Local mode saved", tunnel ? BitchatLab : BitchatMenu);
+                       tunnel ? "Tunnel turned off" : "Bitchat only: saved", tunnel ? BitchatLab : BitchatMenu);
         } else {
             consent(tunnel ? Consent::Tunnel : Consent::Text, selected);
         }
@@ -111,9 +129,7 @@ void menuHandler::bitchatDetailMenu(screenMenus page)
         return;
     BannerOverlayOptions banner;
     static const char *back[] = {"Back"};
-    static const char *options[] = {"Back", "Power profile", "Switch phone app", "Status", "Quick help", "Lab tunnel"};
-    static const char *profiles[] = {"Back", "Fixed (USB)", "Economy (battery)"};
-    static const char *apps[] = {"Back", "Find Meshtastic: 5m", "Find Bitchat now"};
+    static const char *options[6];
     static const char *lab[3];
     static const char *confirm[] = {"No - go back", "Yes - allow"};
     banner.optionsArrayPtr = back;
@@ -121,26 +137,38 @@ void menuHandler::bitchatDetailMenu(screenMenus page)
     banner.bannerCallback = [](int) { next(noticeBack); };
     switch (page) {
     case BitchatOptions:
-        banner.message = "Bitchat options";
+        // Each line shows the current choice; selecting it switches to the other one.
+        options[0] = "Back";
+        options[1] = bitchatBridge->prefixOnly() ? "LoRa: only !lora" : "LoRa: all messages";
+        options[2] = bitchatBridge->economy() ? "Battery saver: on" : "Battery saver: off";
+        options[3] = bitchatBridge->nativeWindowOpen() ? "Back to Bitchat now" : "Find Meshtastic app";
+        options[4] = "Help";
+        options[5] = "Advanced: tunnel";
+        banner.message = "Bridge settings";
         banner.optionsArrayPtr = options;
         banner.optionsCount = 6;
         banner.bannerCallback = [](int selected) {
             switch (selected) {
-            case 1:
-                next(BitchatProfile);
+            case 1: {
+                const bool only = !bitchatBridge->prefixOnly();
+                showResult(bitchatBridge->setPrefixOnly(only),
+                           only ? "Only !lora text goes\nto LoRa" : "All public text goes\nto LoRa", BitchatOptions);
                 break;
-            case 2:
-                next(BitchatApps);
+            }
+            case 2: {
+                const bool saver = !bitchatBridge->economy();
+                showResult(bitchatBridge->setEconomy(saver),
+                           saver ? "Battery saver on:\nfewer LoRa messages" : "Battery saver off", BitchatOptions);
                 break;
+            }
             case 3:
-                if (bitchatBridge->textChannel() == 255)
-                    snprintf(notice, sizeof(notice), "%s\nBLE clients: %u\nLoRa text: OFF", bitchatBridge->status(),
-                             unsigned(bitchat::bleSubscribers()));
-                else
-                    snprintf(notice, sizeof(notice), "%s\nBLE clients: %u\nText channel: %u", bitchatBridge->status(),
-                             unsigned(bitchat::bleSubscribers()), unsigned(bitchatBridge->textChannel()));
-                noticeBack = BitchatOptions;
-                next(BitchatNotice);
+                if (bitchatBridge->nativeWindowOpen()) {
+                    bitchatBridge->closeNativeWindow();
+                    showResult(true, "Open the Bitchat app", BitchatOptions);
+                } else {
+                    bitchatBridge->openNativeWindow();
+                    showResult(true, "Open Meshtastic app\nwithin 5 minutes", BitchatOptions);
+                }
                 break;
             case 4:
                 next(BitchatHelp);
@@ -154,39 +182,11 @@ void menuHandler::bitchatDetailMenu(screenMenus page)
             }
         };
         break;
-    case BitchatProfile:
-        banner.message = bitchatBridge->economy() ? "Current: economy" : "Current: fixed";
-        banner.optionsArrayPtr = profiles;
-        banner.optionsCount = 3;
-        banner.bannerCallback = [](int selected) {
-            if (selected == 1 || selected == 2)
-                showResult(bitchatBridge->setEconomy(selected == 2), selected == 2 ? "Economy saved" : "Fixed saved",
-                           BitchatOptions);
-            else
-                next(BitchatOptions);
-        };
-        break;
-    case BitchatApps:
-        banner.message = "Phone app discovery";
-        banner.optionsArrayPtr = apps;
-        banner.optionsCount = 3;
-        banner.bannerCallback = [](int selected) {
-            if (selected == 1) {
-                bitchatBridge->openNativeWindow();
-                showResult(true, "Open Meshtastic app", BitchatApps);
-            } else if (selected == 2) {
-                bitchatBridge->closeNativeWindow();
-                showResult(true, "Open Bitchat app", BitchatApps);
-            } else {
-                next(BitchatOptions);
-            }
-        };
-        break;
     case BitchatLab:
         lab[0] = "Back";
         lab[1] = "Tunnel channel";
-        lab[2] = bitchatBridge->privateTunnel() ? "Stop private traffic" : "Allow private traffic";
-        banner.message = "Lab: two bridges\nEnable basic mode first";
+        lab[2] = bitchatBridge->privateTunnel() ? "Private traffic: on" : "Private traffic: off";
+        banner.message = "Experimental: links two\nbridges over LoRa";
         banner.optionsArrayPtr = lab;
         banner.optionsCount = 3;
         banner.bannerCallback = [](int selected) {
@@ -194,7 +194,7 @@ void menuHandler::bitchatDetailMenu(screenMenus page)
                 next(BitchatTunnelChannel);
             else if (selected == 2) {
                 if (bitchatBridge->privateTunnel())
-                    showResult(bitchatBridge->setPrivateTunnel(false), "Private traffic OFF", BitchatLab);
+                    showResult(bitchatBridge->setPrivateTunnel(false), "Private traffic off", BitchatLab);
                 else
                     consent(Consent::Private);
             } else
@@ -202,9 +202,9 @@ void menuHandler::bitchatDetailMenu(screenMenus page)
         };
         break;
     case BitchatConfirm:
-        banner.message = pendingConsent == Consent::Text     ? "Channel text becomes\nPUBLIC in Bitchat.\nAllow sharing?"
-                         : pendingConsent == Consent::Tunnel ? "Lab: two bridges\nExpect delay/loss\nTest users consent?"
-                                                             : "Lab: private traffic\nExpect delay/loss\nTest users consent?";
+        banner.message = pendingConsent == Consent::Text     ? "Text on this channel\nbecomes PUBLIC in\nBitchat. Continue?"
+                         : pendingConsent == Consent::Tunnel ? "Experimental tunnel:\nexpect delay and loss.\nContinue?"
+                                                             : "Experimental: private\ntraffic may be lost.\nContinue?";
         banner.optionsArrayPtr = confirm;
         banner.optionsCount = 2;
         banner.bannerCallback = [](int selected) {
@@ -216,15 +216,15 @@ void menuHandler::bitchatDetailMenu(screenMenus page)
                 return;
             }
             if (action == Consent::Text)
-                showResult(bitchatBridge->startBasicMode(channel), "Text mode saved");
+                showResult(bitchatBridge->startBasicMode(channel), "Bitchat + LoRa: saved");
             else if (action == Consent::Tunnel)
                 showResult(bitchatBridge->setChannel(true, channel), "Tunnel channel saved", BitchatLab);
             else
-                showResult(bitchatBridge->setPrivateTunnel(true), "Private lab enabled", BitchatLab);
+                showResult(bitchatBridge->setPrivateTunnel(true), "Private traffic on", BitchatLab);
         };
         break;
     case BitchatHelp:
-        banner.message = "1: local Bluetooth\n2: shared LoRa text\nOpen Bitchat nearby\nSend !lora for LoRa";
+        banner.message = "Open Bitchat near the\nradio. Chat in #mesh:\ntext goes to the LoRa\nchannel and back.";
         banner.bannerCallback = [](int) { next(BitchatOptions); };
         break;
     case BitchatNotice:

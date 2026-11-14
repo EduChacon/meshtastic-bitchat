@@ -36,7 +36,7 @@ class BitchatBridgeModule
 {
   public:
     struct {
-        bool enabled = false, economy = false, privateTunnel = false;
+        bool enabled = false, economy = false, privateTunnel = false, prefixOnly = false;
         uint8_t textChannel = 255, tunnelChannel = 255;
         Digest textBinding{}, tunnelBinding{};
     } settings;
@@ -56,6 +56,14 @@ class BitchatBridgeModule
     bool enabled() const { return settings.enabled; }
     bool economy() const { return settings.economy; }
     bool privateTunnel() const { return settings.privateTunnel; }
+    bool prefixOnly() const { return settings.prefixOnly; }
+    bool nativeWindowOpen() const { return nativeWindow; }
+    bool setPrefixOnly(bool value)
+    {
+        settings.prefixOnly = value;
+        return persist();
+    }
+    const char *hint() const { return storageOk ? "" : "Restart the radio"; }
     int textChannel() const { return settings.textChannel; }
     bool eligibleChannel(uint8_t i) const { return i == 1 || i == 2; }
     bool binding(uint8_t i, Digest &out) const
@@ -104,8 +112,9 @@ class BitchatBridgeModule
         return persist();
     }
     void openNativeWindow() { nativeWindow = true; }
-    const char *status() const { return storageOk ? "Check connection" : "Storage error: stopped"; }
+    const char *status() const { return storageOk ? "Check connection" : "Storage error"; }
 } bridge;
+static constexpr uint32_t BUDGET_MS = 12000;
 BitchatBridgeModule *bitchatBridge = &bridge;
 #include "mode-under-test.inc"
 
@@ -128,9 +137,7 @@ class menuHandler
         BitchatTextChannel,
         BitchatTunnelChannel,
         BitchatOptions,
-        BitchatProfile,
         BitchatLab,
-        BitchatApps,
         BitchatNotice,
         BitchatConfirm,
         BitchatHelp
@@ -241,26 +248,26 @@ int main()
     assert(bridge.settings.textChannel == 255 && bridge.saves == 0);
     puts("PASS: original channel confirmation is lost after selection (host lifecycle control)");
 #else
-    open(menuHandler::BitchatOptions);
-    click(3);
-    assert(display.message.find("BLE clients: 1") != std::string::npos);
-    assert(display.message.find("LoRa text: OFF") != std::string::npos);
+    auto shows = [](const char *text) { return display.message.find(text) != std::string::npos; };
     open(menuHandler::BitchatMenu);
+    assert(display.options.size() == 6);
+    click(4);
+    assert(shows("Phones connected: 1") && shows("LoRa: off"));
+    click(0);
     click(2);
-    assert(display.message == "Choose shared channel");
+    assert(display.message == "Which LoRa channel?");
     click(2);
-    assert(display.message.find("PUBLIC") != std::string::npos);
+    assert(shows("PUBLIC"));
     assert(bridge.saves == 0 && bridge.settings.textChannel == 255);
     click(0);
     assert(bridge.saves == 0);
     click(2);
     click(1);
     assert(bridge.enabled() && bridge.settings.textChannel == 1 && bridge.saves == 1);
-    assert(display.message.find("Text mode saved") != std::string::npos);
-    open(menuHandler::BitchatOptions);
-    click(3);
-    assert(display.message.find("Text channel: 1") != std::string::npos);
-    open(menuHandler::BitchatNotice);
+    assert(shows("Bitchat + LoRa: saved"));
+    click(0);
+    click(4);
+    assert(shows("LoRa: Test"));
     bridge.settings.tunnelChannel = 2;
     bridge.settings.privateTunnel = true;
     bridge.nativeWindow = true;
@@ -272,24 +279,35 @@ int main()
     assert(bridge.settings.textBinding == Digest{} && bridge.settings.tunnelBinding == Digest{});
     assert(bridge.runtime->radioQueue.cleared == 2 && bridge.saves == 2);
     click(0);
-    click(4);
+    // Settings show the current choice on each line; selecting a line switches it.
+    click(5);
+    assert(display.options[1] == "LoRa: all messages");
     click(1);
-    assert(display.message == "Current: fixed");
+    assert(bridge.prefixOnly() && shows("Only !lora"));
+    click(0);
+    assert(display.options[1] == "LoRa: only !lora");
+    click(1);
+    assert(!bridge.prefixOnly());
+    click(0);
+    assert(display.options[2] == "Battery saver: off");
     click(2);
     assert(bridge.economy());
     click(0);
-    click(1);
-    assert(display.message == "Current: economy");
-    click(1);
+    assert(display.options[2] == "Battery saver: on");
+    click(2);
     assert(!bridge.economy());
     click(0);
-    click(2);
-    click(1);
-    assert(bridge.nativeWindow);
+    assert(display.options[3] == "Find Meshtastic app");
+    click(3);
+    assert(bridge.nativeWindow && shows("5 minutes"));
     click(0);
-    click(2);
+    assert(display.options[3] == "Back to Bitchat now");
+    click(3);
     assert(!bridge.nativeWindow);
-    open(menuHandler::BitchatOptions);
+    click(0);
+    click(4);
+    assert(shows("#mesh"));
+    click(0);
     click(5);
     click(2);
     assert(!bridge.privateTunnel());
@@ -299,6 +317,7 @@ int main()
     click(1);
     assert(bridge.privateTunnel());
     open(menuHandler::BitchatLab);
+    assert(display.options[2] == "Private traffic: on");
     click(1);
     click(2);
     click(1);
@@ -311,7 +330,7 @@ int main()
     bridge.memoryOk = false;
     open(menuHandler::BitchatMenu);
     click(1);
-    assert(!bridge.enabled() && display.message.find("Not applied") == 0 && bridge.saves == before);
+    assert(!bridge.enabled() && display.message.find("Could not apply") == 0 && bridge.saves == before);
     bridge.memoryOk = true;
     bridge.identityOk = false;
     assert(!bridge.startBasicMode() && !bridge.runtime && bridge.saves == before);
@@ -325,8 +344,8 @@ int main()
     bridge.storageOk = false;
     open(menuHandler::BitchatMenu);
     click(1);
-    assert(!bridge.enabled() && display.message.find("Not applied") == 0);
+    assert(!bridge.enabled() && display.message.find("Could not apply") == 0);
     assert(display.reentrantBanners == 0);
-    puts("PASS: explicit consent, cancel, modes, profiles, app switch, errors; no reentrant banners");
+    puts("PASS: explicit consent, cancel, modes, settings toggles, app switch, errors; no reentrant banners");
 #endif
 }

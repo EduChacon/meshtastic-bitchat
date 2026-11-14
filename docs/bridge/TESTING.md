@@ -17,6 +17,7 @@ python3 tools/bridge/test_host.py --crypto-dir .pio/libdeps/heltec-v3-bitchat/Cr
 python3 tools/bridge/test_ble.py
 python3 tools/bridge/test_menu.py
 python3 tools/bridge/test_defaults.py
+python3 tools/bridge/test_flow.py --crypto-dir .pio/libdeps/heltec-v3-bitchat/Crypto
 python3 tools/bridge/test_startup.py --nimble-dir .pio/libdeps/heltec-v3-bitchat/NimBLE-Arduino
 python3 -m unittest discover -s test/test_bitchat_bridge -p 'test_*.py' -v
 pio check -e heltec-v3-bitchat --skip-packages --src-filters '+<src/bridge/>' --fail-on-defect high
@@ -41,6 +42,7 @@ upstream não entra no pacote publicado.
 | Ponte desativada                                     | Compilação de `heltec-v3` sem flag                                                                | Regressão funcional stock ainda NT                           |
 | Menus e consentimento                                | Callbacks reais com ciclo de tela simulado; controle negativo `.3`; SIM                           | Sem OLED, botão ou iOS reais                                 |
 | Padrão automático e migração                         | Métodos reais com canais/NVS/hora simulados; erros e preservação; SIM                             | Sem corte de alimentação ou escrita flash física             |
+| Fluxo completo em grupo                              | Módulo e adaptador BLE de produção com três telefones e rádio simulados, assinaturas reais; SIM  | Sem controlador BLE, iOS, RF ou temporização real            |
 | Repetibilidade                                       | Duas compilações da aplicação no mesmo ambiente de CI com epoch fixo                              | Não promete binário idêntico entre SOs/toolchains diferentes |
 
 O adaptador BLE também é executado no host com substitutos de NimBLE/heap, ASan e UBSan,
@@ -79,9 +81,9 @@ O aviso de SX127x ↔ LR1110 não é evidência de falha no par Heltec V3/SX1262
    negativo. Sem falha no controle negativo não se comprovou o relé. Testar 1/2/3 conexões,
    fila cheia e cliente lento; registrar justiça e latência por cliente.
 4. **B:** um Heltec modificado + um rádio stock, Bitchat de um lado e Meshtastic do outro.
-   Confirmar que o app transmite `!lora ` literalmente; testar UTF-8 de 120/121 bytes,
-   mensagens sem prefixo, DM, canal errado, primário, MQTT, PSK mudada e reinício.
-   Esperar zero exportações dos casos proibidos e nenhuma truncagem silenciosa.
+   Testar texto comum e texto com `!lora `, nos dois modos de envio do menu; mensagem longa
+   (divisão em até três partes), apelidos iguais, DM, canal errado, primário, MQTT, PSK
+   mudada e reinício. Esperar zero exportações dos casos proibidos e nenhuma truncagem.
 5. **iOS:** descoberta alternada primeiro; depois tentar simultânea. Registrar UUIDs no
    anúncio principal, MTU real, writes/notifies, restauração e p95. Estados: foreground,
    background, bloqueado, encerrado manualmente, retorno ao alcance, Bluetooth off/on,

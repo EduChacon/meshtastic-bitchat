@@ -19,6 +19,14 @@ size_t PeerTable::size() const
     return count;
 }
 
+bool PeerTable::nicknameShared(const Peer &peer) const
+{
+    for (const auto &entry : entries)
+        if (entry.used && &entry != &peer && entry.announcement.nickname == peer.announcement.nickname)
+            return true;
+    return false;
+}
+
 Result PeerTable::announce(Crypto &crypto, Bytes frame, uint64_t nowUtc, uint32_t now, Peer *&peer)
 {
     peer = nullptr;
@@ -54,6 +62,17 @@ Result PeerTable::announce(Crypto &crypto, Bytes frame, uint64_t nowUtc, uint32_
                 existing = &entry;
                 break;
             }
+    }
+    if (!existing) {
+        // Phones announce every few seconds: only a peer silent for minutes gives up its slot.
+        uint32_t oldest = STALE_MS - 1;
+        for (auto &entry : entries)
+            if (now - entry.seenAt > oldest) {
+                oldest = now - entry.seenAt;
+                existing = &entry;
+            }
+        if (existing)
+            *existing = {};
     }
     if (!existing)
         return Result::Full;
@@ -91,6 +110,9 @@ Result PeerTable::authenticate(Crypto &crypto, Bytes frame, uint64_t nowUtc, uin
     } else if (p.type != 0x10 && p.type != 0x11 && p.type != 0x04 && p.type != 0x25) {
         return Result::Unauthenticated;
     }
+    // Unsigned types cannot prove their sender, so only signed traffic keeps a slot alive.
+    if (p.signedPacket())
+        peer->seenAt = now;
     return Result::Ok;
 }
 

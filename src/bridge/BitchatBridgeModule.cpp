@@ -19,6 +19,10 @@ using namespace bitchat;
 BitchatBridgeModule *bitchatBridge = nullptr;
 static constexpr uint32_t DEDUP_MS = 125000;
 static constexpr uint64_t JOURNAL_MS = 600000;
+static constexpr uint32_t GUARD_MS = 30000;
+static constexpr uint32_t CONFLICT_MS = 90000;
+static constexpr uint32_t RADIO_DEADLINE_MS = 120000;
+static constexpr uint32_t BUDGET_MS = 12000;
 
 BitchatBridgeModule::BitchatBridgeModule() : MeshModule("bitchat"), OSThread("bitchat")
 {
@@ -26,7 +30,8 @@ BitchatBridgeModule::BitchatBridgeModule() : MeshModule("bitchat"), OSThread("bi
     if (storageReady && storage.isKey("settings")) {
         if (storage.getBytesLength("settings") != sizeof(settings) ||
             storage.getBytes("settings", &settings, sizeof(settings)) != sizeof(settings) || settings.magic != 0x42433031 ||
-            settings.enabled > 1 || settings.economy > 1 || settings.privateTunnel > 1 || settings.reserved[0] > 1) {
+            settings.enabled > 1 || settings.economy > 1 || settings.privateTunnel > 1 || settings.reserved[0] > 1 ||
+            settings.reserved[1] > 1) {
             settings = Settings{};
             storageReady = false;
         }
@@ -193,7 +198,7 @@ bool BitchatBridgeModule::setEnabled(bool value)
     textGuardAt = millis();
     if (runtime)
         runtime->radioQueue.clear();
-    tokens = value ? 12000 : 0;
+    tokens = value ? BUDGET_MS : 0;
     lastBudget = millis();
     return persist();
 }
@@ -238,7 +243,7 @@ bool BitchatBridgeModule::startBasicMode(uint8_t channel)
     textConflict = false;
     textGuardAt = millis();
     runtime->radioQueue.clear();
-    tokens = 12000;
+    tokens = BUDGET_MS;
     lastBudget = millis();
     closeNativeWindow();
     refreshChannels();
@@ -259,6 +264,11 @@ bool BitchatBridgeModule::setEconomy(bool value)
 bool BitchatBridgeModule::setPrivateTunnel(bool value)
 {
     settings.privateTunnel = value;
+    return persist();
+}
+bool BitchatBridgeModule::setPrefixOnly(bool value)
+{
+    settings.reserved[1] = value;
     return persist();
 }
 
@@ -307,24 +317,36 @@ bool BitchatBridgeModule::setChannel(bool tunnel, uint8_t index)
 void BitchatBridgeModule::refreshChannels()
 {
     Digest current;
+    const bool hadText = textReady;
     textReady = binding(settings.textChannel, current) && current == settings.textBinding;
     tunnelReady = binding(settings.tunnelChannel, current) && current == settings.tunnelBinding;
     if (settings.textChannel == settings.tunnelChannel) {
         textReady = false;
         tunnelReady = false;
     }
-    if (textReady) {
+    channelsAt = millis();
+    // Other bridges learn about this one from the proof in its next announcement.
+    if (textReady != hadText)
+        announcedAt = channelsAt - 60000;
+    if (textReady && textKeyBinding != settings.textBinding) {
         const auto &s = channels.getByIndex(settings.textChannel).settings;
         static const char info[] = "meshtastic-bitchat/text/v1";
         hkdf<SHA256>(textKey.data(), textKey.size(), s.psk.bytes, 32, settings.textBinding.data(), 32, info, sizeof(info) - 1);
+        textKeyBinding = settings.textBinding;
     }
-    if (tunnelReady) {
+    if (tunnelReady && tunnelKeyBinding != settings.tunnelBinding) {
         const auto &s = channels.getByIndex(settings.tunnelChannel).settings;
         static const char info[] = "meshtastic-bitchat/tunnel/v1";
         hkdf<SHA256>(tunnelKey.data(), tunnelKey.size(), s.psk.bytes, 32, settings.tunnelBinding.data(), 32, info,
                      sizeof(info) - 1);
         std::copy_n(settings.tunnelBinding.begin(), tunnelDomain.size(), tunnelDomain.begin());
+        tunnelKeyBinding = settings.tunnelBinding;
     }
+}
+
+bool BitchatBridgeModule::textGuard() const
+{
+    return Throttle::isWithinTimespanMsAt(textGuardAt, GUARD_MS, millis());
 }
 
 void BitchatBridgeModule::openNativeWindow()
@@ -343,32 +365,48 @@ void BitchatBridgeModule::closeNativeWindow()
 const char *BitchatBridgeModule::status() const
 {
     if (nimbleBluetooth && nimbleBluetooth->startupFailed)
-        return "BLE failed: restart";
+        return "Bluetooth error";
     if (!storageReady)
-        return "Storage error: stopped";
+        return "Storage error";
     if (resourceError)
         return "Low memory: bridge OFF";
     if (!settings.enabled)
-        return "OFF - stock BLE";
-    if (!config.bluetooth.enabled || config.power.is_power_saving)
-        return "Enable BLE; sleep OFF";
+        return "Bridge is off";
+    if (!config.bluetooth.enabled)
+        return "Bluetooth is off";
+    if (config.power.is_power_saving)
+        return "Power saving is on";
     if (!identityReady)
-        return "Identity unavailable";
+        return "Starting...";
     if (!utc())
-        return "Open Meshtastic: clock";
+        return "Clock not set";
     if (nativeWindow)
-        return "Meshtastic window 5m";
-    if (defaultChannelUnavailable && settings.textChannel == 255)
-        return "Local only: set channel";
-    if (textConflict)
-        return "B conflict: stop overlap";
-    if (textReady && Throttle::isWithinTimespanMsAt(textGuardAt, 30000, millis()))
-        return "B listening: wait 30s";
+        return "Meshtastic app: 5 min";
     if ((settings.textChannel != 255 && !textReady) || (settings.tunnelChannel != 255 && !tunnelReady))
-        return "Channel changed: blocked";
-    if (settings.textChannel == 255 && settings.tunnelChannel == 255)
-        return settings.economy ? "Local BLE: economy" : "Local BLE: fixed";
-    return settings.economy ? "BC economy (available)" : "BC fixed (available)";
+        return "LoRa channel changed";
+    if (textConflict)
+        return "Standby: other bridge";
+    if (textReady && textGuard())
+        return "Starting LoRa: 30 s";
+    return textReady ? "Ready: Bitchat + LoRa" : "Ready: Bitchat only";
+}
+
+// What the operator can do about the current status; empty when nothing is needed.
+const char *BitchatBridgeModule::hint() const
+{
+    if ((nimbleBluetooth && nimbleBluetooth->startupFailed) || !storageReady || resourceError)
+        return "Restart the radio";
+    if (!settings.enabled)
+        return "Menu: System > Bitchat";
+    if (!config.bluetooth.enabled || config.power.is_power_saving)
+        return "Fix in Meshtastic app";
+    if (identityReady && !utc())
+        return "Open Meshtastic app";
+    if ((settings.textChannel != 255 && !textReady) || (settings.tunnelChannel != 255 && !tunnelReady))
+        return "Choose it again in menu";
+    if (defaultChannelUnavailable && settings.textChannel == 255)
+        return "No free LoRa channel";
+    return "";
 }
 
 void BitchatBridgeModule::reject(Result result)
@@ -378,10 +416,8 @@ void BitchatBridgeModule::reject(Result result)
 }
 uint32_t BitchatBridgeModule::drops() const
 {
-    uint32_t count = bleDrops();
-    for (auto value : rejected)
-        count += value;
-    return count;
+    // Duplicates and policy refusals are normal mesh traffic, not lost messages.
+    return bleDrops() + lost;
 }
 
 bool BitchatBridgeModule::seen(const Digest &id) const
@@ -396,23 +432,23 @@ bool BitchatBridgeModule::seen(const Digest &id) const
 
 bool BitchatBridgeModule::record(const Digest &id)
 {
-    if (!storageReady || !utc() || seen(id))
+    const uint64_t now = utc();
+    if (!storageReady || !now || seen(id))
         return false;
-    for (size_t i = 0; i < journal.size(); ++i) {
-        auto &entry = journal[i];
-        if (!entry.utc || (utc() >= entry.utc && utc() - entry.utc >= JOURNAL_MS)) {
-            std::copy_n(id.begin(), entry.id.size(), entry.id.begin());
-            entry.utc = utc();
-            char key[8];
-            snprintf(key, sizeof(key), "j%02u", unsigned(i));
-            if (storage.putBytes(key, &entry, sizeof(entry)) == sizeof(entry))
-                return true;
-            storageReady = false;
-            advertisingChanged = true;
-            return false;
-        }
-    }
-    reject(Result::Full);
+    // A full journal gives up its oldest entry: refusing new messages would silence the bridge.
+    size_t slot = 0;
+    for (size_t i = 1; i < journal.size(); ++i)
+        if (journal[i].utc < journal[slot].utc)
+            slot = i;
+    auto &entry = journal[slot];
+    std::copy_n(id.begin(), entry.id.size(), entry.id.begin());
+    entry.utc = now;
+    char key[8];
+    snprintf(key, sizeof(key), "j%02u", unsigned(slot));
+    if (storage.putBytes(key, &entry, sizeof(entry)) == sizeof(entry))
+        return true;
+    storageReady = false;
+    advertisingChanged = true;
     return false;
 }
 
@@ -466,6 +502,7 @@ void BitchatBridgeModule::announce()
         makeGatewayProof(crypto, ownId, nodeDB->getNodeNum(), textKey.data(), payload.data() + offset);
         offset += 22;
     }
+    announcedAt = millis();
     originate(1, {payload.data(), offset});
 }
 
@@ -493,7 +530,7 @@ void BitchatBridgeModule::queueTunnel(Bytes frame, const Digest &id, bool persis
         return;
     }
     size_t count = (frame.size + TUNNEL_CHUNK - 1) / TUNNEL_CHUNK;
-    if (runtime->radioQueue.size() + count > 4) {
+    if (runtime->radioQueue.size() + count > RadioItem::QUEUE) {
         reject(Result::Full);
         return;
     }
@@ -517,94 +554,130 @@ void BitchatBridgeModule::queueTunnel(Bytes frame, const Digest &id, bool persis
     }
 }
 
-void BitchatBridgeModule::handleFrame(Bytes frame, uint16_t source, bool fromTunnel)
+// Returns true when the frame cost a signature check, so the caller can pace the next one.
+bool BitchatBridgeModule::handleFrame(Bytes frame, uint16_t source, bool fromTunnel)
 {
+    const uint32_t now = millis();
     Packet packet;
     Result result = decode(frame, packet);
     if (result != Result::Ok) {
         reject(result);
-        return;
+        return false;
     }
     if (packet.type == 0x20) {
         if (!allocateBuffer(runtime->fragments)) {
             reject(Result::Full);
-            return;
+            ++lost;
+            return false;
         }
-        result = runtime->fragments->accept(packet, millis(), runtime->assembled);
+        result = runtime->fragments->accept(packet, now, runtime->assembled);
         if (result != Result::Ok) {
             reject(result);
-            return;
+            return false;
         }
         frame = runtime->assembled.bytes();
         if (decode(frame, packet) != Result::Ok)
-            return;
+            return false;
     }
     if (packet.sender == ownId || packet.type == 0x21 || packet.replay()) {
         reject(Result::Policy);
-        return;
-    }
-    Peer *peer = nullptr;
-    result = runtime->peers->authenticate(crypto, frame, utc(), millis(), peer);
-    if (result != Result::Ok || !peer) {
-        reject(result);
-        return;
+        return false;
     }
     Digest id;
     result = packetDigest(crypto, frame, id);
-    if (result == Result::Ok)
-        result = runtime->dedup->insert(id, millis(), DEDUP_MS);
+    // Every phone relays what it hears, so most arrivals are copies: drop them before the signature check.
+    if (result == Result::Ok && runtime->dedup->contains(id, now, DEDUP_MS))
+        result = Result::Duplicate;
     if (result != Result::Ok) {
         reject(result);
-        return;
+        return false;
     }
+    Peer *peer = nullptr;
+    result = runtime->peers->authenticate(crypto, frame, utc(), now, peer);
+    if (result == Result::Ok && !peer)
+        result = Result::Unauthenticated;
+    if (result == Result::Ok)
+        result = runtime->dedup->insert(id, now, DEDUP_MS);
+    if (result != Result::Ok) {
+        reject(result);
+        return true;
+    }
+    uint32_t other = 0;
+    // Two bridges on one channel would duplicate every text: the higher node number stands by.
     if (!fromTunnel && textReady && packet.type == 1 &&
-        containsGatewayProof(crypto, packet, nodeDB->getNodeNum(), textKey.data())) {
+        gatewayProofNode(crypto, packet, nodeDB->getNodeNum(), textKey.data(), other) && other < nodeDB->getNodeNum()) {
         textConflict = true;
+        conflictAt = now;
     }
-    if (!peer->traffic.admit(millis(), 30)) {
+    if (!peer->traffic.admit(now, 30)) {
         reject(Result::Full);
-        return;
+        ++lost;
+        return true;
     }
     if (fromTunnel && packet.type != 1 && !record(id)) {
         reject(Result::Duplicate);
-        return;
+        return true;
     }
     if (relay(frame, runtime->working) == Result::Ok) {
         if (bleBroadcast(runtime->working.bytes(), source))
             ++forwardedBle;
     }
     if (fromTunnel)
-        return;
-    Bytes body;
-    Result textResult = publicTextForLoRa(packet, body);
-    if (textReady && packet.type == 2 && !packet.directed() && startsWith(packet.payload, "!lora ")) {
-        if (textResult != Result::Ok || textConflict || Throttle::isWithinTimespanMsAt(textGuardAt, 30000, millis())) {
-            reject(textResult == Result::Ok ? Result::Policy : textResult);
-            return;
-        }
-        if (!peer->lora.admit(millis(), settings.economy ? 120000 : 30000) || seen(id)) {
-            reject(Result::Duplicate);
-            return;
-        }
-        NativeText native;
-        result = makeNativeText(crypto, packet.sender, body, id, textKey.data(), native);
-        if (result == Result::Ok && runtime->radioQueue.size() < 4 && record(id))
-            queueRadio(native.bytes(), meshtastic_PortNum_TEXT_MESSAGE_APP, settings.textChannel);
-        else
-            reject(result == Result::Ok ? Result::Full : result);
-        return;
+        return true;
+    const bool publicMessage = packet.type == 2 && !packet.directed();
+    if (textReady && publicMessage && !startsWith(packet.payload, TUNNEL_PREFIX) &&
+        (!settings.reserved[1] || startsWith(packet.payload, LORA_PREFIX))) {
+        exportText(packet, *peer, id);
+        return true;
     }
     if (tunnelReady) {
-        const bool publicText = packet.type == 2 && !packet.directed() && !packet.compressed() &&
-                                startsWith(packet.payload, "!bctun ") && packet.payload.size <= TEXT_LIMIT + 7 &&
-                                validUtf8(packet.payload);
+        const bool publicText = publicMessage && !packet.compressed() && startsWith(packet.payload, TUNNEL_PREFIX) &&
+                                packet.payload.size <= TUNNEL_TEXT_LIMIT && validUtf8(packet.payload);
         const bool opaque = settings.privateTunnel && (packet.type == 0x10 || packet.type == 0x11 || packet.type == 0x25 ||
                                                        packet.type == 0x24 || packet.type == 0x26 || packet.type == 0x27);
-        const bool presence = packet.type == 1 && peer->presence.admit(millis(), 30000);
-        if (presence || ((publicText || opaque) && peer->lora.admit(millis(), opaque ? 1000 : 30000))) {
+        const bool presence = packet.type == 1 && peer->presence.admit(now, 30000);
+        if (presence || ((publicText || opaque) && peer->lora.admit(now, 4, opaque ? 1000 : 10000))) {
             if (relay(frame, runtime->working) == Result::Ok && (presence || !seen(id)))
                 queueTunnel(runtime->working.bytes(), id, !presence);
         }
+    }
+    return true;
+}
+
+void BitchatBridgeModule::exportText(const Packet &packet, Peer &peer, const Digest &id)
+{
+    Bytes body;
+    Result result = publicTextForLoRa(packet, body);
+    // Text from another bridge already came from LoRa: sending it back would loop.
+    if (result == Result::Ok && (peer.announcement.gateway || textConflict))
+        result = Result::Policy;
+    if (result == Result::Ok && seen(id))
+        result = Result::Duplicate;
+    if (result != Result::Ok) {
+        reject(result);
+        return;
+    }
+    char label[LABEL_LIMIT + 8];
+    size_t labelSize = cleanLabel({reinterpret_cast<const uint8_t *>(peer.announcement.nickname.data()),
+                                   strnlen(peer.announcement.nickname.data(), peer.announcement.nickname.size())},
+                                  label, LABEL_LIMIT - 4);
+    // Same rule as the Bitchat app: equal nicknames are told apart by the start of the peer ID.
+    if (!labelSize || runtime->peers->nicknameShared(peer))
+        labelSize += snprintf(label + labelSize, 6, "#%02x%02x", peer.id[0], peer.id[1]);
+    TextPlan plan;
+    result = planNativeText(labelSize, body, plan);
+    if (result == Result::Ok && (textGuard() || runtime->radioQueue.size() + plan.count > RadioItem::QUEUE ||
+                                 !peer.lora.admit(millis(), 6, settings.economy ? 30000 : 6000) || !record(id)))
+        result = Result::Full;
+    if (result != Result::Ok) {
+        reject(result);
+        ++lost;
+        return;
+    }
+    for (size_t part = 0; part < plan.count; ++part) {
+        NativeText native;
+        if (makeNativeText({reinterpret_cast<const uint8_t *>(label), labelSize}, body, plan, part, native) == Result::Ok)
+            queueRadio(native.bytes(), meshtastic_PortNum_TEXT_MESSAGE_APP, settings.textChannel);
     }
 }
 
@@ -622,31 +695,45 @@ ProcessMessage BitchatBridgeModule::handleReceived(const meshtastic_MeshPacket &
         return ProcessMessage::CONTINUE;
     refreshChannels();
     Bytes payload{packet.decoded.payload.bytes, packet.decoded.payload.size};
-    if (textReady && !textConflict && !Throttle::isWithinTimespanMsAt(textGuardAt, 30000, millis()) &&
-        packet.channel == settings.textChannel && packet.decoded.portnum == meshtastic_PortNum_TEXT_MESSAGE_APP) {
+    if (textReady && !textConflict && !textGuard() && packet.channel == settings.textChannel &&
+        packet.decoded.portnum == meshtastic_PortNum_TEXT_MESSAGE_APP) {
+        // Bitchat keeps no mailbox on the bridge: without a phone connected there is nobody to deliver to.
+        if (!bleSubscribers())
+            return ProcessMessage::CONTINUE;
+        const NodeNum from = getFrom(&packet);
         std::array<uint8_t, 42> material{};
         material[0] = 'M';
         material[1] = 'T';
         std::copy(settings.textBinding.begin(), settings.textBinding.end(), material.begin() + 2);
-        write32(material.data() + 34, packet.from);
+        write32(material.data() + 34, from);
         write32(material.data() + 38, packet.id);
         Digest id;
         crypto.hash({material.data(), material.size()}, id);
-        std::array<uint8_t, 16> tag;
-        if (readBridgeTag(crypto, payload, textKey.data(), tag))
-            std::copy(tag.begin(), tag.end(), id.begin());
         if (seen(id)) {
             reject(Result::Duplicate);
             return ProcessMessage::CONTINUE;
         }
+        char label[LABEL_LIMIT + 1];
+        const auto *node = nodeDB->getMeshNode(from);
+        size_t labelSize = 0;
+        if (node && node->has_user)
+            labelSize = cleanLabel({reinterpret_cast<const uint8_t *>(node->user.long_name),
+                                    strnlen(node->user.long_name, sizeof(node->user.long_name))},
+                                   label, sizeof(label));
+        if (!labelSize)
+            labelSize = snprintf(label, sizeof(label), "!%08lx", static_cast<unsigned long>(from));
         NativeText text;
-        Result result = makeBitchatText(packet.from, payload, text);
+        Result result = makeBitchatText({reinterpret_cast<const uint8_t *>(label), labelSize}, payload, text);
         if (result == Result::Ok && record(id)) {
-            announce();
+            // A phone that just connected may not know the bridge key yet; its messages would be discarded.
+            if (!Throttle::isWithinTimespanMsAt(announcedAt, 5000, millis()))
+                announce();
             originate(2, text.bytes());
             ++importedRadio;
-        } else
+        } else {
             reject(result == Result::Ok ? Result::Full : result);
+            ++lost;
+        }
     } else if (tunnelReady && packet.channel == settings.tunnelChannel &&
                packet.decoded.portnum == meshtastic_PortNum_PRIVATE_APP) {
         TunnelFragment view;
@@ -663,8 +750,8 @@ ProcessMessage BitchatBridgeModule::handleReceived(const meshtastic_MeshPacket &
             Packet inner;
             if (decode(runtime->assembled.bytes(), inner) == Result::Ok &&
                 (inner.type == 1 ||
-                 (inner.type == 2 && !inner.directed() && !inner.compressed() && startsWith(inner.payload, "!bctun ") &&
-                  inner.payload.size <= TEXT_LIMIT + 7 && validUtf8(inner.payload)) ||
+                 (inner.type == 2 && !inner.directed() && !inner.compressed() && startsWith(inner.payload, TUNNEL_PREFIX) &&
+                  inner.payload.size <= TUNNEL_TEXT_LIMIT && validUtf8(inner.payload)) ||
                  (settings.privateTunnel && (inner.type == 0x10 || inner.type == 0x11 || inner.type == 0x25 ||
                                              inner.type == 0x24 || inner.type == 0x26 || inner.type == 0x27))))
                 handleFrame(runtime->assembled.bytes(), NO_LINK, true);
@@ -681,9 +768,10 @@ void BitchatBridgeModule::sendRadio()
     auto *item = runtime->radioQueue.front();
     if (!item)
         return;
-    if (!Throttle::isWithinTimespanMsAt(item->queuedAt, 45000, millis()) ||
+    if (!Throttle::isWithinTimespanMsAt(item->queuedAt, RADIO_DEADLINE_MS, millis()) ||
         (item->port == meshtastic_PortNum_TEXT_MESSAGE_APP ? (!textReady || textConflict) : !tunnelReady)) {
         reject(Result::Expired);
+        ++lost;
         runtime->radioQueue.pop();
         return;
     }
@@ -701,7 +789,9 @@ void BitchatBridgeModule::sendRadio()
     packet->decoded.payload.size = item->size;
     std::copy_n(item->payload.begin(), item->size, packet->decoded.payload.bytes);
     packet->want_ack = false;
-    packet->priority = meshtastic_MeshPacket_Priority_BACKGROUND;
+    // Chat text travels like text typed in the Meshtastic app; tunnel fragments yield to everything else.
+    packet->priority = item->port == meshtastic_PortNum_TEXT_MESSAGE_APP ? meshtastic_MeshPacket_Priority_DEFAULT
+                                                                         : meshtastic_MeshPacket_Priority_BACKGROUND;
     uint32_t cost = router->bridgeAirtime(packet);
     if (cost > tokens || router->getQueueStatus().free < 2) {
         packetPool.release(packet);
@@ -732,7 +822,7 @@ int32_t BitchatBridgeModule::runOnce()
         releaseRuntime();
     if (active != wasActive) {
         advertisingChanged = true;
-        tokens = active ? 12000 : 0;
+        tokens = active ? BUDGET_MS : 0;
         lastBudget = now;
         wasActive = active;
     }
@@ -745,16 +835,25 @@ int32_t BitchatBridgeModule::runOnce()
     }
     if (!active)
         return 1000;
-    refreshChannels();
+    if (!Throttle::isWithinTimespanMsAt(channelsAt, 1000, now))
+        refreshChannels();
+    if (textConflict && !Throttle::isWithinTimespanMsAt(conflictAt, CONFLICT_MS, now)) {
+        textConflict = false;
+        textGuardAt = now;
+    }
     const uint32_t elapsed = now - lastBudget;
     if (elapsed >= 1000) {
-        tokens = std::min<uint32_t>(12000, tokens + std::min<uint32_t>(elapsed, 60000) / (settings.economy ? 100 : 20));
+        // Extra LoRa airtime the bridge allows itself: 10% of the time, or 1% on battery.
+        tokens = std::min<uint32_t>(BUDGET_MS, tokens + std::min<uint32_t>(elapsed, 60000) / (settings.economy ? 100 : 10));
         lastBudget = now;
     }
-    if (bleNeedsAnnouncement() || runtime->announceGate.admit(now, 20000))
+    // Signing costs CPU: announce to a phone that just subscribed, then only while someone listens.
+    if (bleNeedsAnnouncement() || (bleSubscribers() && !Throttle::isWithinTimespanMsAt(announcedAt, 20000, now)))
         announce();
-    if (runtime->cryptoGate.admit(now, 30) && bleReceive(runtime->input))
-        handleFrame(runtime->input.frame.bytes(), runtime->input.link, false);
+    if (runtime->cryptoGate.admit(now, 30))
+        for (unsigned frames = 0; frames < 4 && bleReceive(runtime->input); ++frames)
+            if (handleFrame(runtime->input.frame.bytes(), runtime->input.link, false))
+                break;
     blePoll();
     if (runtime->fragments) {
         runtime->fragments->expire(now);
@@ -792,18 +891,25 @@ void BitchatBridgeModule::drawFrame(OLEDDisplay *display, OLEDDisplayUiState *, 
     display->setFont(FONT_SMALL);
     display->setTextAlignment(TEXT_ALIGN_LEFT);
     const int16_t row = FONT_HEIGHT_SMALL - 1;
-    display->drawString(x, y, "Bitchat bridge - EXP");
+    display->drawString(x, y, "Bitchat bridge");
     display->drawString(x, y + row, status());
     char line[60];
-    snprintf(line, sizeof(line), "BLE%u P%u D%lu", unsigned(bleSubscribers()), unsigned(runtime ? runtime->peers->size() : 0),
-             static_cast<unsigned long>(drops()));
+    snprintf(line, sizeof(line), "Phones %u  People %u", unsigned(bleSubscribers()),
+             unsigned(runtime ? runtime->peers->size() : 0));
     display->drawString(x, y + 2 * row, line);
-    char tx[8], rx[8];
+    char tx[8], rx[8], missed[8];
     displayCount(submittedRadio, tx);
     displayCount(importedRadio, rx);
-    snprintf(line, sizeof(line), "TX%s RX%s Q%u", tx, rx, unsigned(runtime ? runtime->radioQueue.size() : 0));
+    displayCount(drops(), missed);
+    snprintf(line, sizeof(line), "LoRa out %s  in %s", tx, rx);
     display->drawString(x, y + 3 * row, line);
-    display->drawString(x, y + 4 * row, "Menu > System > Bitchat");
+    if (hint()[0])
+        snprintf(line, sizeof(line), "%s", hint());
+    else if (drops())
+        snprintf(line, sizeof(line), "Not delivered %s", missed);
+    else
+        snprintf(line, sizeof(line), "Menu: System > Bitchat");
+    display->drawString(x, y + 4 * row, line);
 }
 #endif
 #endif

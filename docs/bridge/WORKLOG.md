@@ -137,6 +137,21 @@ Bitchat; `!bridge`, digitado no aplicativo Meshtastic ou no Bitchat, devolve o r
 conexões. Não verificado em aparelho: como cada aplicativo exibe a resposta e o efeito da
 indicação de serviços alterados no iOS.
 
+Quarto passo. O operador fechou e abriu o Bitchat: `Phones` foi a 0 e voltou a 1, com `People`
+em 0. A hipótese do passo anterior está **afastada**: o Bitchat se conecta e se inscreve. A
+falha está na troca de anúncios nos dois sentidos. Releitura do aplicativo de referência:
+anúncio e mensagem não recebem preenchimento no Bluetooth; o aplicativo fragmenta o que
+escreve quando o quadro passa do limite de escrita da conexão; e o anúncio precisa de
+assinatura válida, identidade derivada da chave Noise e idade de até 15 minutos. Defeito
+encontrado na ponte, introduzido na `1.0.0-beta`: o marcador de ponte de 22 bytes levou o
+anúncio a 196 bytes, acima de uma notificação no MTU de 185 bytes, e o conteúdo a 110 bytes,
+acima do limite de 100 em que o aplicativo tenta comprimir. A `.3` reduz o marcador a 8 bytes
+(nó e 4 bytes do código de autenticação): anúncio de 182 bytes e conteúdo de 96. Relação com
+o sintoma **não confirmada**. O sentido telefone → ponte continua sem causa conhecida; em
+simulação, um anúncio com vizinhos, capacidades e célula de ponte, recebido em dois
+fragmentos, é aceito. O relatório do `!bridge` (`rx`, `ok`, `old`, `sig`, `fmt`) é o dado que
+falta.
+
 ## Investigação de boot — 2026-11-13
 
 As instalações foram suspensas nos dois READMEs e nas pré-releases, preservando os arquivos

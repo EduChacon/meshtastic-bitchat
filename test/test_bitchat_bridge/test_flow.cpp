@@ -197,6 +197,8 @@ int main()
         Packet packet;
         CHECK(decode({frames[0].data(), frames[0].size()}, packet) == Result::Ok && packet.type == 1);
         CHECK(decodeAnnouncement(packet.payload, bridgeIdentity) == Result::Ok && bridgeIdentity.gateway);
+        // One notification at the 185-byte MTU common on iPhones, and a payload the app never compresses.
+        CHECK(frames[0].size() <= 182 && packet.payload.size < 100);
         bridgeId = packet.sender;
     }
     for (const auto *phone : {&ana, &bia, &caio})
@@ -354,7 +356,7 @@ int main()
     }
     Phone other("LoRa bridge 2", 5);
     auto proof = [&](NodeNum node) {
-        std::array<uint8_t, 24> tlv{GATEWAY_TLV, 22};
+        std::array<uint8_t, 2 + GATEWAY_PROOF> tlv{GATEWAY_TLV, GATEWAY_PROOF};
         makeGatewayProof(crypto, other.id, node, key.data(), tlv.data() + 2);
         return tlv;
     };
@@ -490,10 +492,32 @@ int main()
     CHECK(chat(ghost.handle).empty() && fakeApp.size() == 2);
     CHECK(app(0).find("\nBluetooth 1, Bitchat 0, people ") != std::string::npos);
     CHECK(app(1).find("No Bitchat app has talked to this radio") != std::string::npos && app(1).size() <= 200);
-    // Once the app writes its announcement, it counts.
-    ghost.write(ghost.announce());
-    run(200);
+    // Once the app writes its announcement, it counts. A current app announces neighbours, capabilities
+    // and a bridge cell too, which no longer fits one write at a 185-byte MTU: it arrives as two fragments.
+    const size_t peopleBefore = app(0).find("people ");
+    std::vector<uint8_t> extra{4, 16};
+    extra.insert(extra.end(), 16, 0x5a);
+    extra.insert(extra.end(), {5, 2, 0x01, 0x03, 6, 5, '6', 'g', 'y', 'f', '4'});
+    const Frame whole = ghost.announce({extra.data(), extra.size()});
+    CHECK(whole.size > 182);
+    for (size_t offset = 0, index = 0; offset < whole.size; offset += 140, ++index) {
+        std::vector<uint8_t> part{9, 8, 7, 6, 5, 4, 3, 2, 0, uint8_t(index), 0, uint8_t((whole.size + 139) / 140), 1};
+        part.insert(part.end(), whole.data.begin() + offset, whole.data.begin() + std::min<size_t>(offset + 140, whole.size));
+        Frame fragment;
+        CHECK(encode(0x20, ghost.id, nullptr, stamp, 7, {part.data(), part.size()}, {}, fragment) == Result::Ok);
+        CHECK(fragment.size <= 182);
+        ghost.write(fragment);
+    }
+    run(400);
     CHECK(blePhones() == 1);
+    fakeApp.clear();
+    fromLoRa(0, "!bridge");
+    run(100);
+    CHECK(app(0).find("Bitchat 1, people ") != std::string::npos && peopleBefore != std::string::npos);
+    CHECK(app(1).rfind("[bridge] Bitchat link OK", 0) == 0);
+    ghost.write(ghost.say("cheguei em partes"));
+    run(3000);
+    CHECK(radio().back() == "ghost: cheguei em partes");
     bleDisconnect(ghost.handle);
     CHECK(blePhones() == 0 && bleConnections() == 0);
 

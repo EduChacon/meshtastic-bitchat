@@ -701,9 +701,9 @@ void BitchatBridgeModule::announce()
     offset += 32;
     if (textReady) {
         payload[offset++] = 0x7f;
-        payload[offset++] = 22;
+        payload[offset++] = GATEWAY_PROOF;
         makeGatewayProof(crypto, ownId, nodeDB->getNodeNum(), textKey.data(), payload.data() + offset);
-        offset += 22;
+        offset += GATEWAY_PROOF;
     }
     announcedAt = millis();
     originate(1, {payload.data(), offset});

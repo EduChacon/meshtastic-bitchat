@@ -11,6 +11,12 @@ derrubam as conexões Bluetooth e mandam os telefones lerem de novo os serviços
 `Phones` passa a contar só telefones que enviaram algum dado do Bitchat, porque a inscrição
 de um telefone pareado é restaurada sozinha quando o aplicativo Meshtastic reconecta.
 
+A `.3` também reduz o anúncio da ponte de 196 para 182 bytes. Desde a `1.0.0-beta`, com o
+canal LoRa ativo, o anúncio não cabia em uma única notificação Bluetooth no MTU de 185 bytes,
+comum em iPhones, e levava mais de 100 bytes de conteúdo, faixa em que o aplicativo tenta
+comprimir antes de conferir a assinatura. Não está confirmado em aparelho que essa seja a
+causa de a ponte não aparecer na lista de pessoas.
+
 **O que a `1.0.0-beta.2` mudou em relação à `1.0.0-beta`:** um único ZIP para todos os
 aparelhos, em vez de um pacote por modelo; e o canal padrão `Bitchat` passa a ser recriado
 sempre que faltar; texto longo vindo do Meshtastic chega ao Bitchat em partes curtas, porque o
@@ -23,7 +29,10 @@ tela mostrou `Ready: Bitchat + LoRa`, `Phones 1` e `People 0`, e a ponte não ap
 de pessoas do Bitchat. Nenhuma mensagem passou. A causa não foi determinada. Hipótese em
 teste, não confirmada: o Bitchat não chegou a se conectar e o `Phones 1` era a inscrição
 restaurada do telefone pareado pelo aplicativo Meshtastic. O comando `!bridge` desta versão
-mostra `Bluetooth` e `Bitchat` em separado para confirmar ou afastar essa hipótese.
+mostra `Bluetooth` e `Bitchat` em separado para confirmar ou afastar essa hipótese. Teste
+posterior no mesmo aparelho afastou essa hipótese: `Phones` acompanha a abertura e o
+fechamento do Bitchat, logo o aplicativo se conecta e se inscreve, e `People` continua em 0.
+A falha está na troca de anúncios, nos dois sentidos, e a causa segue não determinada.
 
 ## O que muda em relação à `experimental.5`
 
@@ -86,7 +95,7 @@ A base permanece Meshtastic 2.7.26.54e0d8d.
 
 **Since `1.0.0-beta.2`: a self-test command, `!bridge` (or `!ponte`), typed in the Meshtastic app connected to the bridge radio or in Bitchat `#mesh`, answered as `[bridge] …`; `!bridge reset` and `Settings → Reconnect phones` drop the Bluetooth links and tell phones to read the radio's services again; `Phones` counts only phones that sent Bitchat data, because a bonded phone's subscription is restored by itself when the Meshtastic app reconnects.**
 
-**Since `1.0.0-beta`: one ZIP for every board; the default `Bitchat` channel is created again whenever it is missing; long LoRa text reaches Bitchat in short parts; `Settings → Diagnostics` shows the bridge clock and refusal reasons. Open problem from the first device test: bridge and phone connected but did not recognise each other (`Phones 1`, `People 0`); cause not yet determined, and the hypothesis under test is that Bitchat never connected.** This version was checked by host simulation and compilation only.
+**Since `1.0.0-beta`: one ZIP for every board; the default `Bitchat` channel is created again whenever it is missing; long LoRa text reaches Bitchat in short parts; `Settings → Diagnostics` shows the bridge clock and refusal reasons. Open problem from the first device test: bridge and phone connected but did not recognise each other (`Phones 1`, `People 0`); cause not yet determined. A later test showed that Bitchat does connect and subscribe, so the failure is in the exchange of announcements; this version also shrinks the bridge announcement from 196 to 182 bytes so that it fits one notification at a 185-byte MTU, which is not confirmed on hardware as the cause.** This version was checked by host simulation and compilation only.
 None of the ten targets has been run with it; eight never ran any version of the bridge.
 
 Changes since `experimental.5`: `!lora` is optional (every public `#mesh` message goes to the LoRa channel

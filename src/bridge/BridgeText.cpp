@@ -6,7 +6,7 @@
 namespace bitchat
 {
 
-void makeGatewayProof(Crypto &crypto, const PeerId &peer, uint32_t node, const uint8_t key[32], uint8_t output[22])
+void makeGatewayProof(Crypto &crypto, const PeerId &peer, uint32_t node, const uint8_t key[32], uint8_t output[GATEWAY_PROOF])
 {
     std::array<uint8_t, 22> material{};
     std::memcpy(material.data(), "BC-OWNER-1", 10);
@@ -14,10 +14,8 @@ void makeGatewayProof(Crypto &crypto, const PeerId &peer, uint32_t node, const u
     write32(material.data() + 18, node);
     Digest mac;
     crypto.mac({material.data(), material.size()}, key, mac);
-    output[0] = 'B';
-    output[1] = 1;
-    write32(output + 2, node);
-    std::copy_n(mac.begin(), 16, output + 6);
+    write32(output, node);
+    std::copy_n(mac.begin(), GATEWAY_PROOF - 4, output + 4);
 }
 
 bool gatewayProofNode(Crypto &crypto, const Packet &announce, uint32_t ownNode, const uint8_t key[32], uint32_t &node)
@@ -30,11 +28,11 @@ bool gatewayProofNode(Crypto &crypto, const Packet &announce, uint32_t ownNode, 
         if (length > announce.payload.size - offset)
             return false;
         const uint8_t *proof = announce.payload.data + offset;
-        if (type == GATEWAY_TLV && length == 22 && read32(proof + 2) != ownNode) {
-            std::array<uint8_t, 22> expected;
-            makeGatewayProof(crypto, announce.sender, read32(proof + 2), key, expected.data());
+        if (type == GATEWAY_TLV && length == GATEWAY_PROOF && read32(proof) != ownNode) {
+            std::array<uint8_t, GATEWAY_PROOF> expected;
+            makeGatewayProof(crypto, announce.sender, read32(proof), key, expected.data());
             if (equalConstantTime({proof, length}, {expected.data(), expected.size()})) {
-                node = read32(proof + 2);
+                node = read32(proof);
                 return true;
             }
         }

@@ -43,7 +43,10 @@ Result makeNativeText(Bytes label, Bytes body, const TextPlan &plan, size_t part
 Result planBitchatText(size_t labelSize, Bytes body, TextPlan &plan);
 Result makeBitchatText(Bytes label, Bytes body, const TextPlan &plan, size_t part, NativeText &out);
 void hexEncode(Bytes input, char *output);
-void makeGatewayProof(Crypto &crypto, const PeerId &peer, uint32_t node, const uint8_t key[32], uint8_t output[22]);
+// With this marker the bridge announcement is 182 bytes: one notification at the 185-byte MTU common on
+// iPhones, and a payload under the size the app tries to compress before verifying.
+constexpr size_t GATEWAY_PROOF = 8;
+void makeGatewayProof(Crypto &crypto, const PeerId &peer, uint32_t node, const uint8_t key[32], uint8_t output[GATEWAY_PROOF]);
 bool gatewayProofNode(Crypto &crypto, const Packet &announce, uint32_t ownNode, const uint8_t key[32], uint32_t &node);
 
 } // namespace bitchat

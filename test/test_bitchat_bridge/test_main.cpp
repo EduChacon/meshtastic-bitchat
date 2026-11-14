@@ -230,9 +230,9 @@ static void identitiesAndText()
     std::string tooLong(400, 'q');
     CHECK(planBitchatText(widest.size(), utf8(tooLong.c_str()), plan) == Result::Oversize);
 
-    std::array<uint8_t, 24> proof;
+    std::array<uint8_t, 2 + GATEWAY_PROOF> proof;
     proof[0] = GATEWAY_TLV;
-    proof[1] = 22;
+    proof[1] = GATEWAY_PROOF;
     makeGatewayProof(crypto, p.sender, 17, key.data(), proof.data() + 2);
     Packet owner = p;
     owner.type = 1;
@@ -240,7 +240,7 @@ static void identitiesAndText()
     uint32_t node = 0;
     CHECK(gatewayProofNode(crypto, owner, 18, key.data(), node) && node == 17);
     CHECK(!gatewayProofNode(crypto, owner, 17, key.data(), node));
-    proof[20] ^= 1;
+    proof[9] ^= 1;
     CHECK(!gatewayProofNode(crypto, owner, 18, key.data(), node));
     proof[1] = 255;
     CHECK(!gatewayProofNode(crypto, owner, 18, key.data(), node));

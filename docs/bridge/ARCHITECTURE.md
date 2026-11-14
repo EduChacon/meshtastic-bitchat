@@ -61,9 +61,10 @@ ligaria a identidade dela à conexão de escrita do telefone, e o aplicativo pas
 essa conexão. Sem o serviço, a ponte só fala por notificação com o telefone cujas escritas já
 chegaram, e repete a busca a cada 10 s enquanto ele estiver mudo. Ao conectar, a ponte pede a
 troca de MTU: no MTU padrão de 23 bytes nada do que o aplicativo envia cabe em uma escrita.
-Com esta lógica, um operador relatou a ponte funcionando em um Heltec V3 com Bitchat iOS
-1.8.0, sem a leitura que diria qual caminho estava em uso; não está comprovado que o iOS expõe o
-serviço do aplicativo a um periférico conectado.
+Em um Heltec V3 com Bitchat iOS 1.8.0, uma sessão medida usou só o segundo caminho (`path 9`),
+com o aplicativo Meshtastic na mesma conexão: nesse aparelho o iOS expôs o serviço do
+aplicativo ao rádio, e o telefone continuou sem escrever no serviço da ponte. Outros modelos
+de telefone, Android e sessões longas não foram ensaiados.
 
 O anúncio principal contém flags e UUID Bitchat; o nome fica em SCAN_RSP. A administração
 anuncia o UUID Meshtastic por cinco minutos. Não presume dois UUIDs de 128 bits no anúncio

@@ -14,8 +14,10 @@ menu e acrescenta oito aparelhos ESP32-S3. [O que mudou e por quê](docs/bridge/
 iOS 1.8.0, as versões até a `1.0.0-beta.3` não trocavam mensagens com o aplicativo: o telefone
 se conectava e se inscrevia, mas não enviava nada ao rádio. Com a `1.0.0-beta.4`, o operador
 relatou o telefone reconhecido (`Phones 1/1`, `People 2`) e texto nos dois sentidos
-(`LoRa out 2 in 1`). É um relato de uso, não um ensaio completo: não há medição de qual das
-mudanças da versão resolveu, nem ensaio de duração. Os demais nove alvos só foram compilados.
+(`LoRa out 2 in 1`). O relatório `!bridge` dessa sessão mostrou o caminho novo em uso
+(`path 9`, 230 quadros recebidos e 59 enviados pelo serviço do telefone, nenhuma escrita do
+telefone no serviço da ponte), com o aplicativo Meshtastic na mesma conexão. É uma sessão em
+um aparelho, sem ensaio de duração. Os demais nove alvos só foram compilados.
 Fazer backup antes de instalar e ler os [limites](docs/bridge/CHANGES.md) e o [roteiro de ensaio](docs/bridge/TESTING.md).
 
 ## Como funciona

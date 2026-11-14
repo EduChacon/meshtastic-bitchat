@@ -211,9 +211,11 @@ static void identitiesAndText()
     CHECK(planBitchatText(0, utf8("oi"), plan) == Result::Malformed);
     // The app re-encodes what it verifies and compresses payloads of 100 bytes or more, so signed text
     // from the bridge never reaches that size: a full-length LoRa message becomes several short ones.
+    // With header, sender and signature the largest part is a 182-byte frame: one write at a 185-byte MTU.
+    CHECK(BITCHAT_TEXT_LIMIT < 100 && 22 + BITCHAT_TEXT_LIMIT + 64 <= 182);
     std::string edge(BITCHAT_TEXT_LIMIT - 9, 'e');
     CHECK(planBitchatText(3, utf8(edge.c_str()), plan) == Result::Ok && plan.count == 1);
-    CHECK(makeBitchatText(utf8("Ana"), utf8(edge.c_str()), plan, 0, native) == Result::Ok && native.size == 99);
+    CHECK(makeBitchatText(utf8("Ana"), utf8(edge.c_str()), plan, 0, native) == Result::Ok && native.size == BITCHAT_TEXT_LIMIT);
     const std::string widest = longName.substr(0, LABEL_LIMIT);
     for (const std::string &sample : {longText.substr(0, 200), std::string(200, 'z'), longText.substr(0, 233)}) {
         CHECK(planBitchatText(widest.size(), utf8(sample.c_str()), plan) == Result::Ok && plan.count > 1);

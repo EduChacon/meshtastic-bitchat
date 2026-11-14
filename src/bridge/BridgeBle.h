@@ -25,6 +25,7 @@ bool bleReceive(BleInput &output);
 bool bleBroadcast(Bytes frame, uint16_t exclude = NO_LINK);
 void blePoll();
 size_t bleSubscribers();
+size_t bleListeners();
 size_t blePhones();
 size_t bleConnections();
 size_t bleDescribe(char *out, size_t size);

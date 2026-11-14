@@ -1108,7 +1108,7 @@ int32_t BitchatBridgeModule::runOnce()
         lastBudget = now;
     }
     // Signing costs CPU: announce to a phone that just subscribed, then only while someone listens.
-    if (bleNeedsAnnouncement() || (bleSubscribers() && !Throttle::isWithinTimespanMsAt(announcedAt, 20000, now)))
+    if (bleNeedsAnnouncement() || (bleListeners() && !Throttle::isWithinTimespanMsAt(announcedAt, 20000, now)))
         announce();
     if (runtime->cryptoGate.admit(now, 30))
         for (unsigned frames = 0; frames < 4 && bleReceive(runtime->input); ++frames) {

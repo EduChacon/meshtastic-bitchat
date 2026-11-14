@@ -148,6 +148,32 @@ static std::string app(size_t index)
     const auto &packet = fakeApp.at(index);
     return text({packet.decoded.payload.bytes, packet.decoded.payload.size});
 }
+// A notification from the phone's own characteristic, as the stack reports it to the bridge.
+static void notifiedBy(uint16_t link, uint16_t attribute, const Frame &frame)
+{
+    os_mbuf buffer{{frame.data.begin(), frame.data.begin() + frame.size}};
+    ble_gap_event event{};
+    event.type = BLE_GAP_EVENT_NOTIFY_RX;
+    event.notify_rx.om = &buffer;
+    event.notify_rx.attr_handle = attribute;
+    event.notify_rx.conn_handle = link;
+    CHECK(fakeListener != nullptr);
+    fakeListener->fn(&event, fakeListener->arg);
+}
+// Frames the bridge wrote to the phone's own characteristic, one whole frame per write.
+static std::vector<Packet> written(uint16_t link, uint8_t type)
+{
+    std::vector<Packet> packets;
+    for (const auto &write : fakeRemoteWrites) {
+        Packet packet;
+        if (write.first != link * 1000 + 42)
+            continue;
+        CHECK(decode({write.second.data(), write.second.size()}, packet) == Result::Ok);
+        if (packet.type == type)
+            packets.push_back(packet);
+    }
+    return packets;
+}
 static void fromLoRa(NodeNum from, const std::string &message, uint8_t channel = 1)
 {
     static uint32_t id = 5000;
@@ -192,22 +218,33 @@ int main()
     for (const auto *phone : {&ana, &bia, &caio})
         phone->connect();
     run(100);
-    // Each phone learns the bridge identity as soon as it subscribes.
-    Announcement bridgeIdentity;
-    PeerId bridgeId{};
-    for (const auto *phone : {&ana, &bia, &caio}) {
-        const auto frames = received(phone->handle);
-        CHECK(frames.size() == 1);
-        Packet packet;
-        CHECK(decode({frames[0].data(), frames[0].size()}, packet) == Result::Ok && packet.type == 1);
-        CHECK(decodeAnnouncement(packet.payload, bridgeIdentity) == Result::Ok && bridgeIdentity.gateway);
-        // One notification at the 185-byte MTU common on iPhones, and a payload the app never compresses.
-        CHECK(frames[0].size() <= 182 && packet.payload.size < 100);
-        bridgeId = packet.sender;
-    }
+    // A subscription alone says nothing about the phone: the bridge stays quiet until the phone's writes
+    // arrive or its own Bitchat service is found. These phones write, as an app whose writes work does.
+    for (const auto *phone : {&ana, &bia, &caio})
+        CHECK(received(phone->handle).empty());
     for (const auto *phone : {&ana, &bia, &caio})
         phone->write(phone->announce());
     run(400);
+    // Each phone then learns the bridge identity, besides the other phones relayed to it.
+    PeerId bridgeId{};
+    Announcement bridgeIdentity;
+    for (const auto *phone : {&ana, &bia, &caio}) {
+        size_t own = 0;
+        for (const auto &frame : received(phone->handle)) {
+            Packet packet;
+            Announcement identity;
+            CHECK(decode({frame.data(), frame.size()}, packet) == Result::Ok && packet.type == 1);
+            CHECK(decodeAnnouncement(packet.payload, identity) == Result::Ok);
+            if (!identity.gateway)
+                continue;
+            // One notification at the 185-byte MTU common on iPhones, and a payload the app never compresses.
+            CHECK(frame.size() <= 182 && packet.payload.size < 100);
+            bridgeId = packet.sender;
+            bridgeIdentity = identity;
+            ++own;
+        }
+        CHECK(own >= 1);
+    }
 
     // A plain message, no prefix: relayed to the other phones and sent once to LoRa under the nickname.
     fakeSent.clear();
@@ -489,16 +526,12 @@ int main()
     // A bonded phone's old subscription returns by itself when the Meshtastic app
     // reconnects. That is not a Bitchat phone: it is not counted, nothing is
     // imported for it, and the self-test says so.
-    // No link so far stayed at the minimum packet size, so none was asked to grow. This one is, once.
-    CHECK(fakeMtuRequests.empty());
-    fakeMtu = 23;
+    // Every link is asked for a larger packet size the moment it connects, once.
+    const size_t asked = fakeMtuRequests.size();
     Phone ghost("ghost", 20, 15);
     ghost.connect();
-    run(200);
-    CHECK(fakeMtuRequests.empty());
     run(4000);
-    CHECK(fakeMtuRequests == std::vector<uint16_t>{15});
-    fakeMtu = 185;
+    CHECK(fakeMtuRequests.size() == asked + 1 && fakeMtuRequests.back() == 15);
     CHECK(bleConnections() == 1 && bleSubscribers() == 1 && blePhones() == 0);
     fromLoRa(0x1234, "para ninguem");
     fakeApp.clear();
@@ -536,6 +569,93 @@ int main()
     CHECK(radio().back() == "ghost: cheguei em partes");
     bleDisconnect(ghost.handle);
     CHECK(blePhones() == 0 && bleConnections() == 0);
+
+    // The case reported from a real iPhone: the app subscribes and then never writes. A Bitchat phone
+    // publishes the same service, so the bridge subscribes to it over the same link. From then on the
+    // phone's packets arrive as its notifications and the bridge's leave as writes to it.
+    fakeRemoteService = true;
+    fakeSent.clear();
+    fakeRadio.clear();
+    Phone iris("iris", 21, 16);
+    iris.connect();
+    run(200);
+    const std::vector<uint8_t> littleEndian{0x5c, 0x4b, 0x3a, 0x2c, 0x1d, 0x8e, 0x3f, 0x9b,
+                                            0x5a, 0x4c, 0x9e, 0x4a, 0x2d, 0x5e, 0x7b, 0xf4};
+    CHECK(fakeRemoteUuids == littleEndian);
+    CHECK(fakeRemoteSubscriptions == (std::vector<std::pair<uint16_t, uint16_t>>{{16, 44}}));
+    // The bridge introduces itself by one write of a whole frame, and sends nothing by notification:
+    // an announcement notified first would tie the phone to the writes it is not making.
+    CHECK(received(iris.handle).empty() && written(iris.handle, 1).size() == 1);
+    CHECK(written(iris.handle, 1)[0].sender == bridgeId && fakeRemoteWrites[0].second.size() <= 182);
+    CHECK(blePhones() == 0);
+    notifiedBy(iris.handle, 42, iris.announce());
+    run(200);
+    CHECK(blePhones() == 1);
+    notifiedBy(iris.handle, 42, iris.say("pelo caminho novo"));
+    run(3000);
+    CHECK(radio().back() == "iris: pelo caminho novo");
+    fromLoRa(0x1234, "resposta");
+    run(3000);
+    CHECK(written(iris.handle, 2).size() == 1 && text(written(iris.handle, 2)[0].payload).find("resposta") != std::string::npos);
+    CHECK(received(iris.handle).empty());
+    // A notification from any other attribute of the phone is not Bitchat traffic.
+    const uint32_t before16 = bridge->drops();
+    notifiedBy(iris.handle, 43, iris.say("outro atributo"));
+    notifiedBy(99, 42, iris.say("outra conexao"));
+    run(3000);
+    CHECK(radio().back() == "iris: pelo caminho novo" && bridge->drops() == before16);
+    fakeApp.clear();
+    fromLoRa(0, "!bridge");
+    run(100);
+    CHECK(app(1).find(" in 2 out ") != std::string::npos);
+    CHECK(app(1).find("\nlink 16 mtu 185 itv 24 enc 0 bond 0 sub 1 wr 1 path 9") != std::string::npos);
+    bleDisconnect(iris.handle);
+    // Each step of the search can fail, on an older app or another kind of phone. The bridge then
+    // works as before: once the phone's writes arrive, it announces by notification.
+    for (int refusal = 1; refusal <= 3; ++refusal) {
+        fakeRemoteRefusal = refusal;
+        fakeSent.clear();
+        fakeRemoteWrites.clear();
+        Phone old("old", uint8_t(30 + refusal), 17);
+        old.connect();
+        run(200);
+        CHECK(received(old.handle).empty() && fakeRemoteWrites.empty());
+        old.write(old.announce());
+        run(200);
+        CHECK(blePhones() == 1 && received(old.handle).size() == 1 && fakeRemoteWrites.empty());
+        bleDisconnect(old.handle);
+    }
+    fakeRemoteRefusal = 0;
+    fakeRemoteService = false;
+    CHECK(blePhones() == 0 && bleConnections() == 0);
+    // The app can start long after the link exists, as when the Meshtastic app holds the connection and
+    // an old subscription was restored. The silent link is searched again until the service shows up.
+    fakeSent.clear();
+    fakeRemoteWrites.clear();
+    fakeRemoteSubscriptions.clear();
+    Phone late("late", 40, 18);
+    late.connect();
+    run(5000);
+    CHECK(received(late.handle).empty() && fakeRemoteWrites.empty() && fakeRemoteSubscriptions.empty());
+    fakeRemoteService = true;
+    run(11000);
+    CHECK(fakeRemoteSubscriptions.size() == 1 && written(late.handle, 1).size() >= 1 && received(late.handle).empty());
+    // Closing and opening the app on the same link starts the search again from nothing.
+    {
+        auto &c = server.service.characteristic;
+        ble_gap_conn_desc desc{late.handle};
+        c.callbacks->onSubscribe(&c, &desc, 0);
+        run(200);
+        fakeRemoteWrites.clear();
+        fromLoRa(0x1234, "sem ninguem");
+        run(3000);
+        CHECK(fakeRemoteWrites.empty() && received(late.handle).empty());
+        c.callbacks->onSubscribe(&c, &desc, 1);
+        run(200);
+        CHECK(fakeRemoteSubscriptions.size() == 2 && written(late.handle, 1).size() == 1);
+    }
+    fakeRemoteService = false;
+    bleDisconnect(late.handle);
 
     // Settings survive a restart.
     CHECK(bridge->setPrefixOnly(true) && bridge->setEconomy(true));

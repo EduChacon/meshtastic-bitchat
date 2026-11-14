@@ -24,12 +24,31 @@ static std::atomic<bool> enabled{false}, nativeWindow{false}, economy{false}, an
 static std::atomic<uint32_t> dropped{0};
 // Raw link events for the self-test: they tell a silent phone from a write that never reached the bridge.
 static std::atomic<uint32_t> connects{0}, disconnects{0}, subscriptions{0}, writes{0}, notified{0}, notifyFailures{0},
-    mtuRequests{0};
+    remoteFrames{0}, remoteWrites{0};
+// A Bitchat phone publishes the same service. Subscribing to it over the link the phone opened gives a
+// second path, its notifications in and bridge writes out, that does not need the phone's own writes.
+enum class Remote : uint8_t {
+    Idle,
+    Wanted,
+    Service,
+    HasService,
+    Characteristic,
+    HasCharacteristic,
+    Descriptor,
+    HasDescriptor,
+    Subscribing,
+    Ready,
+    Absent
+};
 struct Connection {
     uint16_t handle = NO_LINK;
     bool subscribed = false;
-    bool mtuAsked = false;
-    uint32_t since = 0;
+    Remote remote = Remote::Idle;
+    bool remoteSeen = false;
+    // Kept here as well so that it outlives the link buffers, which are released while the bridge is off.
+    bool talked = false;
+    uint16_t remoteStart = 0, remoteEnd = 0, remoteValue = 0, remoteCccd = 0;
+    uint32_t remoteAt = 0;
 };
 static std::array<Connection, LINKS> connections;
 static constexpr uint8_t NO_FRAME = 255;
@@ -47,6 +66,10 @@ struct Link {
     // A bonded phone's old subscription returns by itself; only a write shows the
     // Bitchat app is there.
     bool talked = false;
+    // Nonzero once the phone's own characteristic is subscribed: frames then leave as writes to it.
+    uint16_t remoteValue = 0;
+    // Nothing is sent before the search for that characteristic ends, so the first frame takes the right path.
+    bool settled = false;
     uint32_t generation = 0;
     uint32_t receivedAt = 0;
     uint8_t incoming = NO_FRAME;
@@ -118,6 +141,8 @@ struct Links : std::array<Link, LINKS> {
         }
         clearSent(link);
         link.talked = false;
+        link.remoteValue = 0;
+        link.settled = false;
     }
 };
 static_assert(sizeof(Links) < 1024, "BLE startup must not reserve per-connection payloads");
@@ -132,6 +157,14 @@ static Link *findLink(uint16_t handle)
     for (auto &link : *links)
         if (link.handle == handle)
             return &link;
+    return nullptr;
+}
+
+static Connection *findConnection(uint16_t handle)
+{
+    for (auto &connection : connections)
+        if (connection.handle == handle)
+            return &connection;
     return nullptr;
 }
 
@@ -153,19 +186,32 @@ class Callbacks : public NimBLECharacteristicCallbacks
     void onWrite(NimBLECharacteristic *c, ble_gap_conn_desc *desc) override
     {
         ++writes;
-        if (!enabled || !desc)
+        if (!desc)
             return;
         const auto value = c->getValue();
-        const Bytes chunk{reinterpret_cast<const uint8_t *>(value.data()), value.size()};
-        if (!chunk.size)
+        receive(desc->conn_handle, {reinterpret_cast<const uint8_t *>(value.data()), value.size()});
+    }
+
+  public:
+    // One piece from a phone, written to the bridge or notified by the phone's own characteristic.
+    static void receive(uint16_t handle, Bytes chunk)
+    {
+        if (!enabled || !chunk.size)
             return;
         concurrency::LockGuard guard(&lock);
-        Link *link = findLink(desc->conn_handle);
+        Link *link = findLink(handle);
         if (!link) {
             ++dropped;
             return;
         }
+        if (!link->talked && !link->settled) {
+            // No service of its own was found, but its writes arrive: the notification path is safe to use.
+            link->settled = true;
+            announceNeeded = true;
+        }
         link->talked = true;
+        if (auto *connection = findConnection(handle))
+            connection->talked = true;
         Packet whole;
         if (decode(chunk, whole) == Result::Ok) {
             // Bitchat sends one frame per write, so a whole frame ends any stalled partial stream.
@@ -220,13 +266,223 @@ class Callbacks : public NimBLECharacteristicCallbacks
             if (connection.handle == desc->conn_handle)
                 connection.subscribed = (value & 1) != 0;
         subscriptions += value & 1;
-        if (auto *link = findLink(desc->conn_handle)) {
+        if (auto *link = findLink(desc->conn_handle))
             link->subscribed = (value & 1) != 0;
-            announceNeeded = true;
-        }
+        // Only a Bitchat app subscribes here, so its own service is looked for now, and again on every
+        // subscription because the app publishes it anew each time it starts.
+        for (auto &connection : connections)
+            if (connection.handle == desc->conn_handle) {
+                connection.remote = (value & 1) ? Remote::Wanted : Remote::Idle;
+                connection.remoteAt = millis();
+                connection.talked = false;
+                if (auto *link = findLink(desc->conn_handle)) {
+                    link->remoteValue = 0;
+                    link->settled = link->talked = false;
+                }
+            }
     }
 };
 static Callbacks callbacks;
+
+// Lock held. Ready or Absent ends the search either way, and the phone is then told who the bridge is.
+static void settle(Connection &connection, Remote state)
+{
+    connection.remote = state;
+    connection.remoteSeen = false;
+    connection.remoteAt = millis();
+    if (state != Remote::Ready && state != Remote::Absent)
+        return;
+    // Without the phone's service, the bridge speaks only to a phone whose writes have arrived: an
+    // announcement notified to a silent one would bind it to the path that is not working.
+    if (auto *link = findLink(connection.handle)) {
+        link->remoteValue = state == Remote::Ready ? connection.remoteValue : 0;
+        link->settled = state == Remote::Ready || link->talked;
+        announceNeeded = announceNeeded || link->settled;
+    }
+}
+
+static int onRemoteService(uint16_t handle, const ble_gatt_error *error, const ble_gatt_svc *service, void *)
+{
+    concurrency::LockGuard guard(&lock);
+    auto *connection = findConnection(handle);
+    if (!connection || connection->remote != Remote::Service)
+        return 0;
+    if (error && error->status == 0 && service) {
+        connection->remoteStart = service->start_handle;
+        connection->remoteEnd = service->end_handle;
+        connection->remoteSeen = true;
+    } else {
+        const bool found = error && error->status == BLE_HS_EDONE && connection->remoteSeen;
+        settle(*connection, found ? Remote::HasService : Remote::Absent);
+    }
+    return 0;
+}
+
+static int onRemoteCharacteristic(uint16_t handle, const ble_gatt_error *error, const ble_gatt_chr *found, void *)
+{
+    concurrency::LockGuard guard(&lock);
+    auto *connection = findConnection(handle);
+    if (!connection || connection->remote != Remote::Characteristic)
+        return 0;
+    if (error && error->status == 0 && found) {
+        connection->remoteValue = found->val_handle;
+        connection->remoteSeen = true;
+    } else {
+        const bool known = error && error->status == BLE_HS_EDONE && connection->remoteSeen;
+        settle(*connection, known ? Remote::HasCharacteristic : Remote::Absent);
+    }
+    return 0;
+}
+
+static int onRemoteDescriptor(uint16_t handle, const ble_gatt_error *error, uint16_t, const ble_gatt_dsc *found, void *)
+{
+    concurrency::LockGuard guard(&lock);
+    auto *connection = findConnection(handle);
+    if (!connection || connection->remote != Remote::Descriptor)
+        return 0;
+    if (error && error->status == 0 && found) {
+        if (found->uuid.u.type == BLE_UUID_TYPE_16 && ble_uuid_u16(&found->uuid.u) == 0x2902) {
+            connection->remoteCccd = found->handle;
+            connection->remoteSeen = true;
+        }
+    } else {
+        const bool known = error && error->status == BLE_HS_EDONE && connection->remoteSeen;
+        settle(*connection, known ? Remote::HasDescriptor : Remote::Absent);
+    }
+    return 0;
+}
+
+static int onRemoteSubscribed(uint16_t handle, const ble_gatt_error *error, ble_gatt_attr *, void *)
+{
+    concurrency::LockGuard guard(&lock);
+    auto *connection = findConnection(handle);
+    if (connection && connection->remote == Remote::Subscribing)
+        settle(*connection, error && error->status == 0 ? Remote::Ready : Remote::Absent);
+    return 0;
+}
+
+// Notifications from the phone's characteristic arrive as link events, not through the bridge's own service.
+static int onGapEvent(ble_gap_event *event, void *)
+{
+    if (!event || event->type != BLE_GAP_EVENT_NOTIFY_RX || !event->notify_rx.om)
+        return 0;
+    const uint16_t handle = event->notify_rx.conn_handle;
+    {
+        concurrency::LockGuard guard(&lock);
+        const auto *connection = findConnection(handle);
+        if (!connection || connection->remote != Remote::Ready || connection->remoteValue != event->notify_rx.attr_handle)
+            return 0;
+    }
+    std::array<uint8_t, 512> flat;
+    uint16_t size = 0;
+    if (ble_hs_mbuf_to_flat(event->notify_rx.om, flat.data(), flat.size(), &size) != 0) {
+        ++dropped;
+        return 0;
+    }
+    ++remoteFrames;
+    Callbacks::receive(handle, {flat.data(), size});
+    return 0;
+}
+static ble_gap_event_listener listener;
+static bool listening = false;
+
+static void uuidFromText(const char *text, ble_uuid128_t &out)
+{
+    // The stack keeps 128-bit UUIDs least significant byte first.
+    out.u.type = BLE_UUID_TYPE_128;
+    size_t index = sizeof(out.value);
+    const auto digit = [](char h) { return uint8_t(h <= '9' ? h - '0' : (h | 0x20) - 'a' + 10); };
+    for (const char *c = text; c[0] && c[1] && index; ++c) {
+        if (*c == '-')
+            continue;
+        out.value[--index] = uint8_t(digit(c[0]) << 4 | digit(c[1]));
+        ++c;
+    }
+}
+
+// One step of the search per call, issued outside the lock because the stack calls back into it.
+static void advanceRemote()
+{
+    struct Step {
+        uint16_t handle = NO_LINK;
+        Remote stage = Remote::Idle;
+        uint16_t first = 0, last = 0;
+    };
+    std::array<Step, LINKS> steps;
+    {
+        concurrency::LockGuard guard(&lock);
+        for (size_t index = 0; index < LINKS; ++index) {
+            auto &connection = connections[index];
+            if (connection.handle == NO_LINK)
+                continue;
+            Remote next = Remote::Idle;
+            switch (connection.remote) {
+            case Remote::Wanted:
+                next = Remote::Service;
+                break;
+            case Remote::HasService:
+                next = Remote::Characteristic;
+                steps[index].first = connection.remoteStart;
+                steps[index].last = connection.remoteEnd;
+                break;
+            case Remote::HasCharacteristic:
+                next = Remote::Descriptor;
+                steps[index].first = connection.remoteValue;
+                steps[index].last = connection.remoteEnd;
+                break;
+            case Remote::HasDescriptor:
+                next = Remote::Subscribing;
+                steps[index].first = connection.remoteCccd;
+                break;
+            case Remote::Service:
+            case Remote::Characteristic:
+            case Remote::Descriptor:
+            case Remote::Subscribing:
+                if (!Throttle::isWithinTimespanMsAt(connection.remoteAt, 8000, millis()))
+                    settle(connection, Remote::Absent);
+                break;
+            case Remote::Absent: {
+                // The app may start, and publish its service, long after the link came up.
+                const auto *link = findLink(connection.handle);
+                if (connection.subscribed && link && !link->talked &&
+                    !Throttle::isWithinTimespanMsAt(connection.remoteAt, 10000, millis()))
+                    next = Remote::Service;
+                break;
+            }
+            default:
+                break;
+            }
+            if (next != Remote::Idle) {
+                settle(connection, next);
+                steps[index].handle = connection.handle;
+                steps[index].stage = next;
+            }
+        }
+    }
+    for (const auto &step : steps) {
+        if (step.handle == NO_LINK)
+            continue;
+        ble_uuid128_t service{}, value{};
+        uuidFromText(SERVICE_UUID, service);
+        uuidFromText(CHAR_UUID, value);
+        static const uint8_t notify[2] = {1, 0};
+        int result = -1;
+        if (step.stage == Remote::Service)
+            result = ble_gattc_disc_svc_by_uuid(step.handle, &service.u, onRemoteService, nullptr);
+        else if (step.stage == Remote::Characteristic)
+            result = ble_gattc_disc_chrs_by_uuid(step.handle, step.first, step.last, &value.u, onRemoteCharacteristic, nullptr);
+        else if (step.stage == Remote::Descriptor)
+            result = ble_gattc_disc_all_dscs(step.handle, step.first, step.last, onRemoteDescriptor, nullptr);
+        else if (step.stage == Remote::Subscribing)
+            result = ble_gattc_write_flat(step.handle, step.first, notify, sizeof(notify), onRemoteSubscribed, nullptr);
+        if (result != 0) {
+            concurrency::LockGuard guard(&lock);
+            auto *connection = findConnection(step.handle);
+            if (connection && connection->remote == step.stage)
+                settle(*connection, Remote::Absent);
+        }
+    }
+}
 
 void bleAttach(NimBLEServer *s)
 {
@@ -237,11 +493,16 @@ void bleAttach(NimBLEServer *s)
         CHAR_UUID, NIMBLE_PROPERTY::READ | NIMBLE_PROPERTY::WRITE | NIMBLE_PROPERTY::WRITE_NR | NIMBLE_PROPERTY::NOTIFY, 512);
     characteristic->setCallbacks(&callbacks);
     service->start();
+    if (!listening)
+        listening = ble_gap_event_listener_register(&listener, onGapEvent, nullptr) == 0;
 }
 
 void bleDetach()
 {
     enabled = false;
+    if (listening)
+        ble_gap_event_listener_unregister(&listener);
+    listening = false;
     concurrency::LockGuard guard(&lock);
     server = nullptr;
     characteristic = nullptr;
@@ -268,6 +529,10 @@ bool bleAllocateBuffers()
         link.generation = ++nextGeneration;
         link.handle = connections[index].handle;
         link.subscribed = connections[index].subscribed;
+        link.remoteValue = connections[index].remote == Remote::Ready ? connections[index].remoteValue : 0;
+        link.talked = connections[index].talked;
+        link.settled = connections[index].remote == Remote::Ready ||
+                       (connections[index].remote == Remote::Absent && connections[index].talked);
     }
     nextReceive = 0;
     return true;
@@ -283,6 +548,7 @@ void bleReleaseBuffers()
 
 void bleConnect(uint16_t handle)
 {
+    bool added = false;
     {
         concurrency::LockGuard guard(&lock);
         for (const auto &connection : connections)
@@ -290,8 +556,10 @@ void bleConnect(uint16_t handle)
                 return;
         for (size_t index = 0; index < LINKS; ++index) {
             if (connections[index].handle == NO_LINK) {
-                connections[index] = {handle, false, false, millis()};
+                connections[index] = {};
+                connections[index].handle = handle;
                 ++connects;
+                added = true;
                 if (links) {
                     auto &link = (*links)[index];
                     link.handle = handle;
@@ -303,6 +571,10 @@ void bleConnect(uint16_t handle)
             }
         }
     }
+    // The app sizes its first packet a moment after connecting. At the default 23-byte MTU nothing it
+    // sends fits a write, so the bridge asks for a larger one at once instead of waiting for the phone.
+    if (added)
+        ble_gattc_exchange_mtu(handle, nullptr, nullptr);
     if (enabled)
         NimBLEDevice::getAdvertising()->start();
 }
@@ -387,7 +659,7 @@ bool bleBroadcast(Bytes frame, uint16_t exclude)
         return false;
     bool recipient = false;
     for (const auto &link : *links)
-        recipient |= link.subscribed && link.handle != exclude && link.handle != NO_LINK;
+        recipient |= link.subscribed && link.settled && link.handle != exclude && link.handle != NO_LINK;
     if (!recipient)
         return true;
     const uint8_t slot = links->store(frame);
@@ -398,7 +670,7 @@ bool bleBroadcast(Bytes frame, uint16_t exclude)
     Outgoing message{slot, 0, millis()};
     bool accepted = true;
     for (auto &link : *links) {
-        if (link.subscribed && link.handle != exclude && link.handle != NO_LINK) {
+        if (link.subscribed && link.settled && link.handle != exclude && link.handle != NO_LINK) {
             if (link.sent.push(message))
                 links->retain(slot);
             else {
@@ -414,7 +686,7 @@ bool bleBroadcast(Bytes frame, uint16_t exclude)
 // Sends the next piece of one link's oldest frame; false when that link has nothing more to send now.
 static bool sendChunk(size_t index)
 {
-    uint16_t handle = NO_LINK, attribute = 0;
+    uint16_t handle = NO_LINK, attribute = 0, remote = 0;
     uint32_t generation = 0;
     std::array<uint8_t, 512> chunk;
     size_t count = 0;
@@ -445,7 +717,11 @@ static bool sendChunk(size_t index)
         } else {
             const auto &payload = links->get(message->frame);
             const size_t mtu = server->getPeerMTU(handle);
-            count = std::min({size_t(payload.size - message->offset), mtu > 3 ? mtu - 3 : size_t(20), chunk.size()});
+            const size_t room = std::min(mtu > 3 ? mtu - 3 : size_t(20), chunk.size());
+            // The phone takes one whole frame per write; a frame too large for that keeps the notification stream.
+            if (link.remoteValue && !message->offset && payload.size <= room)
+                remote = link.remoteValue;
+            count = std::min(size_t(payload.size - message->offset), room);
             std::copy_n(payload.data.get() + message->offset, count, chunk.begin());
             attribute = characteristic->getHandle();
         }
@@ -456,12 +732,20 @@ static bool sendChunk(size_t index)
             server->disconnect(handle);
         return false;
     }
-    auto *buffer = ble_hs_mbuf_from_flat(chunk.data(), count);
-    if ((buffer ? ble_gatts_notify_custom(handle, attribute, buffer) : BLE_HS_ENOMEM) != 0) {
-        ++notifyFailures;
-        return false;
+    if (remote) {
+        if (ble_gattc_write_no_rsp_flat(handle, remote, chunk.data(), uint16_t(count)) != 0) {
+            ++notifyFailures;
+            return false;
+        }
+        ++remoteWrites;
+    } else {
+        auto *buffer = ble_hs_mbuf_from_flat(chunk.data(), count);
+        if ((buffer ? ble_gatts_notify_custom(handle, attribute, buffer) : BLE_HS_ENOMEM) != 0) {
+            ++notifyFailures;
+            return false;
+        }
+        ++notified;
     }
-    ++notified;
     concurrency::LockGuard guard(&lock);
     if (!links)
         return false;
@@ -478,32 +762,11 @@ static bool sendChunk(size_t index)
     return true;
 }
 
-// At the default 23-byte MTU nothing the app sends fits a write, so a link the phone left there is asked to grow.
-static void askLargerMtu()
-{
-    std::array<uint16_t, LINKS> pending;
-    pending.fill(NO_LINK);
-    {
-        concurrency::LockGuard guard(&lock);
-        for (size_t index = 0; index < LINKS; ++index) {
-            auto &connection = connections[index];
-            if (connection.handle != NO_LINK && !connection.mtuAsked &&
-                !Throttle::isWithinTimespanMsAt(connection.since, 2000, millis())) {
-                connection.mtuAsked = true;
-                pending[index] = connection.handle;
-            }
-        }
-    }
-    for (const uint16_t handle : pending)
-        if (handle != NO_LINK && ble_att_mtu(handle) <= 23)
-            mtuRequests += ble_gattc_exchange_mtu(handle, nullptr, nullptr) == 0;
-}
-
 void blePoll()
 {
     if (!enabled)
         return;
-    askLargerMtu();
+    advanceRemote();
     // Bitchat discards a frame whose pieces arrive more than 250 ms apart, so each poll sends more than one.
     for (size_t index = 0; index < LINKS; ++index)
         for (unsigned sent = 0; sent < BURST && sendChunk(index); ++sent) {
@@ -518,6 +781,16 @@ size_t bleSubscribers()
         return 0;
     for (const auto &link : *links)
         count += link.subscribed && link.handle != NO_LINK;
+    return count;
+}
+size_t bleListeners()
+{
+    concurrency::LockGuard guard(&lock);
+    size_t count = 0;
+    if (!links)
+        return 0;
+    for (const auto &link : *links)
+        count += link.subscribed && link.settled && link.handle != NO_LINK;
     return count;
 }
 size_t blePhones()
@@ -543,6 +816,7 @@ size_t bleDescribe(char *out, size_t size)
     struct View {
         uint16_t handle = NO_LINK;
         bool subscribed = false, talked = false;
+        Remote remote = Remote::Idle;
     };
     std::array<View, LINKS> views;
     {
@@ -550,22 +824,24 @@ size_t bleDescribe(char *out, size_t size)
         for (size_t index = 0; index < LINKS; ++index) {
             views[index].handle = connections[index].handle;
             views[index].subscribed = connections[index].subscribed;
-            views[index].talked = links && (*links)[index].handle == connections[index].handle && (*links)[index].talked;
+            views[index].remote = connections[index].remote;
+            views[index].talked = connections[index].talked;
         }
     }
-    int used = snprintf(out, size, "con %lu dis %lu sub %lu wr %lu ntf %lu err %lu mtu? %lu",
-                        static_cast<unsigned long>(connects.load()), static_cast<unsigned long>(disconnects.load()),
-                        static_cast<unsigned long>(subscriptions.load()), static_cast<unsigned long>(writes.load()),
-                        static_cast<unsigned long>(notified.load()), static_cast<unsigned long>(notifyFailures.load()),
-                        static_cast<unsigned long>(mtuRequests.load()));
+    const auto count = [](const std::atomic<uint32_t> &value) { return static_cast<unsigned long>(value.load()); };
+    // wr and ntf are the bridge's own characteristic; in and out are the phone's, used when "path" is 9.
+    int used = snprintf(out, size, "con %lu dis %lu sub %lu wr %lu ntf %lu err %lu in %lu out %lu", count(connects),
+                        count(disconnects), count(subscriptions), count(writes), count(notified), count(notifyFailures),
+                        count(remoteFrames), count(remoteWrites));
     // The host stack is asked outside the bridge lock, which its own callbacks take.
     for (const auto &view : views) {
         ble_gap_conn_desc desc{};
         if (view.handle == NO_LINK || used < 0 || size_t(used) >= size || ble_gap_conn_find(view.handle, &desc) != 0)
             continue;
-        used += snprintf(out + used, size - used, "\nlink %u mtu %u itv %u enc %u bond %u sub %u wr %u", unsigned(view.handle),
-                         unsigned(ble_att_mtu(view.handle)), unsigned(desc.conn_itvl), unsigned(desc.sec_state.encrypted),
-                         unsigned(desc.sec_state.bonded), unsigned(view.subscribed), unsigned(view.talked));
+        used += snprintf(out + used, size - used, "\nlink %u mtu %u itv %u enc %u bond %u sub %u wr %u path %u",
+                         unsigned(view.handle), unsigned(ble_att_mtu(view.handle)), unsigned(desc.conn_itvl),
+                         unsigned(desc.sec_state.encrypted), unsigned(desc.sec_state.bonded), unsigned(view.subscribed),
+                         unsigned(view.talked), unsigned(view.remote));
     }
     return used < 0 ? 0 : std::min(size_t(used), size ? size - 1 : 0);
 }

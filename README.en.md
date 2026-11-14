@@ -6,13 +6,15 @@ An embedded bridge derived from the official Meshtastic firmware. It is designed
 for the unmodified Bitchat and Meshtastic apps, with no computer, MQTT, Nostr or internet in the
 operating path. A computer is used to build, install and diagnose the firmware.
 
-**Current version (beta): [v1.0.0-beta.3](https://github.com/EduChacon/meshtastic-bitchat/releases/tag/v1.0.0-beta.3).** Drops the mandatory `!lora`, fixes
+**Current version (beta): [v1.0.0-beta.4](https://github.com/EduChacon/meshtastic-bitchat/releases/tag/v1.0.0-beta.4).** Drops the mandatory `!lora`, fixes
 message losses in group chat, recovers the clock without the Meshtastic app, simplifies the
 menu and adds eight ESP32-S3 devices. [What changed and why](docs/bridge/CHANGES.md#english).
 
-**Status: beta, no hardware acceptance.** This version was checked by host simulation
-and compilation only. None of the ten targets has been run with this firmware; eight of them
-never ran any version of the bridge. Back up before installing and read the
+**Status: beta, with an open defect on the only device tested.** On a Heltec V3 with Bitchat
+iOS 1.8.0, versions up to `1.0.0-beta.3` did not exchange messages with the app: the phone
+connects and subscribes but sends nothing to the radio. `1.0.0-beta.4` adds a second path, in
+which the radio subscribes to the service the app itself publishes; it has **not yet been run
+on hardware**. The other nine targets were only compiled. Back up before installing and read the
 [limits](docs/bridge/CHANGES.md#english) and the [bench procedure](docs/bridge/TESTING.md).
 
 ## How it works
@@ -53,8 +55,8 @@ mode B. [Matrix and conditions](docs/bridge/COMPATIBILITY.md).
 
 ## Install
 
-1. From [v1.0.0-beta.3](https://github.com/EduChacon/meshtastic-bitchat/releases/tag/v1.0.0-beta.3), download
-   **`meshtastic-bitchat-1.0.0-beta.3.zip`**. It is a single file for all ten devices.
+1. From [v1.0.0-beta.4](https://github.com/EduChacon/meshtastic-bitchat/releases/tag/v1.0.0-beta.4), download
+   **`meshtastic-bitchat-1.0.0-beta.4.zip`**. It is a single file for all ten devices.
 2. In the [official Web Flasher](https://flasher.meshtastic.org/), select the board, load the
    ZIP and use **Update**. Do not select **Erase Flash and Install**. If the board offers the
    colour interface (MUI), leave it unticked.
@@ -84,7 +86,8 @@ the Meshtastic app and select it under `System → Bitchat bridge → Bitchat + 
 
 **Testing the bridge.** In the Meshtastic app connected to the bridge radio, send `!bridge`
 (or `!ponte`) on the `Bitchat` channel: the bridge answers there, to that app only, with its
-state, how many Bitchat phones are actually talking to it and what to do. In Bitchat, send
+state, the measurements of each Bluetooth link, how many Bitchat phones are actually talking
+to it and what to do. In Bitchat, send
 `!bridge` in `#mesh`: the `[bridge] …` answer proves Bluetooth works both ways.
 `!bridge reset`, from the Meshtastic app only, drops the Bluetooth links and tells phones to
 read the radio's services again. The command text itself travels over LoRa like any channel
@@ -101,8 +104,8 @@ Base: Meshtastic **2.7.26.54e0d8d**, commit `54e0d8d0ab2ff56b3a9ce967e53f79e49af
 Bitchat reference: iOS **1.8.0**, commit `30c58eee349e172b37f69faa2113c9d5f2c76c23`.
 
 ```sh
-git fetch origin tag v1.0.0-beta.3
-git checkout --detach v1.0.0-beta.3
+git fetch origin tag v1.0.0-beta.4
+git checkout --detach v1.0.0-beta.4
 python3 -m venv .venv
 .venv/bin/python -m pip install platformio==6.2.0 intelhex==2.3.0
 git submodule update --init protobufs

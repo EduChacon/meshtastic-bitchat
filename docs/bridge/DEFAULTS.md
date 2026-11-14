@@ -97,24 +97,36 @@ pessoa marcou de propósito.
 
 O comando é uma mensagem de texto comum; maiúsculas e minúsculas não importam.
 
-| Onde digitar                                      | Texto                           | Efeito                                                                                                    |
-| ------------------------------------------------- | ------------------------------- | --------------------------------------------------------------------------------------------------------- |
-| Aplicativo Meshtastic conectado ao rádio da ponte | `!bridge` ou `!ponte`           | Duas respostas `[bridge] …` naquele aplicativo: o relatório e o que fazer. Nada é transmitido em resposta |
-| Aplicativo Meshtastic conectado ao rádio da ponte | `!bridge reset`, `!ponte reset` | O mesmo que `Reconnect phones`                                                                            |
-| Bitchat, no `#mesh`                               | `!bridge` ou `!ponte`           | Uma resposta `[bridge] …` assinada pela ponte, no máximo uma a cada 5 segundos                            |
+| Onde digitar                                      | Texto                           | Efeito                                                                                                     |
+| ------------------------------------------------- | ------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| Aplicativo Meshtastic conectado ao rádio da ponte | `!bridge` ou `!ponte`           | Três respostas `[bridge] …` naquele aplicativo: o relatório, as conexões e o que fazer. Nada é transmitido |
+| Aplicativo Meshtastic conectado ao rádio da ponte | `!bridge reset`, `!ponte reset` | O mesmo que `Reconnect phones`                                                                             |
+| Bitchat, no `#mesh`                               | `!bridge` ou `!ponte`           | Uma resposta `[bridge] …` assinada pela ponte, no máximo uma a cada 5 segundos                             |
 
 No relatório, `Bluetooth` é o número de conexões Bluetooth de qualquer aplicativo, `Bitchat` é
 o número de telefones que enviaram algum dado do Bitchat nesta conexão e `people` é o número
-de pessoas aceitas; as demais linhas repetem `Diagnostics`. O comando não é exportado para o
+de pessoas aceitas; as demais linhas repetem `Diagnostics`.
+
+A segunda resposta descreve o Bluetooth. Na primeira linha, contadores desde a ligação do
+rádio: `con` e `dis` (conexões e desconexões), `sub` (inscrições no serviço da ponte), `wr`
+(escritas recebidas pela ponte), `ntf` (notificações enviadas pela ponte), `err` (envios
+recusados pela pilha Bluetooth), `in` (quadros recebidos pelo serviço do próprio telefone) e
+`out` (quadros escritos nele). Depois, uma linha por conexão: `mtu` (tamanho de pacote
+negociado), `itv` (intervalo de conexão, em unidades de 1,25 ms), `enc` e `bond`
+(criptografia e pareamento), `sub` (telefone inscrito), `wr` (o telefone já enviou algo) e
+`path` (9: a ponte usa o serviço do telefone; 10: o serviço não foi encontrado e a ponte
+espera as escritas do telefone; de 1 a 8: busca em andamento).
+
+O comando não é exportado para o
 LoRa pela ponte nem importado para o Bitchat. Digitado no aplicativo Meshtastic, o texto do
 comando segue pelo LoRa como qualquer mensagem daquele canal; as outras pontes não respondem.
 O comando funciona com a ponte desligada ou aguardando hora. A resposta no aplicativo
 Meshtastic sai com o próprio nó como remetente e pode aparecer do lado das mensagens enviadas.
 
 A tela de estado mostra uma frase (`Ready: Bitchat + LoRa`, `Clock not set`, `Standby: other
-bridge`, `LoRa channel changed`) e, na última linha, o que fazer. `Phones` é o número de
-telefones que falaram Bitchat nesta conexão; a inscrição restaurada de um telefone pareado,
-sem dado algum do Bitchat, não conta; `Not delivered` conta somente mensagens perdidas.
+bridge`, `LoRa channel changed`) e, na última linha, o que fazer. `Phones 1/2` significa dois
+telefones inscritos, dos quais um já enviou algum dado do Bitchat; `0/1` é um telefone que se
+conectou e ficou mudo, ou a inscrição restaurada de um telefone pareado; `Not delivered` conta somente mensagens perdidas.
 
 ## Rádio sem tela
 

@@ -152,6 +152,30 @@ simulação, um anúncio com vizinhos, capacidades e célula de ponte, recebido 
 fragmentos, é aceito. O relatório do `!bridge` (`rx`, `ok`, `old`, `sig`, `fmt`) é o dado que
 falta.
 
+Quinto passo. Relatório do aparelho com a `.3`: `Bluetooth 1, Bitchat 0, people 0`, `UTC` certo,
+`rx 0 ok 0`, `tx` subindo de 20 em 20 s, nenhuma recusa. Com o aplicativo Meshtastic fechado e
+só o Bitchat aberto, a tela mostrou `Phones 0` e `People 0`. A `experimental.5`, reinstalada
+como controle, também não funcionou; segundo o operador, ela havia funcionado por pouco tempo
+antes. Conclusões sustentadas: relógio, versão do aplicativo, falta de conexão e convivência
+dos dois aplicativos estão **afastados**; a causa não está só nas mudanças feitas desde a
+`experimental.5`; a ponte conta toda escrita recebida e não recebe nenhuma. **Correção:** o
+marcador de 22 bytes já existia na `experimental.5`; a afirmação do quarto passo, de que foi
+introduzido na `1.0.0-beta`, estava errada.
+
+Leitura completa do caminho de envio do aplicativo de referência, com revisão independente.
+Verificado no código: as três chamadas de escrita usam escrita sem resposta e dependem de
+`canSendWriteWithoutResponse`; não há escrita com resposta nem outro meio de entregar dados a
+um periférico; com limite de escrita abaixo de 99 bytes (MTU abaixo de 102) todo pacote vira
+fragmento de 99 bytes, que não cabe; o primeiro anúncio é planejado 50 ms depois da descoberta
+da característica. Não decidível pelo código: por que o iOS reteria as escritas. Relatos
+públicos registram o indicador falso de forma persistente, sem causa estabelecida.
+
+A `.4` contorna a dependência: a ponte, como cliente GATT na conexão aberta pelo telefone,
+inscreve-se no serviço que o aplicativo publica; pede o MTU ao conectar; e só usa a
+notificação com telefone cujas escritas chegaram. Hipótese de que depende, **não ensaiada**:
+o iOS expõe o serviço de um aplicativo a um periférico conectado, como faz com os serviços do
+sistema. Se não expuser, o relatório mostrará `path 10` e `wr 0`, e o defeito continua aberto.
+
 ## Investigação de boot — 2026-11-13
 
 As instalações foram suspensas nos dois READMEs e nas pré-releases, preservando os arquivos

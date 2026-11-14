@@ -49,6 +49,21 @@ Característica: `A1B2C3D4-E5F6-4A5B-8C9D-0E1F2A3B4C5D`, READ/WRITE/WRITE_NR/NOT
 Não é o UUID testnet. O rádio implementa o papel **periférico**, sem busca como central.
 Isso limita background e ligação entre repetidores sem telefone intermediário.
 
+Sobre a conexão aberta pelo telefone há dois caminhos de dados. No primeiro, o telefone
+escreve na característica da ponte e a ponte responde por notificação. No segundo, a ponte
+age como cliente GATT na mesma conexão: procura o serviço que o próprio aplicativo publica,
+inscreve-se nele, recebe os pacotes do telefone como notificações e envia os seus como
+escritas de um quadro inteiro. O segundo caminho existe porque o aplicativo só escreve quando
+o iOS informa que a conexão aceita escrita sem resposta, e em aparelho real essa escrita não
+chegou. Quando o serviço do telefone é encontrado, a ponte usa só o segundo caminho e não
+anuncia a si mesma por notificação: um anúncio direto recebido pela característica da ponte
+ligaria a identidade dela à conexão de escrita do telefone, e o aplicativo passaria a preferir
+essa conexão. Sem o serviço, a ponte só fala por notificação com o telefone cujas escritas já
+chegaram, e repete a busca a cada 10 s enquanto ele estiver mudo. Ao conectar, a ponte pede a
+troca de MTU: no MTU padrão de 23 bytes nada do que o aplicativo envia cabe em uma escrita.
+**Nada disso foi ensaiado em aparelho**; em particular, não está comprovado que o iOS expõe o
+serviço do aplicativo a um periférico conectado.
+
 O anúncio principal contém flags e UUID Bitchat; o nome fica em SCAN_RSP. A administração
 anuncia o UUID Meshtastic por cinco minutos. Não presume dois UUIDs de 128 bits no anúncio
 legado. Serviços simultâneos não comprovam descoberta/operação simultânea dos apps.

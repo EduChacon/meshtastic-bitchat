@@ -57,6 +57,11 @@ int main()
     c.callbacks->onSubscribe(&c, &b, 1);
     c.callbacks->onSubscribe(&c, &d, 1);
     assert(bleSubscribers() == 3);
+    // Nothing is sent to a phone before the search for its own Bitchat service ends. These phones do not
+    // publish one, so each is spoken to only once its own writes arrive.
+    assert(bleListeners() == 0);
+    blePoll();
+    assert(bleListeners() == 0 && !bleNeedsAnnouncement());
     // A subscription alone may be a bonded phone's restored one; a write is what
     // shows the app.
     assert(blePhones() == 0 && bleConnections() == 3);
@@ -71,7 +76,10 @@ int main()
     c.callbacks->onWrite(&c, &a);
     assert(bleReceive(received));
     assert(received.link == 7 && equalConstantTime(received.frame.bytes(), frame.bytes()));
-    assert(blePhones() == 1);
+    assert(blePhones() == 1 && bleListeners() == 1 && bleNeedsAnnouncement());
+    c.value.assign(reinterpret_cast<const char *>(frame.data.data()), frame.size);
+    c.callbacks->onWrite(&c, &d);
+    assert(bleReceive(received) && received.link == 9 && bleListeners() == 2);
     const size_t droppedLinks = server.disconnected.size();
     bleDropConnections();
     assert(server.disconnected.size() == droppedLinks + 3);
@@ -86,9 +94,16 @@ int main()
         c.callbacks->onWrite(&c, &a);
     c.callbacks->onWrite(&c, &b);
     assert(bleDrops() == before + 1);
-    assert(bleReceive(received) && received.link == 8);
-    for (int i = 0; i < 6; ++i)
-        assert(bleReceive(received) && received.link == 7);
+    // Phones take turns: the single frame of the second phone does not wait behind the six of the first.
+    int fromFirst = 0, turnOfSecond = -1;
+    for (int i = 0; i < 7; ++i) {
+        assert(bleReceive(received) && (received.link == 7 || received.link == 8));
+        if (received.link == 8)
+            turnOfSecond = i;
+        else
+            ++fromFirst;
+    }
+    assert(fromFirst == 6 && turnOfSecond >= 0 && turnOfSecond <= 1);
     assert(!bleReceive(received));
     // A whole frame replaces a stalled partial one instead of being glued to it.
     c.value.assign(reinterpret_cast<const char *>(frame.data.data()), half);
@@ -161,6 +176,14 @@ int main()
         bleConnect(desc.conn_handle);
         c.callbacks->onSubscribe(&c, &desc, 1);
     }
+    blePoll();
+    for (auto desc : {a, b, d}) {
+        c.value.assign(reinterpret_cast<const char *>(frame.data.data()), frame.size);
+        c.callbacks->onWrite(&c, &desc);
+    }
+    while (bleReceive(received)) {
+    }
+    assert(bleListeners() == 3);
     const size_t idle = liveBytes;
     std::array<uint8_t, 1700> bodyLarge{};
     for (size_t i = 0; i < bodyLarge.size(); ++i)

@@ -10,8 +10,9 @@ namespace bitchat
 constexpr size_t LORA_TEXT_LIMIT = 200;
 constexpr size_t TEXT_PARTS = 3;
 // The Bitchat app verifies a signature over its own re-encoding, which compresses payloads of 100 bytes
-// or more. A device cannot reproduce that compression, so text the bridge signs stays below it.
-constexpr size_t BITCHAT_TEXT_LIMIT = 99;
+// or more. A device cannot reproduce that compression, so text the bridge signs stays below it, and at
+// 96 bytes the whole signed frame also fits one write at the 185-byte MTU common on iPhones.
+constexpr size_t BITCHAT_TEXT_LIMIT = 96;
 constexpr size_t BITCHAT_PARTS = 5;
 constexpr size_t LABEL_LIMIT = 30;
 constexpr size_t TEXT_BUFFER = 280;

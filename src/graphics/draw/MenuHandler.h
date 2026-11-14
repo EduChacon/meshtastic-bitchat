@@ -48,6 +48,13 @@ class menuHandler
         BitchatMenu,
         BitchatTextChannel,
         BitchatTunnelChannel,
+        BitchatOptions,
+        BitchatProfile,
+        BitchatLab,
+        BitchatApps,
+        BitchatNotice,
+        BitchatConfirm,
+        BitchatHelp,
 #endif
         KeyVerificationInit,
         KeyVerificationFinalPrompt,
@@ -87,6 +94,7 @@ class menuHandler
 #ifdef MESHTASTIC_ENABLE_BITCHAT
     static void bitchatMenu();
     static void bitchatChannelMenu(bool tunnel);
+    static void bitchatDetailMenu(screenMenus page);
 #endif
     static void favoriteBaseMenu();
     static void positionBaseMenu();

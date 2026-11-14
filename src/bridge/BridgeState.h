@@ -120,6 +120,11 @@ class BleReassembly
     static constexpr size_t CAPACITY = 3;
     static constexpr size_t MAX_FRAGMENTS = 32;
 
+    bool empty() const
+    {
+        return std::none_of(entries.begin(), entries.end(), [](const auto &entry) { return entry.used; });
+    }
+
   private:
     struct Assembly {
         PeerId sender{};

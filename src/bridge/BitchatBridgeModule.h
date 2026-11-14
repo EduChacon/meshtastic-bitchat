@@ -8,6 +8,7 @@
 #include "MeshModule.h"
 #include "concurrency/OSThread.h"
 #include <Preferences.h>
+#include <memory>
 
 class BitchatBridgeModule : public MeshModule, private concurrency::OSThread
 {
@@ -19,11 +20,13 @@ class BitchatBridgeModule : public MeshModule, private concurrency::OSThread
     int tunnelChannel() const { return settings.tunnelChannel; }
     bool privateTunnel() const { return settings.privateTunnel; }
     bool setEnabled(bool value);
+    bool startBasicMode(uint8_t textChannel = 255);
     bool setEconomy(bool value);
     bool setChannel(bool tunnel, uint8_t index);
     bool setPrivateTunnel(bool value);
     bool eligibleChannel(uint8_t index) const;
     void openNativeWindow();
+    void closeNativeWindow();
     const char *status() const;
     uint32_t drops() const;
 #if HAS_SCREEN
@@ -39,7 +42,7 @@ class BitchatBridgeModule : public MeshModule, private concurrency::OSThread
   private:
     struct Settings {
         uint32_t magic = 0x42433031;
-        uint8_t enabled = 0;
+        uint8_t enabled = 1;
         uint8_t economy = 0;
         uint8_t textChannel = 255;
         uint8_t tunnelChannel = 255;
@@ -61,6 +64,7 @@ class BitchatBridgeModule : public MeshModule, private concurrency::OSThread
     };
     Preferences storage;
     bool storageReady = false, identityReady = false, advertisingChanged = true;
+    bool defaultsPending = false, defaultChannelUnavailable = false, clockWindow = false;
     bool textReady = false, tunnelReady = false;
     bool wasActive = false;
     bool textConflict = false;
@@ -79,14 +83,23 @@ class BitchatBridgeModule : public MeshModule, private concurrency::OSThread
     std::array<uint8_t, 8> tunnelDomain{};
     std::array<JournalEntry, 64> journal{};
     bitchat::BridgeCrypto crypto;
-    bitchat::PeerTable peers;
-    bitchat::BleReassembly fragments;
-    bitchat::TunnelReassembly tunnelFragments;
-    bitchat::DedupCache<256> dedup;
-    bitchat::BoundedQueue<RadioItem, 4> radioQueue;
-    bitchat::RateGate announceGate, radioGate, cryptoGate;
-    bitchat::BleInput input;
-    bitchat::Frame assembled, working, canonical;
+    struct Runtime {
+        std::unique_ptr<bitchat::PeerTable> peers;
+        std::unique_ptr<bitchat::BleReassembly> fragments;
+        std::unique_ptr<bitchat::TunnelReassembly> tunnelFragments;
+        std::unique_ptr<bitchat::DedupCache<256>> dedup;
+        bitchat::BoundedQueue<RadioItem, 4> radioQueue;
+        bitchat::RateGate announceGate, radioGate, cryptoGate;
+        bitchat::BleInput input;
+        bitchat::Frame assembled, working, canonical;
+    };
+    std::unique_ptr<Runtime> runtime;
+    bool resourceError = false;
+    bool ensureRuntime();
+    void applyDefaults();
+    uint8_t provisionPublicChannel();
+    void updateClockWindow();
+    void releaseRuntime();
     bool persist();
     bool initIdentity();
     bool binding(uint8_t index, bitchat::Digest &out) const;
@@ -103,4 +116,5 @@ class BitchatBridgeModule : public MeshModule, private concurrency::OSThread
     uint64_t utc() const;
 };
 extern BitchatBridgeModule *bitchatBridge;
+static_assert(sizeof(BitchatBridgeModule) <= 4096, "Keep bridge buffers out of module construction");
 #endif

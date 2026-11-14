@@ -1,6 +1,7 @@
 #pragma once
 
 #include "BridgeCodec.h"
+#include <algorithm>
 #include <array>
 
 namespace bitchat
@@ -40,6 +41,11 @@ class TunnelReassembly
     static constexpr size_t CAPACITY = 3;
     Result accept(Crypto &crypto, const TunnelFragment &fragment, uint32_t now, Frame &output);
     size_t expire(uint32_t now);
+
+    bool empty() const
+    {
+        return std::none_of(entries.begin(), entries.end(), [](const auto &entry) { return entry.used; });
+    }
 
   private:
     struct Assembly {

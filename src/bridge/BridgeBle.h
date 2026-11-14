@@ -14,6 +14,9 @@ struct BleInput {
 };
 void bleAttach(NimBLEServer *server);
 void bleDetach();
+size_t bleBufferSize();
+bool bleAllocateBuffers();
+void bleReleaseBuffers();
 void bleConnect(uint16_t handle);
 void bleDisconnect(uint16_t handle);
 void bleConfigure(bool enabled, bool nativeWindow, bool economy);

@@ -14,11 +14,22 @@ BOARDS = {
     "heltec-v3-bitchat": ("heltec-v3", 43),
     "m5stack-cardputer-adv-bitchat": ("m5stack-cardputer-adv", 112),
 }
-VERSION = "0.1.0-experimental.2"
+VERSION = "0.1.0-experimental.5"
 
 
 def sha256(data):
     return hashlib.sha256(data).hexdigest()
+
+
+def check_build_provenance(image, filename, environment, source):
+    marker = f"2.7.26.{source[:7]}"
+    if (
+        filename != f"firmware-{environment}-{marker}.bin"
+        or marker.encode() + b"\0" not in image
+    ):
+        raise ValueError(
+            "Stale or mismatched application; rebuild the current commit before packaging"
+        )
 
 
 def partitions(data):
@@ -80,6 +91,7 @@ def main():
     source = subprocess.check_output(
         ["git", "rev-parse", "HEAD"], cwd=root, text=True
     ).strip()
+    check_build_provenance(application, candidates[0].name, args.environment, source)
     epoch = int(os.environ["SOURCE_DATE_EPOCH"])
     core = Path(os.environ.get("PLATFORMIO_CORE_DIR", Path.home() / ".platformio"))
     boot_selection = (
@@ -124,7 +136,7 @@ def main():
         "platform": "espressif32@6.13.0",
         "libraries": libraries,
         "hardware_tested": False,
-        "feature_default": "OFF",
+        "feature_default": "ON: local BLE and dedicated public Bitchat text channel; laboratory tunnel OFF",
         "install_status": "documented-not-tested; preflight and separate approval required",
         "contains_bootloader": False,
         "contains_partitions": False,
@@ -138,10 +150,12 @@ def main():
         ).encode(),
         "LICENSE": (root / "LICENSE").read_bytes(),
         "LEIA-ANTES.txt": (
-            "EXPERIMENTAL. Nenhum ensaio em hardware. Ponte desativada por padrao.\n"
+            "EXPERIMENTAL. Nenhum ensaio desta revisao em hardware. BLE e texto publico Bitchat ativos por padrao.\n"
+            "No primeiro boot desta revisao: cria canal publico Bitchat em espaco livre; nao exporta o primario.\n"
+            "Conecte Meshtastic para fornecer a hora; depois abra #mesh no Bitchat. Leia docs/bridge/DEFAULTS.md.\n"
             f"Alvo exclusivo: {model}; ESP32-S3; 8 MB; app0 0x10000.\n"
             "Este ZIP contem somente atualizacao de aplicativo. Nao e instalacao de fabrica.\n"
-            "Nao apaga flash, mas falha de energia, alvo ou layout errado ainda pode impedir boot.\n"
+            "Nao inclui apagamento integral; atualiza os setores da aplicacao. Falhas ainda podem impedir boot.\n"
             "Confirme modelo, banda, antena, backup privado, particoes, slot ativo e rollback.\n"
             "Use tools/bridge/verify_artifact.py antes de abrir o flasher oficial.\n"
             "Leia docs/bridge/INSTALL.md. Nunca envie backups ao repositorio.\n"

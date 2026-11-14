@@ -1,6 +1,7 @@
 #include "configuration.h"
 #ifdef MESHTASTIC_ENABLE_BITCHAT
 #include "bridge/BitchatBridgeModule.h"
+#include "bridge/BridgeDiagnostics.h"
 #endif
 #if !MESHTASTIC_EXCLUDE_INPUTBROKER
 #include "buzz/BuzzerFeedbackThread.h"
@@ -113,7 +114,9 @@
 void setupModules()
 {
 #ifdef MESHTASTIC_ENABLE_BITCHAT
+    bitchat::setupBootDiagnostics();
     bitchatBridge = new BitchatBridgeModule();
+    bitchat::bootDiagnostic("bridge-off-ready");
 #endif
 #if (HAS_BUTTON || ARCH_PORTDUINO) && !MESHTASTIC_EXCLUDE_INPUTBROKER
     if (config.display.displaymode != meshtastic_Config_DisplayConfig_DisplayMode_COLOR) {

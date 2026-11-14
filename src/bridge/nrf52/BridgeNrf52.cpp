@@ -219,6 +219,9 @@ void onBleEvent(ble_evt_t *event)
         if (auto *slot = find(handle))
             *slot = {};
         bitchat::bleDisconnect(handle);
+        // The library resumes advertising only when no link is left.
+        if (platform.up)
+            Bluefruit.Advertising.start(0);
         return;
     case BLE_GAP_EVT_CONN_SEC_UPDATE: {
         // A bonded phone's subscription comes back with the encryption, without a write to report it.
@@ -274,8 +277,8 @@ bool bitchat::onLargeStack(void (*work)(void *), void *argument)
             workReady = xSemaphoreCreateBinary();
         if (!workDone)
             workDone = xSemaphoreCreateBinary();
-        // 4096 words: the 16 KB the ESP32 builds give the same code.
-        if (!workReady || !workDone || xTaskCreate(workerLoop, "bitchat", 4096, nullptr, TASK_PRIO_LOW, &worker) != pdPASS) {
+        // 3072 words are 12 KB; the bridge keeps frame buffers of 2 KB on the stack.
+        if (!workReady || !workDone || xTaskCreate(workerLoop, "bitchat", 3072, nullptr, TASK_PRIO_LOW, &worker) != pdPASS) {
             worker = nullptr;
             return false;
         }

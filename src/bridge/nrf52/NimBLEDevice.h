@@ -1,6 +1,7 @@
 // nRF52 only: the few NimBLE names the bridge uses, implemented over the Bluefruit stack, so the ESP32
 // link code compiles unchanged. Found on the include path of the nRF52 bridge targets, never on ESP32.
 #pragma once
+#include <Arduino.h>
 #include <cstddef>
 #include <cstdint>
 

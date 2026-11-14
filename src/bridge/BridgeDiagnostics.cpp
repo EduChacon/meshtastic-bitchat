@@ -6,7 +6,11 @@
 namespace bitchat
 {
 static constexpr uint32_t CAPS = MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT;
-static constexpr size_t RESERVE = 24 * 1024;
+// Kept back for the Bluetooth stack. A platform whose stack has memory of its own names a smaller figure.
+#ifndef BRIDGE_HEAP_RESERVE
+#define BRIDGE_HEAP_RESERVE (24 * 1024)
+#endif
+static constexpr size_t RESERVE = BRIDGE_HEAP_RESERVE;
 
 static void allocationFailed(size_t size, uint32_t caps, const char *)
 {

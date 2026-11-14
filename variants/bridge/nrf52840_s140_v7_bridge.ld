@@ -1,6 +1,6 @@
 /* Linker script to configure memory regions.
  * Copy of src/platform/nrf52/nrf52840_s140_v7.ld for the Bitchat bridge builds. Only the RAM origin
- * differs: the SoftDevice gets 48 KB instead of 24 KB, because the bridge enables a second
+ * differs: the SoftDevice gets 40 KB instead of 24 KB, because the bridge enables a second
  * peripheral link, a deeper write queue and a larger attribute table. Unused SoftDevice RAM is only
  * wasted; too little would stop Bluetooth from starting.
  */
@@ -19,7 +19,7 @@ MEMORY
    * - Concurrent connection peripheral + central + secure links
    * - Event Len, HVN queue, Write CMD queue
    */ 
-  RAM (rwx) :  ORIGIN = 0x2000C000, LENGTH = 0x20040000 - 0x2000C000
+  RAM (rwx) :  ORIGIN = 0x2000A000, LENGTH = 0x20040000 - 0x2000A000
 }
 
 SECTIONS

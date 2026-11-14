@@ -299,8 +299,8 @@ void NRF52Bluetooth::setup()
     Bluefruit.configPrphBandwidth(BANDWIDTH_MAX);
 #ifdef MESHTASTIC_ENABLE_BITCHAT
     // A second link lets a Bitchat phone find and reach the bridge while the Meshtastic app holds the first.
-    // Three queued write commands and a larger attribute table serve the bridge's own characteristic.
-    Bluefruit.configPrphConn(247, 100, 3, 3);
+    // Two links share the radio, so each reserves 7.5 ms per event and extends it when the radio is free.
+    Bluefruit.configPrphConn(247, 6, 3, 3);
     Bluefruit.configAttrTableSize(0x1400);
     Bluefruit.begin(2, 0);
 #else

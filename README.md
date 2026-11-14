@@ -8,12 +8,12 @@ operação. Computador continua necessário para compilar, instalar e diagnostic
 
 **Versão atual (beta): [v1.0.0-beta](https://github.com/EduChacon/meshtastic-bitchat/releases/tag/v1.0.0-beta).** Dispensa o `!lora`, corrige perdas
 de mensagem em conversa de grupo, recupera a hora sem o aplicativo Meshtastic, simplifica o
-menu e acrescenta oito aparelhos ESP32-S3. [O que mudou e por quê](docs/bridge/CANDIDATE.md).
+menu e acrescenta oito aparelhos ESP32-S3. [O que mudou e por quê](docs/bridge/CHANGES.md).
 
 **Estado: beta, sem aceite em aparelho.** Os testes desta versão são simulações em
 computador e compilação. Nenhum dos dez alvos foi ligado com este firmware; oito deles nunca
 receberam versão alguma da ponte. Fazer backup antes de instalar e ler os
-[limites](docs/bridge/CANDIDATE.md) e o [roteiro de ensaio](docs/bridge/TESTING.md).
+[limites](docs/bridge/CHANGES.md) e o [roteiro de ensaio](docs/bridge/TESTING.md).
 
 ## Como funciona
 
@@ -93,7 +93,8 @@ SOURCE_DATE_EPOCH=1794528000 .venv/bin/pio run -e heltec-v3-bitchat -t buildprog
 
 Os comandos constroem software; não fazem upload.
 
-- [Mudanças, limites e evidência desta versão](docs/bridge/CANDIDATE.md)
+- [Índice da documentação](docs/bridge/README.md)
+- [Mudanças, limites e evidência desta versão](docs/bridge/CHANGES.md)
 - [Padrão de instalação e chave pública do canal](docs/bridge/DEFAULTS.md)
 - [Compatibilidade e cobertura funcional](docs/bridge/COMPATIBILITY.md)
 - [Arquitetura e decisões](docs/bridge/ARCHITECTURE.md)
@@ -103,7 +104,7 @@ Os comandos constroem software; não fazem upload.
 - [Fontes, proveniência e licenças](docs/bridge/SOURCES.md)
 - [Comparação com outras pontes](docs/bridge/COMPARISON.md)
 - [Registro do trabalho](docs/bridge/WORKLOG.md) e [investigação de boot da `.2`](docs/bridge/BOOT_INCIDENT.md)
-- [README original do firmware](docs/bridge/README.upstream.md)
+- [README original do firmware](docs/bridge/history/README.upstream.md)
 
 Não é um projeto MeshCore. Licença do firmware: [GPL-3.0](LICENSE); as dependências mantêm
 suas próprias licenças.

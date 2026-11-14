@@ -153,7 +153,7 @@ def main():
         "LEIA-ANTES.txt": (
             "VERSAO BETA. Nenhum ensaio desta revisao em hardware. BLE e texto publico Bitchat ativos por padrao.\n"
             "No primeiro boot desta revisao: cria canal publico Bitchat em espaco livre; nao exporta o primario.\n"
-            "Todo texto publico do #mesh ao alcance e publicado no canal LoRa Bitchat. Leia docs/bridge/CANDIDATE.md.\n"
+            "Todo texto publico do #mesh ao alcance e publicado no canal LoRa Bitchat. Leia docs/bridge/CHANGES.md.\n"
             "Sem hora confiavel, o primeiro telefone Bitchat que conecta fornece a hora.\n"
             f"Alvo exclusivo: {model}; ESP32-S3; {flash // 2**20} MB; app0 0x10000.\n"
             "Este ZIP contem somente atualizacao de aplicativo. Nao e instalacao de fabrica.\n"

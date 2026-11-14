@@ -82,7 +82,7 @@ seu fluxo de instalação pode gravar rádios conectados.
 
 Revisão do código da `.5` comparada com o Bitchat iOS 1.8.0, motivada por relato do operador
 de funcionamento inconstante, sobretudo em grupo. As causas de perda encontradas, as mudanças
-e os limites estão em [CANDIDATE.md](CANDIDATE.md). O firmware `.5`, até então fora da `main`,
+e os limites estão em [CANDIDATE.md](CHANGES.md). O firmware `.5`, até então fora da `main`,
 foi incorporado ao ramo de trabalho com a documentação da `main`.
 
 Evidência: todos os testes de host anteriores, ajustados ao novo comportamento, e o teste novo
@@ -97,6 +97,11 @@ oito aparelhos ESP32-S3, com as ferramentas de pacote aceitando 16 MB; e publica
 `1.0.0-beta`, a partir da `main`, sem os gates físicos de [TESTING.md](TESTING.md), que continuam pendentes.
 O firmware das revisões `.3` a `.5`, que estava nos ramos `fix/heltec-boot-memory` e
 `fix/bridge-menu`, passou a integrar a `main`; os ramos e as tags anteriores foram preservados.
+
+Depois da publicação, a documentação foi reorganizada: [índice](README.md), guias reescritos
+para a `1.0` e documentos das revisões anteriores em `history/`. A CI passou a verificar e
+publicar somente a partir da `main`, e o fluxo de aviso das pré-releases suspensas, já
+cumprido, foi removido.
 
 ## Investigação de boot — 2026-11-13
 

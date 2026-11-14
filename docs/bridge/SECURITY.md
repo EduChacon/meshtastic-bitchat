@@ -1,6 +1,6 @@
 # Segurança e limites de confiança
 
-Esta é uma implementação experimental, não uma auditoria independente nem uma garantia de
+Esta é uma versão beta sem ensaio em aparelho, não uma auditoria independente nem uma garantia de
 ausência de vulnerabilidades. BLE e texto público dedicado começam ativos nesta revisão;
 ver [padrões, chave pública e migração](DEFAULTS.md). Não há atualização
 própria, telemetria externa da ponte ou execução de comandos recebidos por mensagem.
@@ -24,26 +24,31 @@ própria, telemetria externa da ponte ou execução de comandos recebidos por me
 - Um participante que conhece a PSK pode produzir envelopes e marcadores válidos. Não
   tratamos usuários autorizados à chave como autoridades administrativas. NodeNum também
   não é identidade pessoal autenticada entre redes.
-- Na chave pública automática, qualquer pessoa pode produzir marcadores/provas de conflito.
-  Esses marcadores limitam ecos entre pontes cooperativas; não autenticam participantes como
-  confiáveis. DoS ou supressão por participante malicioso permanecem possíveis. A assinatura
+- Na chave pública automática, qualquer pessoa pode produzir provas de conflito e pôr uma
+  ponte em espera enquanto as repetir. As provas coordenam pontes cooperativas; não autenticam
+  participantes como confiáveis. DoS ou supressão por participante malicioso permanecem possíveis.
+- Sem hora confiável, a hora vem de um telefone Bitchat. Quem estiver ao alcance do Bluetooth
+  pode adiantar esse relógio e fazer a ponte recusar as mensagens dos demais até a hora
+  confiável voltar. O relógio não retrocede, e a hora do telefone não é gravada.
+- Com `LoRa: all messages`, o texto público de qualquer pessoa no `#mesh` ao alcance da ponte
+  é publicado no canal LoRa, mesmo sem ela saber da ponte. A assinatura
   Bitchat ainda é verificada; apelidos e texto de entrada nunca executam administração.
 
 ## Ameaças, defesa e como refutar
 
-| Ameaça                              | Defesa implementada                                                                  | Teste que pode refutar / lacuna                                                                              |
-| ----------------------------------- | ------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------ |
-| Frame malformado ou enorme          | Limites antes de cópia, buffers limitados, validação de comprimentos e UTF-8         | ASan/UBSan, mutações estruturadas e entradas aleatórias; callbacks BLE ainda precisam de bancada             |
-| Fragmentos consomem toda a RAM      | 3 remontagens BLE e 3 de túnel, teto por frame e prazo não renovável                 | Ocupar todas, repetir fragmento, aguardar prazo, verificar liberação e heap em rádio                         |
-| Spoof ou assinatura maleável        | Ed25519 da biblioteca upstream, S canônico, pontos inválidos/pequena ordem recusados | Vetores independentes do cliente; não substitui auditoria criptográfica externa                              |
-| Replay e reordenação                | Frescor ±120 s, ID SHA-256 canônico sem TTL, cache 256/125 s                         | Repetir antes/depois do prazo, voltar relógio e reiniciar                                                    |
-| Reinício de gateway                 | Diário de 64 IDs/10 min em NVS, gravação antes de exportação                         | Corte no ponto de gravação; erro NVS bloqueia; gravação antes de envio pode perder mensagem                  |
-| Eco entre A/B/C                     | IDs canônicos, marcador B autenticado, C recebido não é reexportado para LoRa        | Duas pontes, redes sobrepostas e B+C; não existe garantia de entrega exatamente uma vez                      |
-| Duas pontes B sobrepostas           | Prova autenticada na presença, espera 30 s e bloqueio ao detectar conflito           | Uma ponte invisível à outra pode escapar: topologia suportada exige um exportador por malha BLE/canal        |
-| Inundação e Sybil                   | Fila global LoRa 4, por conexão BLE 2, limites por peer, orçamento global            | 24 identidades podem ocupar a tabela; DoS permanece possível, sem expulsão automática de identidades válidas |
-| Um iPhone lento bloqueia outros     | Fila de saída separada por conexão, rodízio e prazo                                  | Medir justiça com 3 clientes, um sem consumir; timeout descarta conexão para ressincronizar                  |
-| Mudança de canal/PSK                | Vínculo de configuração por digest, validação repetida                               | Mudar índice, nome, PSK, MQTT ou papel com filas cheias: deve bloquear                                       |
-| Queda de tensão, firmware incorreto | Sem erase/bootloader/partições no pacote, preflight e confirmação física             | Nenhuma gravação é livre de risco; recuperação e preservação ainda não testadas                              |
+| Ameaça                              | Defesa implementada                                                                  | Teste que pode refutar / lacuna                                                                       |
+| ----------------------------------- | ------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------- |
+| Frame malformado ou enorme          | Limites antes de cópia, buffers limitados, validação de comprimentos e UTF-8         | ASan/UBSan, mutações estruturadas e entradas aleatórias; callbacks BLE ainda precisam de bancada      |
+| Fragmentos consomem toda a RAM      | 3 remontagens BLE e 3 de túnel, teto por frame e prazo não renovável                 | Ocupar todas, repetir fragmento, aguardar prazo, verificar liberação e heap em rádio                  |
+| Spoof ou assinatura maleável        | Ed25519 da biblioteca upstream, S canônico, pontos inválidos/pequena ordem recusados | Vetores independentes do cliente; não substitui auditoria criptográfica externa                       |
+| Replay e reordenação                | Frescor ±120 s, ID SHA-256 canônico sem TTL, cache 256/125 s                         | Repetir antes/depois do prazo, voltar relógio e reiniciar                                             |
+| Reinício de gateway                 | Diário de 64 IDs/10 min em NVS, gravação antes de exportação                         | Corte no ponto de gravação; erro NVS bloqueia; cheio, o ID mais antigo cede lugar                     |
+| Eco entre A/B/C                     | IDs canônicos, texto de outra ponte e texto `[MT ` nunca exportados, C não reexporta | Duas pontes, redes sobrepostas e B+C; não existe garantia de entrega exatamente uma vez               |
+| Duas pontes B sobrepostas           | Prova autenticada na presença; a de maior número de nó espera e retoma sozinha       | Uma ponte invisível à outra pode escapar e duplicar texto; prova forjável na chave pública            |
+| Inundação e Sybil                   | Fila LoRa 8, por conexão BLE 6, rajada por peer, orçamento global                    | 24 identidades ativas ocupam a tabela; só quem silencia por 5 min cede a vaga; DoS permanece possível |
+| Um iPhone lento bloqueia outros     | Fila de saída separada por conexão, rodízio e prazo                                  | Medir justiça com 3 clientes, um sem consumir; timeout descarta conexão para ressincronizar           |
+| Mudança de canal/PSK                | Vínculo de configuração por digest, validação repetida                               | Mudar índice, nome, PSK, MQTT ou papel com filas cheias: deve bloquear                                |
+| Queda de tensão, firmware incorreto | Sem erase/bootloader/partições no pacote, preflight e confirmação física             | Nenhuma gravação é livre de risco; recuperação e preservação ainda não testadas                       |
 
 O diário guarda IDs e horários, sem corpo de mensagem. Cada atualização grava somente um
 registro de 24 bytes em uma chave NVS própria, não toda a tabela; o desgaste real depende
@@ -80,8 +85,9 @@ de bancada a uso cotidiano. Nenhum binário de ponte de terceiros foi usado.
 
 ## Comportamento fechado e recuperação
 
-Relógio ausente, configuração inválida, versão de envelope desconhecida, HMAC inválido,
-fila cheia ou armazenamento falho resultam em descarte/bloqueio com contador. Não há
+Relógio ausente (até um telefone ou fonte confiável fornecer a hora), configuração inválida,
+versão de envelope desconhecida, HMAC inválido, fila cheia ou armazenamento falho resultam em
+descarte/bloqueio com contador. Não há
 fallback para Nostr, MQTT ou texto claro. Abrir Bitchat perto da ponte e usar o menu de
 estado/alternância é a recuperação normal prevista. Reboot esvazia peers e filas voláteis;
 não resolve armazenamento corrompido e não autoriza apagar NVS.

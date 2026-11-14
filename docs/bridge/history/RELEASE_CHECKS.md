@@ -42,7 +42,7 @@ tamanhos compilados e hashes a funcionamento BLE/LoRa, preservação ou rollback
 Após backup/preflight, usar **Atualizar / Update**, sem apagar flash, com o ZIP exato Heltec V3.
 Conferir estado, conectar Meshtastic para hora, abrir Bitchat e testar texto nos dois sentidos
 com outro rádio stock. Não recriar canais como tentativa de liberar memória. Ver
-[correção de memória](MEMORY_FIX.md), [início rápido](DEFAULTS.md) e [Windows](WINDOWS_RECOVERY.md).
+[correção de memória](MEMORY_FIX.md), [início rápido](../DEFAULTS.md) e [Windows](../WINDOWS_RECOVERY.md).
 O repositório permanece privado: downloads exigem login autorizado. O conector baixa artefatos
 privados da CI, mas não anexos binários privados de release; para estes, a conferência usa os
 digests da API. Não houve teste do navegador Windows/USB do operador.

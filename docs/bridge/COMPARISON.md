@@ -16,7 +16,8 @@ e [BitChatBridgeModule.cpp](https://github.com/evansmj/firmware-bitchat-plugin/b
 Essa revisão alterna o UUID principal e deriva PeerID da chave Noise. Nossa ponte já anuncia
 um UUID de 128 bits por vez e deriva o mesmo tipo de PeerID; mantém identidade própria
 persistente, sem reutilizar a chave Meshtastic. A janela nativa é explícita, com seleção
-automática adicional quando falta hora. Não foi adotado o fallback de hora aprendida de peers.
+automática adicional quando falta hora. Desde a `1.0`, na falta de hora confiável, a hora de
+um anúncio Bitchat assinado e direto é aceita, com os limites de [CHANGES.md](CHANGES.md).
 
 A [issue 4](https://github.com/evansmj/firmware-bitchat-plugin/issues/4) relata descoberta Bitchat
 apenas após desconectar Meshtastic em RAK4631/Android/2.7.10. É evidência contra presumir

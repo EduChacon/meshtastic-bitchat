@@ -77,7 +77,7 @@ não há cliente Bitchat inscrito. Nome de usuário não autentica identidade en
 
 A ausência de tela, por si só, não muda a pinagem do rádio nem torna a placa outro alvo.
 Confirmar que é **Heltec WiFi LoRa 32 V3**, ESP32-S3/SX1262, 8 MB e banda adequada. Se for,
-o arquivo do alvo Heltec V3 é o mesmo; seguir [instalação e backup](WINDOWS_RECOVERY.md).
+o arquivo do alvo Heltec V3 é o mesmo; seguir [instalação e backup](../WINDOWS_RECOVERY.md).
 Não usar esse arquivo em Heltec V2, V4, Wireless Tracker ou Wireless Stick.
 
 **Limitação da .3:** a ponte vem desligada e sua configuração depende do menu local. Não

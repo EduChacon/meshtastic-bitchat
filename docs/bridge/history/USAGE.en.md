@@ -61,7 +61,7 @@ requires checking connections and receipt in the apps.
 
 If the board is confirmed as a Heltec WiFi LoRa 32 V3, ESP32-S3/SX1262, 8 MB and appropriate
 band, removing or omitting its display does not require a different radio target. Follow
-the [backup and installation guide](WINDOWS_RECOVERY.md) with the Heltec V3 package. Do not
+the [backup and installation guide](../WINDOWS_RECOVERY.md) with the Heltec V3 package. Do not
 use it on Heltec V2/V4, Wireless Tracker or Wireless Stick.
 
 **Release .3 limitation:** the bridge defaults to OFF and depends on the local menu for setup.

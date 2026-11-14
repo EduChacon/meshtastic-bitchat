@@ -97,7 +97,7 @@ telas/opções; pressão de aproximadamente 500 ms seleciona. Não manter pressi
 vários segundos. Conectar Meshtastic primeiro para fornecer a hora; sem hora, a descoberta
 Meshtastic é automática. Depois abrir Bitchat `#mesh` e seguir [DEFAULTS](DEFAULTS.md).
 Para isolar o teste BLE, selecionar `1. Local Bitchat`; depois usar `2. Bitchat + LoRa`
-para voltar ao canal compartilhado. O fluxo e o aviso de publicação estão em [MENU_FIX](MENU_FIX.md).
+para voltar ao canal compartilhado. O fluxo e o aviso de publicação estão em [MENU_FIX](history/MENU_FIX.md).
 
 Se o Bluetooth falhar na inicialização, o status mostra `BLE failed: restart` e o log
 informa `ble-init-failed-reboot-required`; não se tenta reiniciar um controlador parcialmente

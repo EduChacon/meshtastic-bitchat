@@ -8,12 +8,12 @@ operating path. A computer is used to build, install and diagnose the firmware.
 
 **Current version (beta): [v1.0.0-beta](https://github.com/EduChacon/meshtastic-bitchat/releases/tag/v1.0.0-beta).** Drops the mandatory `!lora`, fixes
 message losses in group chat, recovers the clock without the Meshtastic app, simplifies the
-menu and adds eight ESP32-S3 devices. [What changed and why](docs/bridge/CANDIDATE.md#english).
+menu and adds eight ESP32-S3 devices. [What changed and why](docs/bridge/CHANGES.md#english).
 
 **Status: beta, no hardware acceptance.** This version was checked by host simulation
 and compilation only. None of the ten targets has been run with this firmware; eight of them
 never ran any version of the bridge. Back up before installing and read the
-[limits](docs/bridge/CANDIDATE.md#english) and the [bench procedure](docs/bridge/TESTING.md).
+[limits](docs/bridge/CHANGES.md#english) and the [bench procedure](docs/bridge/TESTING.md).
 
 ## How it works
 
@@ -95,7 +95,8 @@ SOURCE_DATE_EPOCH=1794528000 .venv/bin/pio run -e heltec-v3-bitchat -t buildprog
 These commands build software; they do not upload it. Detailed engineering documents are
 in Portuguese:
 
-- [Changes, limits and evidence for this version](docs/bridge/CANDIDATE.md#english)
+- [Documentation index](docs/bridge/README.md)
+- [Changes, limits and evidence for this version](docs/bridge/CHANGES.md#english)
 - [Default setup and the public channel key](docs/bridge/DEFAULTS.md#english)
 - [Compatibility and feature coverage](docs/bridge/COMPATIBILITY.md)
 - [Architecture and decisions](docs/bridge/ARCHITECTURE.md)
@@ -105,7 +106,7 @@ in Portuguese:
 - [Sources, provenance and licenses](docs/bridge/SOURCES.md)
 - [Comparison with other bridges](docs/bridge/COMPARISON.md)
 - [Work record](docs/bridge/WORKLOG.md) and [`.2` boot investigation](docs/bridge/BOOT_INCIDENT.md)
-- [Original firmware README](docs/bridge/README.upstream.md)
+- [Original firmware README](docs/bridge/history/README.upstream.md)
 
 This is not a MeshCore project. Firmware license: [GPL-3.0](LICENSE); dependencies keep their
 own licenses.

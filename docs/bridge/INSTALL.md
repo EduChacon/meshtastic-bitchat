@@ -127,24 +127,25 @@ O iPhone é requisito de uso, não de gravação.
 - BLE e texto público dedicado ativados uma vez no primeiro boot desta revisão, inclusive
   na atualização. O canal automático `Bitchat` é adicionado somente em espaço vazio;
   [ler o padrão e a chave pública antes de instalar](DEFAULTS.md).
-- Conectar o app Meshtastic original e fornecer a hora. Sem hora, a descoberta Meshtastic
-  é automática; depois o rádio anuncia Bitchat. Conferir região/preset/canais existentes.
+- Abrir o Bitchat perto do rádio: sem hora confiável, o primeiro telefone que conecta fornece
+  a hora. O app Meshtastic também fornece e tem precedência. Conferir região/preset/canais.
 - Manter Wi-Fi fora do caminho, desativar power saving stock que desligue BLE para o teste.
 - Adicionar somente o canal `Bitchat` ao rádio stock remoto, com a mesma chave pública,
   sem substituir sua configuração completa. Não precisa de seleção no menu para os padrões.
-- Para BLE apenas, escolher `1. Local Bitchat`. Para outro canal, usar `2. Bitchat + LoRa`,
+- Para Bluetooth apenas, escolher `Bitchat only`. Para outro canal, usar `Bitchat + LoRa`,
   canal secundário com chave de 32 bytes e MQTT desligado; confirmar a publicação de texto.
-  Canal primário não é elegível. Aguardar 30 s e testar
-  `!lora ` literal. Não há parser de administração em texto recebido.
-- Para voltar à descoberta Meshtastic: `More options → Switch phone app → Find Meshtastic: 5m` ou `Turn bridge OFF`.
+  Canal primário não é elegível. Aguardar 30 s e enviar texto comum nos dois sentidos.
+  Não há parser de administração em texto recebido.
+- Para parear o app Meshtastic: `Settings → Find Meshtastic app` (5 min) ou `Turn bridge off`.
 
 No mapeamento padrão do Heltec V3, pressões curtas em USER avançam as telas; uma pressão
 longa de cerca de 500 ms corresponde a selecionar. Na tela System, selecionar abre o menu,
 que inclui `Bitchat bridge`. Manter pressionado por muito mais tempo pode desligar o aparelho.
 Esse mapeamento foi conferido no código; navegação e resposta física do botão permanecem NT.
 
-O estado persiste, mas o relógio pode não sobreviver ao corte de energia. Falta de hora, mudança
-de canal/PSK, conflito de pontes ou erro de armazenamento bloqueia a operação correspondente.
+O estado persiste, mas o relógio pode não sobreviver ao corte de energia; ele volta com o
+primeiro telefone Bitchat que conecta. Mudança de canal/PSK ou erro de armazenamento bloqueia
+a operação correspondente; diante de outra ponte, a de maior número de nó espera.
 As filas são descartadas no reinício. Não apagar NVS para recuperar uma identidade sem analisar
 o backup, a causa e o efeito sobre clientes.
 

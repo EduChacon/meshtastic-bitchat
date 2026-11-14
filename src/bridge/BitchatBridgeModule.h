@@ -47,6 +47,8 @@ class BitchatBridgeModule : public MeshModule, private concurrency::OSThread
     bool wantUIFrame() override { return true; }
 
   private:
+    int32_t work();
+    ProcessMessage accept(const meshtastic_MeshPacket &p);
     struct Settings {
         uint32_t magic = 0x42433031;
         uint8_t enabled = 1;

@@ -9,6 +9,9 @@
 #include "mesh/mesh-pb-constants.h"
 #include <bluefruit.h>
 #include <utility/bonding.h>
+#ifdef MESHTASTIC_ENABLE_BITCHAT
+#include "bridge/BridgePlatform.h"
+#endif
 static BLEService meshBleService = BLEService(BLEUuid(MESH_SERVICE_UUID_16));
 static BLECharacteristic fromNum = BLECharacteristic(BLEUuid(FROMNUM_UUID_16));
 static BLECharacteristic fromRadio = BLECharacteristic(BLEUuid(FROMRADIO_UUID_16));
@@ -45,7 +48,12 @@ class BluetoothPhoneAPI : public PhoneAPI
         PhoneAPI::onNowHasData(fromRadioNum);
 
         LOG_INFO("BLE notify fromNum");
+#ifdef MESHTASTIC_ENABLE_BITCHAT
+        // With two links the library's default would be the newest one, which may be a Bitchat phone.
+        fromNum.notify32(connectionHandle, fromRadioNum);
+#else
         fromNum.notify32(fromRadioNum);
+#endif
     }
 
     /// Check the current underlying physical link to see if the client is currently connected
@@ -61,7 +69,13 @@ void onConnect(uint16_t conn_handle)
 {
     // Get the reference to current connection
     BLEConnection *connection = Bluefruit.Connection(conn_handle);
+#ifdef MESHTASTIC_ENABLE_BITCHAT
+    // A second link must not take the app's place; the app's link is confirmed when it uses the mesh service.
+    if (!Bluefruit.connected(connectionHandle))
+        connectionHandle = conn_handle;
+#else
     connectionHandle = conn_handle;
+#endif
     char central_name[32] = {0};
     connection->getPeerName(central_name, sizeof(central_name));
     LOG_INFO("BLE Connected to %s", central_name);
@@ -78,6 +92,10 @@ void onConnect(uint16_t conn_handle)
 void onDisconnect(uint16_t conn_handle, uint8_t reason)
 {
     LOG_INFO("BLE Disconnected, reason = 0x%x", reason);
+#ifdef MESHTASTIC_ENABLE_BITCHAT
+    if (conn_handle != connectionHandle)
+        return;
+#endif
     if (bluetoothPhoneAPI) {
         bluetoothPhoneAPI->close();
     }
@@ -110,6 +128,9 @@ void onCccd(uint16_t conn_hdl, BLECharacteristic *chr, uint16_t cccd_value)
     // and cccd value = 0x0002 means indications are enabled
 
     if (chr->uuid == fromNum.uuid || chr->uuid == logRadio.uuid) {
+#ifdef MESHTASTIC_ENABLE_BITCHAT
+        connectionHandle = conn_hdl;
+#endif
         auto result = cccd_value == 2 ? chr->indicateEnabled(conn_hdl) : chr->notifyEnabled(conn_hdl);
         if (result) {
             LOG_INFO("Notify/Indicate enabled");
@@ -155,6 +176,9 @@ static void authorizeRead(uint16_t conn_hdl)
  */
 void onFromRadioAuthorize(uint16_t conn_hdl, BLECharacteristic *chr, ble_gatts_evt_read_t *request)
 {
+#ifdef MESHTASTIC_ENABLE_BITCHAT
+    connectionHandle = conn_hdl;
+#endif
     if (request->offset == 0) {
         // If the read is long, we will get multiple authorize invocations - we only populate data on the first
         size_t numBytes = bluetoothPhoneAPI->getFromRadio(fromRadioBytes);
@@ -170,6 +194,9 @@ void onFromRadioAuthorize(uint16_t conn_hdl, BLECharacteristic *chr, ble_gatts_e
 void onToRadioWrite(uint16_t conn_hdl, BLECharacteristic *chr, uint8_t *data, uint16_t len)
 {
     LOG_INFO("toRadioWriteCb data %p, len %u", data, len);
+#ifdef MESHTASTIC_ENABLE_BITCHAT
+    connectionHandle = conn_hdl;
+#endif
     if (memcmp(lastToRadio, data, len) != 0) {
         LOG_DEBUG("New ToRadio packet");
         memcpy(lastToRadio, data, len);
@@ -231,6 +258,9 @@ void NRF52Bluetooth::shutdown()
 {
     // Shutdown bluetooth for minimum power draw
     LOG_INFO("Disable NRF52 bluetooth");
+#ifdef MESHTASTIC_ENABLE_BITCHAT
+    nimbleBluetooth->up = false;
+#endif
     Bluefruit.Security.setPairPasskeyCallback(NRF52Bluetooth::onUnwantedPairing); // Actively refuse (during factory reset)
     disconnect();
     Bluefruit.Advertising.stop();
@@ -242,6 +272,9 @@ void NRF52Bluetooth::startDisabled()
     // Shutdown bluetooth for minimum power draw
     Bluefruit.Advertising.stop();
     Bluefruit.setTxPower(-40); // Minimum power
+#ifdef MESHTASTIC_ENABLE_BITCHAT
+    nimbleBluetooth->up = false;
+#endif
     LOG_INFO("Disable NRF52 Bluetooth. (Workaround: tx power min, advertise stopped)");
 }
 bool NRF52Bluetooth::isConnected()
@@ -264,7 +297,15 @@ void NRF52Bluetooth::setup()
     LOG_INFO("Init the Bluefruit nRF52 module");
     Bluefruit.autoConnLed(false);
     Bluefruit.configPrphBandwidth(BANDWIDTH_MAX);
+#ifdef MESHTASTIC_ENABLE_BITCHAT
+    // A second link lets a Bitchat phone find and reach the bridge while the Meshtastic app holds the first.
+    // Three queued write commands and a larger attribute table serve the bridge's own characteristic.
+    Bluefruit.configPrphConn(247, 100, 3, 3);
+    Bluefruit.configAttrTableSize(0x1400);
+    Bluefruit.begin(2, 0);
+#else
     Bluefruit.begin();
+#endif
     // Clear existing data.
     Bluefruit.Advertising.stop();
     Bluefruit.Advertising.clearData();
@@ -340,17 +381,40 @@ void NRF52Bluetooth::setup()
     // BLEService and BLECharacteristic classes
     LOG_INFO("Init the Mesh bluetooth service");
     setupMeshService();
+#ifdef MESHTASTIC_ENABLE_BITCHAT
+    bitchat::platformAttach();
+#endif
     // Setup the advertising packet(s)
     LOG_INFO("Set up the advertising payload(s)");
     startAdv();
     LOG_INFO("Advertise");
+#ifdef MESHTASTIC_ENABLE_BITCHAT
+    nimbleBluetooth->up = true;
+#endif
 }
+#ifdef MESHTASTIC_ENABLE_BITCHAT
+void bitchat::nativeAdvertising()
+{
+    Bluefruit.Advertising.stop();
+    Bluefruit.Advertising.clearData();
+    Bluefruit.ScanResponse.clearData();
+    startAdv();
+}
+void bitchat::nativeScanResponse()
+{
+    Bluefruit.ScanResponse.addService(meshBleService);
+    Bluefruit.ScanResponse.addName();
+}
+#endif
 void NRF52Bluetooth::resumeAdvertising()
 {
     Bluefruit.Advertising.restartOnDisconnect(true);
     Bluefruit.Advertising.setInterval(32, 668); // in unit of 0.625 ms
     Bluefruit.Advertising.setFastTimeout(30);   // number of seconds in fast mode
     Bluefruit.Advertising.start(0);
+#ifdef MESHTASTIC_ENABLE_BITCHAT
+    nimbleBluetooth->up = true;
+#endif
 }
 /// Given a level between 0-100, update the BLE attribute
 void updateBatteryLevel(uint8_t level)

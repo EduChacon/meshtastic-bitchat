@@ -2,6 +2,7 @@
 #include "BitchatBridgeModule.h"
 #include "BridgeDefaults.h"
 #include "BridgeDiagnostics.h"
+#include "BridgePlatform.h"
 #include "MeshService.h"
 #include "NodeDB.h"
 #include "RTC.h"
@@ -9,7 +10,6 @@
 #include "airtime.h"
 #include "graphics/Screen.h"
 #include "main.h"
-#include "nimble/NimbleBluetooth.h"
 #include <Curve25519.h>
 #include <HKDF.h>
 #include <esp_system.h>
@@ -913,6 +913,22 @@ bool BitchatBridgeModule::wantPacket(const meshtastic_MeshPacket *packet)
 
 ProcessMessage BitchatBridgeModule::handleReceived(const meshtastic_MeshPacket &packet)
 {
+    struct Call {
+        BitchatBridgeModule *self;
+        const meshtastic_MeshPacket *packet;
+        ProcessMessage result;
+    } call{this, &packet, ProcessMessage::CONTINUE};
+    onLargeStack(
+        [](void *argument) {
+            auto *c = static_cast<Call *>(argument);
+            c->result = c->self->accept(*c->packet);
+        },
+        &call);
+    return call.result;
+}
+
+ProcessMessage BitchatBridgeModule::accept(const meshtastic_MeshPacket &packet)
+{
     if (!wantPacket(&packet) || packet.to != NODENUM_BROADCAST || packet.via_mqtt ||
         packet.which_payload_variant != meshtastic_MeshPacket_decoded_tag)
         return ProcessMessage::CONTINUE;
@@ -1047,6 +1063,21 @@ void BitchatBridgeModule::sendRadio()
 }
 
 int32_t BitchatBridgeModule::runOnce()
+{
+    struct Call {
+        BitchatBridgeModule *self;
+        int32_t next;
+    } call{this, 1000};
+    onLargeStack(
+        [](void *argument) {
+            auto *c = static_cast<Call *>(argument);
+            c->next = c->self->work();
+        },
+        &call);
+    return call.next;
+}
+
+int32_t BitchatBridgeModule::work()
 {
     const uint32_t now = millis();
     const bool bluetoothReady = nimbleBluetooth && nimbleBluetooth->isActive() && !nimbleBluetooth->isDeInit;

@@ -10,11 +10,13 @@ operating path. A computer is used to build, install and diagnose the firmware.
 message losses in group chat, recovers the clock without the Meshtastic app, simplifies the
 menu and adds eight ESP32-S3 devices. [What changed and why](docs/bridge/CHANGES.md#english).
 
-**Status: beta, with an open defect on the only device tested.** On a Heltec V3 with Bitchat
-iOS 1.8.0, versions up to `1.0.0-beta.3` did not exchange messages with the app: the phone
-connects and subscribes but sends nothing to the radio. `1.0.0-beta.4` adds a second path, in
-which the radio subscribes to the service the app itself publishes; it has **not yet been run
-on hardware**. The other nine targets were only compiled. Back up before installing and read the
+**Status: beta, with one device reported working.** On a Heltec V3 with Bitchat iOS 1.8.0,
+versions up to `1.0.0-beta.3` did not exchange messages with the app: the phone connected and
+subscribed but sent nothing to the radio. With `1.0.0-beta.4` the operator reported the phone
+recognised (`Phones 1/1`, `People 2`) and text in both directions (`LoRa out 2 in 1`). This is
+a usage report, not a full bench test: there is no measurement of which change in the version
+fixed it, and no endurance test. The other nine targets were only compiled. Back up before
+installing and read the
 [limits](docs/bridge/CHANGES.md#english) and the [bench procedure](docs/bridge/TESTING.md).
 
 ## How it works

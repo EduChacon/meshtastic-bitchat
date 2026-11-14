@@ -4,8 +4,10 @@
 compilação. Nenhum dos dez alvos foi ligado com este firmware, e oito deles nunca receberam
 versão alguma da ponte. Fazer backup privado antes de instalar. Não há garantia de risco zero.
 
-**`1.0.0-beta.2` e `1.0.0-beta` têm o mesmo firmware.** A `.2` muda a entrega: um único ZIP
-para todos os aparelhos, em vez de um pacote por modelo.
+**O que a `1.0.0-beta.2` muda em relação à `1.0.0-beta`:** um único ZIP para todos os
+aparelhos, em vez de um pacote por modelo; e o canal padrão `Bitchat` passa a ser recriado
+sempre que faltar. Na `1.0.0-beta`, um rádio que já tinha recebido uma revisão anterior não
+criava o canal de novo, como relatado no primeiro teste em aparelho.
 
 ## O que muda em relação à `experimental.5`
 
@@ -66,7 +68,7 @@ A base permanece Meshtastic 2.7.26.54e0d8d.
 
 ## English
 
-**Same firmware as `1.0.0-beta`; `.2` ships one ZIP for every board. No hardware acceptance.** This version was checked by host simulation and compilation only.
+**Since `1.0.0-beta`: one ZIP for every board, and the default `Bitchat` channel is created again whenever it is missing. No hardware acceptance.** This version was checked by host simulation and compilation only.
 None of the ten targets has been run with it; eight never ran any version of the bridge.
 
 Changes since `experimental.5`: `!lora` is optional (every public `#mesh` message goes to the LoRa channel

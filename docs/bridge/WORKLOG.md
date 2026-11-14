@@ -103,9 +103,16 @@ para a `1.0` e documentos das revisões anteriores em `history/`. A CI passou a 
 publicar somente a partir da `main`, e o fluxo de aviso das pré-releases suspensas, já
 cumprido, foi removido.
 
-A `1.0.0-beta.2` muda só a forma de entrega, a pedido do operador: um único ZIP para os dez
-aparelhos, aceito pelo flasher oficial, com os pacotes por modelo e as ferramentas de backup
-no pacote técnico. O firmware é o mesmo da `1.0.0-beta`.
+A `1.0.0-beta.2` muda a entrega, a pedido do operador: um único ZIP para os dez aparelhos,
+aceito pelo flasher oficial, com os pacotes por modelo e as ferramentas de backup no pacote
+técnico.
+
+Primeiro relato em aparelho, na `1.0.0-beta`: no rádio em que o ZIP foi instalado, o canal
+`Bitchat` não apareceu. O estado da tela não foi informado, e a causa exata naquele aparelho
+não foi determinada. A leitura do código mostrou que a criação do canal só ocorria uma vez por
+aparelho e que uma posição escrita pelo aplicativo com ajustes de módulo padrão não era aceita
+como vazia. A `.2` recria o canal padrão sempre que ele falta, salvo escolha de `Bitchat only`
+ou de outro canal, aceita essas posições e mostra `No LoRa channel` quando não há posição livre.
 
 ## Investigação de boot — 2026-11-13
 

@@ -24,9 +24,14 @@ Bitchat, e **todo texto público do `#mesh` ao alcance da ponte é publicado nes
 mesmo de quem não sabe que a ponte existe. Nome igual sozinho não basta: um canal
 preexistente com outra chave, papel ou MQTT não é escolhido nem sobrescrito.
 
+O canal padrão faz parte da configuração de fábrica da ponte: se faltar depois (lista de
+canais apagada, configuração restaurada, rádio que veio de uma revisão anterior), ele é
+recriado em até 10 segundos. Isso só não acontece se o operador escolheu `Bitchat only` ou
+outro canal no menu.
+
 Sem espaço vazio, com nome conflitante, modo radioamador licenciado ou erro de configuração,
-a criação automática não prossegue: o Bluetooth local continua e a tela orienta a escolher um
-canal pelo menu, com consentimento. Falha de escrita, de identidade ou falta de memória
+a criação não prossegue: o Bluetooth local continua e a tela mostra `No LoRa channel` e
+`Free a channel in app`. Ao liberar uma posição no aplicativo Meshtastic, o canal é criado. Falha de escrita, de identidade ou falta de memória
 bloqueia a ponte. Bluetooth desativado ou economia de energia stock não são reconfigurados
 automaticamente: corrigir essas opções pelo aplicativo Meshtastic.
 

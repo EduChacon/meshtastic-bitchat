@@ -31,7 +31,7 @@ BitchatBridgeModule::BitchatBridgeModule() : MeshModule("bitchat"), OSThread("bi
         if (storage.getBytesLength("settings") != sizeof(settings) ||
             storage.getBytes("settings", &settings, sizeof(settings)) != sizeof(settings) || settings.magic != 0x42433031 ||
             settings.enabled > 1 || settings.economy > 1 || settings.privateTunnel > 1 || settings.reserved[0] > 1 ||
-            settings.reserved[1] > 1) {
+            settings.reserved[1] > 1 || settings.reserved[2] > 1) {
             settings = Settings{};
             storageReady = false;
         }
@@ -136,9 +136,10 @@ uint8_t BitchatBridgeModule::provisionPublicChannel()
                 return 255;
             return i;
         }
+        // Apps may write an unused slot with default module settings; that is still an empty slot.
         if (available == 255 && i != channels.getPrimaryIndex() && channel.role == meshtastic_Channel_Role_DISABLED &&
             s.name[0] == 0 && s.psk.size == 0 && s.channel_num == 0 && s.id == 0 && !s.uplink_enabled && !s.downlink_enabled &&
-            !s.has_module_settings)
+            (!s.has_module_settings || (s.module_settings.position_precision == 0 && !s.module_settings.is_muted)))
             available = i;
     }
     if (available == 255)
@@ -183,6 +184,30 @@ void BitchatBridgeModule::applyDefaults()
     // Apply this migration once; subsequent explicit OFF/local-only choices
     // survive reboot.
     settings.enabled = true;
+    textGuardAt = millis();
+    persist();
+    refreshChannels();
+}
+
+// The public channel is part of the out-of-the-box setup. Unless the operator chose Bluetooth only or
+// another channel, it is created again whenever it is missing, so a wiped channel list heals by itself.
+void BitchatBridgeModule::ensureDefaultChannel()
+{
+    if (defaultsPending || !storageReady || !settings.enabled || settings.reserved[2] || textReady)
+        return;
+    Digest standard;
+    publicBinding(standard);
+    if (settings.textChannel != 255 && settings.textBinding != standard)
+        return;
+    const uint8_t channel = provisionPublicChannel();
+    Digest fingerprint{};
+    if (channel == 255 || !binding(channel, fingerprint)) {
+        defaultChannelUnavailable = true;
+        return;
+    }
+    settings.textChannel = channel;
+    settings.textBinding = fingerprint;
+    defaultChannelUnavailable = false;
     textGuardAt = millis();
     persist();
     refreshChannels();
@@ -285,6 +310,7 @@ bool BitchatBridgeModule::startBasicMode(uint8_t channel)
     }
     settings.textChannel = channel;
     settings.textBinding = fingerprint;
+    settings.reserved[2] = channel == 255;
     settings.tunnelChannel = 255;
     settings.tunnelBinding = {};
     settings.privateTunnel = false;
@@ -332,18 +358,28 @@ bool BitchatBridgeModule::eligibleChannel(uint8_t index) const
            !channels.isDefaultChannel(index);
 }
 
+static void bindingOf(const char *name, size_t nameSize, const uint8_t *psk, Digest &out)
+{
+    SHA256 sha;
+    static const char purpose[] = "meshtastic-bitchat/channel/v1";
+    sha.update(purpose, sizeof(purpose));
+    sha.update(name, nameSize);
+    sha.update(psk, 32);
+    sha.finalize(out.data(), out.size());
+}
+
 bool BitchatBridgeModule::binding(uint8_t index, Digest &out) const
 {
     if (!eligibleChannel(index))
         return false;
     const auto &s = channels.getByIndex(index).settings;
-    SHA256 sha;
-    static const char purpose[] = "meshtastic-bitchat/channel/v1";
-    sha.update(purpose, sizeof(purpose));
-    sha.update(s.name, strnlen(s.name, sizeof(s.name)));
-    sha.update(s.psk.bytes, 32);
-    sha.finalize(out.data(), out.size());
+    bindingOf(s.name, strnlen(s.name, sizeof(s.name)), s.psk.bytes, out);
     return true;
+}
+
+void BitchatBridgeModule::publicBinding(Digest &out) const
+{
+    bindingOf(PUBLIC_CHANNEL_NAME, sizeof(PUBLIC_CHANNEL_NAME) - 1, PUBLIC_CHANNEL_KEY.data(), out);
 }
 
 bool BitchatBridgeModule::setChannel(bool tunnel, uint8_t index)
@@ -354,6 +390,7 @@ bool BitchatBridgeModule::setChannel(bool tunnel, uint8_t index)
     (tunnel ? settings.tunnelChannel : settings.textChannel) = index;
     (tunnel ? settings.tunnelBinding : settings.textBinding) = fingerprint;
     if (!tunnel) {
+        settings.reserved[2] = index == 255;
         textConflict = false;
         textGuardAt = millis();
     }
@@ -434,6 +471,8 @@ const char *BitchatBridgeModule::status() const
         return "Meshtastic app: 5 min";
     if ((settings.textChannel != 255 && !textReady) || (settings.tunnelChannel != 255 && !tunnelReady))
         return "LoRa channel changed";
+    if (settings.textChannel == 255 && !settings.reserved[2] && defaultChannelUnavailable)
+        return "No LoRa channel";
     if (textConflict)
         return "Standby: other bridge";
     if (textReady && textGuard())
@@ -454,8 +493,8 @@ const char *BitchatBridgeModule::hint() const
         return "Open Bitchat nearby";
     if ((settings.textChannel != 255 && !textReady) || (settings.tunnelChannel != 255 && !tunnelReady))
         return "Choose it again in menu";
-    if (defaultChannelUnavailable && settings.textChannel == 255)
-        return "No free LoRa channel";
+    if (settings.textChannel == 255 && !settings.reserved[2] && defaultChannelUnavailable)
+        return "Free a channel in app";
     return "";
 }
 
@@ -867,6 +906,10 @@ int32_t BitchatBridgeModule::runOnce()
     const bool bluetoothReady = nimbleBluetooth && nimbleBluetooth->isActive() && !nimbleBluetooth->isDeInit;
     if (bluetoothReady && !resourceError)
         applyDefaults();
+    if (!Throttle::isWithinTimespanMsAt(defaultChannelAt, 10000, now)) {
+        defaultChannelAt = now;
+        ensureDefaultChannel();
+    }
     if (settings.enabled && storageReady && config.bluetooth.enabled && !config.power.is_power_saving && bluetoothReady &&
         !resourceError && ensureRuntime() && !identityReady)
         initIdentity();

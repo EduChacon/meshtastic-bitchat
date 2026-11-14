@@ -67,6 +67,10 @@ host; **não há medição em aparelho que atribua a eles a instabilidade observ
     ouve outro nó retransmitir. O texto da ponte passa a usar o mesmo mecanismo no perfil fixo;
     com `Battery saver`, continua em transmissão única.
 
+11. **Canal padrão criado uma única vez.** Se o canal faltasse depois do primeiro boot, a ponte
+    não o recriava nem avisava. Agora ele é recriado sempre que falta, salvo escolha explícita
+    de `Bitchat only` ou de outro canal, e a tela avisa quando não há posição livre.
+
 Eficiência: as chaves de canal eram derivadas a cada 20 ms e agora só quando o canal muda; a
 ponte deixa de assinar anúncios e de registrar importações quando nenhum telefone está inscrito.
 

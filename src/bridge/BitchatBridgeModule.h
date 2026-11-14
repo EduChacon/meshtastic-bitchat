@@ -51,7 +51,7 @@ class BitchatBridgeModule : public MeshModule, private concurrency::OSThread
         uint8_t textChannel = 255;
         uint8_t tunnelChannel = 255;
         uint8_t privateTunnel = 0;
-        // [0] defaults applied; [1] export only text typed with the "!lora " prefix
+        // [0] defaults applied; [1] export only "!lora " text; [2] operator chose Bluetooth only
         uint8_t reserved[3]{};
         bitchat::Digest textBinding{};
         bitchat::Digest tunnelBinding{};
@@ -74,7 +74,7 @@ class BitchatBridgeModule : public MeshModule, private concurrency::OSThread
     bool textReady = false, tunnelReady = false;
     bool wasActive = false;
     bool textConflict = false;
-    uint32_t textGuardAt = 0, conflictAt = 0, channelsAt = 0, announcedAt = 0;
+    uint32_t textGuardAt = 0, conflictAt = 0, channelsAt = 0, announcedAt = 0, defaultChannelAt = 0;
     uint32_t nativeOpenedAt = 0;
     bool nativeWindow = false;
     uint32_t bootId = 0, sequence = 0, lastBudget = 0;
@@ -106,6 +106,8 @@ class BitchatBridgeModule : public MeshModule, private concurrency::OSThread
     bool ensureRuntime();
     void applyDefaults();
     uint8_t provisionPublicChannel();
+    void ensureDefaultChannel();
+    void publicBinding(bitchat::Digest &out) const;
     void updateClockWindow();
     void releaseRuntime();
     bool persist();

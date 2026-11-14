@@ -454,6 +454,27 @@ int main()
     run(3000);
     CHECK(radio().size() == 2);
     delete bridge;
+
+    // The channel list was wiped, as after a configuration reset: the default channel returns by
+    // itself. Choosing Bluetooth only afterwards is respected.
+    auto wipe = [] {
+        channels.items[1] = meshtastic_Channel{};
+        channels.items[1].index = 1;
+    };
+    bridge = new Bridge;
+    run(1000);
+    wipe();
+    run(2000);
+    CHECK(std::string(bridge->status()) == "LoRa channel changed");
+    run(12000);
+    CHECK(!strcmp(channels.items[1].settings.name, PUBLIC_CHANNEL_NAME) && bridge->textChannel() == 1);
+    CHECK(std::string(bridge->status()) == "Starting LoRa: 30 s");
+    CHECK(bridge->startBasicMode());
+    wipe();
+    run(15000);
+    CHECK(channels.items[1].role == meshtastic_Channel_Role_DISABLED);
+    CHECK(std::string(bridge->status()) == "Ready: Bitchat only");
+    delete bridge;
     bleDetach();
     CHECK(liveBytes == 0);
     std::cout << "PASS: " << checks

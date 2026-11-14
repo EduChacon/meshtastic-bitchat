@@ -50,6 +50,7 @@ with tempfile.TemporaryDirectory(prefix="bridge-defaults-") as directory:
                 "bool BitchatBridgeModule::persist()",
                 "uint8_t BitchatBridgeModule::provisionPublicChannel()",
                 "void BitchatBridgeModule::applyDefaults()",
+                "void BitchatBridgeModule::ensureDefaultChannel()",
                 "void BitchatBridgeModule::updateClockWindow()",
             )
         )

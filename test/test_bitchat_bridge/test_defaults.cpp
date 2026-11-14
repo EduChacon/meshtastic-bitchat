@@ -22,6 +22,7 @@ struct ChannelSettings {
     bool uplink_enabled = false, downlink_enabled = false, has_module_settings = false;
     struct {
         unsigned position_precision = 0;
+        bool is_muted = false;
     } module_settings;
 };
 enum { meshtastic_Channel_Role_DISABLED, meshtastic_Channel_Role_PRIMARY, meshtastic_Channel_Role_SECONDARY };
@@ -124,13 +125,16 @@ class BitchatBridgeModule : MeshModule, OSThread
     Preferences storage;
     bool storageReady = false, identityReady = false, advertisingChanged = true;
     bool defaultsPending = false, defaultChannelUnavailable = false, clockWindow = false;
-    bool memoryOk = true, identityOk = true;
+    bool memoryOk = true, identityOk = true, textReady = false;
+    unsigned publicIndex = 1;
     uint32_t bootId = 0, textGuardAt = 0;
     uint64_t time = 0, clockFloor = 0;
     BitchatBridgeModule();
     bool persist();
     uint8_t provisionPublicChannel();
     void applyDefaults();
+    void ensureDefaultChannel();
+    void publicBinding(Digest &digest) const { digest.fill(publicIndex); }
     void updateClockWindow();
     void refreshChannels() {}
     bool ensureRuntime() { return memoryOk; }
@@ -337,6 +341,70 @@ int main()
         corrupt.applyDefaults();
         assert(!corrupt.storageReady && channels.mutations == 0);
     }
+    auto wipe = [](unsigned slot) {
+        channels.items[slot] = {};
+        channels.items[slot].index = slot;
+    };
+    // The channel list was wiped after the defaults had been applied: the default channel comes back by itself.
+    reset();
+    {
+        BitchatBridgeModule first;
+        first.applyDefaults();
+        assert(first.settings.textChannel == 1);
+    }
+    wipe(1);
+    BitchatBridgeModule wiped;
+    wiped.applyDefaults();
+    assert(channels.items[1].role == meshtastic_Channel_Role_DISABLED && wiped.settings.textChannel == 1);
+    wiped.ensureDefaultChannel();
+    assert(channels.items[1].role == meshtastic_Channel_Role_SECONDARY && !strcmp(channels.items[1].settings.name, "Bitchat"));
+    assert(wiped.settings.textChannel == 1 && !wiped.defaultChannelUnavailable);
+    // An app wrote the unused slots with default module settings: they are still empty slots.
+    reset();
+    for (unsigned i = 1; i < 4; ++i)
+        channels.items[i].settings.has_module_settings = true;
+    BitchatBridgeModule written;
+    written.applyDefaults();
+    assert(written.settings.textChannel == 1);
+    // No usable slot at first boot, one freed later: the channel is created then, without the menu.
+    reset();
+    for (unsigned i = 1; i < 4; ++i) {
+        channels.items[i].settings.has_module_settings = true;
+        channels.items[i].settings.module_settings.is_muted = true;
+    }
+    BitchatBridgeModule full;
+    full.applyDefaults();
+    assert(full.settings.enabled && full.settings.textChannel == 255 && full.defaultChannelUnavailable);
+    wipe(2);
+    full.ensureDefaultChannel();
+    assert(full.settings.textChannel == 2 && !full.defaultChannelUnavailable);
+    // The operator chose Bluetooth only: the channel is not created behind their back.
+    reset();
+    BitchatBridgeModule local;
+    local.applyDefaults();
+    local.settings.textChannel = 255;
+    local.settings.textBinding = {};
+    local.settings.reserved[2] = 1;
+    assert(local.persist());
+    wipe(1);
+    BitchatBridgeModule stays;
+    stays.ensureDefaultChannel();
+    assert(channels.items[1].role == meshtastic_Channel_Role_DISABLED && stays.settings.textChannel == 255);
+    // The operator chose another channel that later changed: it is not replaced by the public one.
+    reset();
+    BitchatBridgeModule custom;
+    custom.applyDefaults();
+    custom.settings.textChannel = 2;
+    custom.settings.textBinding.fill(2);
+    assert(custom.persist());
+    const unsigned mutations = channels.mutations;
+    custom.ensureDefaultChannel();
+    assert(custom.settings.textChannel == 2 && channels.mutations == mutations);
+    // A bridge that is off creates nothing.
+    custom.settings.textChannel = 255;
+    custom.settings.enabled = false;
+    custom.ensureDefaultChannel();
+    assert(custom.settings.textChannel == 255 && channels.mutations == mutations);
     puts("PASS: automatic public channel, legacy migration, OFF/local persistence, private-channel preservation, failures, clock "
-         "discovery");
+         "discovery, default channel restored when missing");
 }

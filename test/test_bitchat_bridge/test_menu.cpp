@@ -37,7 +37,7 @@ class BitchatBridgeModule
   public:
     struct {
         bool enabled = false, economy = false, privateTunnel = false, prefixOnly = false;
-        uint8_t textChannel = 255, tunnelChannel = 255;
+        uint8_t textChannel = 255, tunnelChannel = 255, reserved[3]{};
         Digest textBinding{}, tunnelBinding{};
     } settings;
     struct Runtime {

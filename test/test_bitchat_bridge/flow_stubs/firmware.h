@@ -73,6 +73,7 @@ struct meshtastic_Channel {
         bool uplink_enabled = false, downlink_enabled = false, has_module_settings = false;
         struct {
             unsigned position_precision = 0;
+            bool is_muted = false;
         } module_settings;
     } settings;
 };

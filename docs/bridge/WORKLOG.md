@@ -255,6 +255,8 @@ marcado chega aos telefones com o nome marcado, em todas as partes. A escolha `!
 on/off` fica em uma entrada própria da memória, sem mudar o formato das configurações já
 gravadas; no T1000-E ela não sobrevive ao reinício. Verificado só em simulação (643 verificações
 do núcleo e 997 de fluxo) e por compilação.
+Antes do envio à `main`, a execução 43652380386 do ramo de trabalho compilou o Heltec V3 com a
+análise estática e o T1000-E, com e sem a ponte, sem falhas.
 
 ## Investigação de boot — 2026-11-13
 

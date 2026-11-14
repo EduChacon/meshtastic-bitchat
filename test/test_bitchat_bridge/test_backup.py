@@ -24,9 +24,9 @@ SPEC.loader.exec_module(BACKUP)
 
 
 class BackupTests(unittest.TestCase):
-    def fixture(self, directory):
-        archive = test_artifacts.PackageTests().archive(directory)
-        data = bytes(8388608)
+    def fixture(self, directory, model="heltec-v3"):
+        archive = test_artifacts.PackageTests().archive(directory, model=model)
+        data = bytes(PREFLIGHT.MODELS[model][1])
         with zipfile.ZipFile(archive) as source:
             entries = {name: source.read(name) for name in source.namelist()}
         manifest = json.loads(entries["bridge-manifest.json"])
@@ -76,6 +76,44 @@ class BackupTests(unittest.TestCase):
             self.assertNotIn("synthetic-private-id", output.getvalue())
             self.assertNotIn("write_flash", str(commands))
             self.assertNotIn("erase_flash", str(commands))
+
+    def test_sixteen_megabyte_board_reads_its_whole_flash(self):
+        with tempfile.TemporaryDirectory() as directory:
+            archive, data = self.fixture(directory, "t-deck")
+            commands = []
+
+            def run(command, **kwargs):
+                commands.append(command)
+                if "flash_id" in command:
+                    return SimpleNamespace(
+                        returncode=0,
+                        stdout="Chip is ESP32-S3\nDetected flash size: 16 MB",
+                    )
+                Path(command[-1]).write_bytes(data)
+                return SimpleNamespace(returncode=0, stdout="")
+
+            with contextlib.redirect_stdout(io.StringIO()):
+                private = BACKUP.prepare(
+                    archive, "t-deck", "COM3", Path(directory) / "private", run=run
+                )
+            self.assertIn("0x1000000", commands[1])
+            self.assertEqual(len((private / "flash-private.bin").read_bytes()), 2**24)
+            # The same radio reporting 8 MB is refused before any full read.
+            commands.clear()
+
+            def small(command, **kwargs):
+                commands.append(command)
+                return SimpleNamespace(
+                    returncode=0, stdout="Chip is ESP32-S3\nDetected flash size: 8 MB"
+                )
+
+            with contextlib.redirect_stdout(io.StringIO()), self.assertRaises(
+                ValueError
+            ):
+                BACKUP.prepare(
+                    archive, "t-deck", "COM4", Path(directory) / "private", run=small
+                )
+            self.assertEqual(len(commands), 1)
 
     def test_wrong_chip_capacity_or_read_failure_stops(self):
         for identity, result in (

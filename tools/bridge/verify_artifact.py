@@ -8,7 +8,21 @@ import struct
 import zipfile
 from pathlib import Path
 
-MODELS = {"heltec-v3": 43, "m5stack-cardputer-adv": 112}
+# Model: (Meshtastic hardware model, flash bytes). All are ESP32-S3 with the stock application slot at 0x10000.
+MODELS = {
+    "heltec-v3": (43, 8388608),
+    "heltec-v4": (110, 16777216),
+    "heltec-wsl-v3": (44, 8388608),
+    "heltec-wireless-tracker": (48, 8388608),
+    "heltec-wireless-paper": (49, 8388608),
+    "tbeam-s3-core": (12, 8388608),
+    "seeed-xiao-s3": (81, 8388608),
+    "t-deck": (50, 16777216),
+    "station-g2": (31, 16777216),
+    "m5stack-cardputer-adv": (112, 8388608),
+}
+# Reviewed size of the first application slot for each flash size.
+APP_SLOT = {8388608: 0x330000, 16777216: 0x640000}
 
 
 def digest(value):
@@ -16,9 +30,13 @@ def digest(value):
 
 
 def verify_dump(data, manifest):
-    if len(data) != 8388608 or manifest.get("partition_table_bytes") != 3072:
+    if (
+        manifest.get("flash_bytes") not in APP_SLOT
+        or len(data) != manifest["flash_bytes"]
+        or manifest.get("partition_table_bytes") != 3072
+    ):
         raise ValueError(
-            "Expected complete 8 MB backup and reviewed partition table size"
+            "Expected complete flash backup and reviewed partition table size"
         )
     if digest(data[0x8000:0x8C00]) != manifest["partition_table_sha256"]:
         raise ValueError("Partition layout differs; stop, do not erase")
@@ -34,16 +52,19 @@ def verify_package(archive, model):
             raise ValueError("Duplicate or unexpected archive members")
         if any(Path(n).name != n or n.startswith(".") for n in names):
             raise ValueError("Unsafe archive name")
-        if sum(p.file_size for p in entries) > 4 * 1024 * 1024:
+        if sum(p.file_size for p in entries) > 8 * 1024 * 1024:
             raise ValueError("Oversized archive")
         manifest = json.loads(package.read("bridge-manifest.json"))
         if (
             manifest.get("schema") != 1
             or manifest.get("model") != model
-            or manifest.get("hardware_model") != MODELS[model]
+            or manifest.get("hardware_model") != MODELS[model][0]
         ):
             raise ValueError("Wrong model or manifest version")
-        if manifest.get("chip") != "esp32-s3" or manifest.get("flash_bytes") != 8388608:
+        if (
+            manifest.get("chip") != "esp32-s3"
+            or manifest.get("flash_bytes") != MODELS[model][1]
+        ):
             raise ValueError("Unreviewed chip or flash size")
         name = manifest["application"]
         if not name.startswith(f"firmware-{model}-bridge-") or not name.endswith(
@@ -66,7 +87,7 @@ def verify_package(archive, model):
         ) != manifest.get("application_sha256"):
             raise ValueError("Application integrity mismatch")
         if (
-            not 24 < len(data) <= 0x330000
+            not 24 < len(data) <= APP_SLOT[manifest["flash_bytes"]]
             or data[0] != 0xE9
             or struct.unpack_from("<H", data, 12)[0] != 9
         ):

@@ -57,16 +57,23 @@ def prepare(archive, model, port, directory, baud=460800, run=subprocess.run):
         flush=True,
     )
     identity = read_command(["flash_id"], "flash-id-private.txt", 90)
-    if not re.search(r"Detected flash size:\s*8\s*MB\b", identity):
-        raise ValueError("8 MB flash not confirmed; no full read or write attempted")
+    megabytes = manifest["flash_bytes"] // 2**20
+    if not re.search(rf"Detected flash size:\s*{megabytes}\s*MB\b", identity):
+        raise ValueError(
+            f"{megabytes} MB flash not confirmed; no full read or write attempted"
+        )
     if "Chip is ESP32-S3" not in identity:
         raise ValueError("ESP32-S3 not confirmed")
     backup = private / "flash-private.bin"
     print(
-        "Reading 8 MB. This can take several minutes. No radio flash is being written.",
+        f"Reading {megabytes} MB. This can take several minutes. No radio flash is being written.",
         flush=True,
     )
-    read_command(["read_flash", "0", "0x800000", str(backup)], "read-private.txt", 1200)
+    read_command(
+        ["read_flash", "0", hex(manifest["flash_bytes"]), str(backup)],
+        "read-private.txt",
+        1200,
+    )
     data = backup.read_bytes()
     (private / "SHA256SUMS").write_text(
         f"{digest(data)}  {backup.name}\n", encoding="ascii"

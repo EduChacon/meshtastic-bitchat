@@ -37,7 +37,19 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        environment: [heltec-v3-bitchat, m5stack-cardputer-adv-bitchat]
+        environment:
+          [
+            heltec-v3-bitchat,
+            heltec-v4-bitchat,
+            heltec-wsl-v3-bitchat,
+            heltec-wireless-tracker-bitchat,
+            heltec-wireless-paper-bitchat,
+            tbeam-s3-core-bitchat,
+            seeed-xiao-s3-bitchat,
+            t-deck-bitchat,
+            station-g2-bitchat,
+            m5stack-cardputer-adv-bitchat,
+          ]
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:

@@ -7,13 +7,14 @@ import json
 import os
 import struct
 import subprocess
+import sys
 import zipfile
 from pathlib import Path
 
-BOARDS = {
-    "heltec-v3-bitchat": ("heltec-v3", 43),
-    "m5stack-cardputer-adv-bitchat": ("m5stack-cardputer-adv", 112),
-}
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from verify_artifact import APP_SLOT, MODELS  # noqa: E402
+
+BOARDS = {model + "-bitchat": (model, *target) for model, target in MODELS.items()}
 VERSION = "0.1.0-experimental.5"
 
 
@@ -69,7 +70,7 @@ def main():
             "Refusing to package uncommitted source; commit and rebuild first"
         )
     build = root / ".pio/build" / args.environment
-    model, hardware = BOARDS[args.environment]
+    model, hardware, flash = BOARDS[args.environment]
     candidates = sorted(build.glob("firmware-*.bin"))
     candidates = [p for p in candidates if not p.name.endswith(".factory.bin")]
     if len(candidates) != 1:
@@ -80,7 +81,7 @@ def main():
     table = (build / "partitions.bin").read_bytes()
     layout = partitions(table)
     app = next((p for p in layout if p["name"] == "app0"), None)
-    if not app or app["offset"] != 0x10000 or app["size"] != 0x330000:
+    if not app or app["offset"] != 0x10000 or app["size"] != APP_SLOT[flash]:
         raise SystemExit("Unreviewed partition layout")
     if not (24 < len(application) <= app["size"]) or application[0] != 0xE9:
         raise SystemExit("Invalid application image")
@@ -122,7 +123,7 @@ def main():
         "hardware_model": hardware,
         "chip": "esp32-s3",
         "image_chip_id": 9,
-        "flash_bytes": 8388608,
+        "flash_bytes": flash,
         "application": filename,
         "application_sha256": sha256(application),
         "application_bytes": len(application),
@@ -153,7 +154,7 @@ def main():
             "EXPERIMENTAL. Nenhum ensaio desta revisao em hardware. BLE e texto publico Bitchat ativos por padrao.\n"
             "No primeiro boot desta revisao: cria canal publico Bitchat em espaco livre; nao exporta o primario.\n"
             "Conecte Meshtastic para fornecer a hora; depois abra #mesh no Bitchat. Leia docs/bridge/DEFAULTS.md.\n"
-            f"Alvo exclusivo: {model}; ESP32-S3; 8 MB; app0 0x10000.\n"
+            f"Alvo exclusivo: {model}; ESP32-S3; {flash // 2**20} MB; app0 0x10000.\n"
             "Este ZIP contem somente atualizacao de aplicativo. Nao e instalacao de fabrica.\n"
             "Nao inclui apagamento integral; atualiza os setores da aplicacao. Falhas ainda podem impedir boot.\n"
             "Confirme modelo, banda, antena, backup privado, particoes, slot ativo e rollback.\n"

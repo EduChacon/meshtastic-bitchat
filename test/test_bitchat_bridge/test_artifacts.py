@@ -3,6 +3,7 @@
 import hashlib
 import importlib.util
 import json
+import re
 import runpy
 import tempfile
 import unittest
@@ -41,6 +42,7 @@ class PackageTests(unittest.TestCase):
         offset=65536,
         environment=None,
         checksums=True,
+        flash=None,
     ):
         image = bytearray(256)
         image[0] = 0xE9
@@ -50,9 +52,9 @@ class PackageTests(unittest.TestCase):
         manifest = {
             "schema": 1,
             "model": model,
-            "hardware_model": PREFLIGHT.MODELS[model],
+            "hardware_model": PREFLIGHT.MODELS[model][0],
             "chip": "esp32-s3",
-            "flash_bytes": 8388608,
+            "flash_bytes": flash or PREFLIGHT.MODELS[model][1],
             "application": filename,
             "application_sha256": hashlib.sha256(image).hexdigest(),
             "application_bytes": len(image),
@@ -94,6 +96,55 @@ class PackageTests(unittest.TestCase):
                 ],
                 43,
             )
+
+    def test_every_listed_board_has_a_build_and_a_ci_job(self):
+        ini = (ROOT / "variants/bridge/platformio.ini").read_text()
+        built = set(re.findall(r"^\[env:(.+)-bitchat\]$", ini, re.M))
+        self.assertEqual(built, set(PREFLIGHT.MODELS))
+        self.assertEqual(set(PACKAGER["BOARDS"]), {m + "-bitchat" for m in built})
+        workflow = (ROOT / ".github/workflows/bridge.yml").read_text()
+        matrix = re.search(r"environment:\s*\[(.*?)\]", workflow, re.S).group(1)
+        self.assertEqual(
+            {name.strip() for name in matrix.split(",") if name.strip()},
+            set(PACKAGER["BOARDS"]),
+        )
+        stock = "\n".join(
+            p.read_text() for p in (ROOT / "variants/esp32s3").glob("*/platformio.ini")
+        )
+        for model in built:
+            declared = re.search(
+                rf"^\[env:{re.escape(model)}\][ \t]*\n(?:(?!\[).*\n)*?"
+                r"custom_meshtastic_hw_model = (\d+)",
+                stock,
+                re.M,
+            )
+            # Not every stock environment declares its number; those that do must agree.
+            if declared:
+                self.assertEqual(
+                    int(declared.group(1)), PREFLIGHT.MODELS[model][0], model
+                )
+
+    def test_each_board_accepts_only_its_own_package(self):
+        for model, (hardware, flash) in PREFLIGHT.MODELS.items():
+            with tempfile.TemporaryDirectory() as directory:
+                archive = self.archive(directory, model=model)
+                manifest = PREFLIGHT.verify_package(archive, model)
+                self.assertEqual(
+                    (manifest["hardware_model"], manifest["flash_bytes"]),
+                    (hardware, flash),
+                )
+                for other in PREFLIGHT.MODELS:
+                    if other != model:
+                        with self.assertRaises(ValueError):
+                            PREFLIGHT.verify_package(archive, other)
+
+    def test_flash_size_must_match_the_board(self):
+        for model, wrong in (("heltec-v4", 8388608), ("heltec-v3", 16777216)):
+            with tempfile.TemporaryDirectory() as directory:
+                with self.assertRaises(ValueError):
+                    PREFLIGHT.verify_package(
+                        self.archive(directory, model=model, flash=wrong), model
+                    )
 
     def test_wrong_board_even_same_chip(self):
         with tempfile.TemporaryDirectory() as directory:

@@ -129,5 +129,7 @@ Os comandos constroem software; não fazem upload.
 - [Registro do trabalho](docs/bridge/WORKLOG.md) e [investigação de boot da `.2`](docs/bridge/BOOT_INCIDENT.md)
 - [README original do firmware](docs/bridge/history/README.upstream.md)
 
-Não é um projeto MeshCore. Licença do firmware: [GPL-3.0](LICENSE); as dependências mantêm
-suas próprias licenças.
+Projeto independente, sem vínculo com a Meshtastic LLC nem com o projeto Bitchat, e sem
+endosso de nenhum dos dois. Meshtastic® é marca registrada da Meshtastic LLC. Não é um projeto
+MeshCore. Licença do firmware: [GPL-3.0](LICENSE); as dependências mantêm suas próprias
+licenças.

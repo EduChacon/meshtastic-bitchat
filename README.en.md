@@ -131,5 +131,6 @@ in Portuguese:
 - [Work record](docs/bridge/WORKLOG.md) and [`.2` boot investigation](docs/bridge/BOOT_INCIDENT.md)
 - [Original firmware README](docs/bridge/history/README.upstream.md)
 
-This is not a MeshCore project. Firmware license: [GPL-3.0](LICENSE); dependencies keep their
-own licenses.
+An independent project, not affiliated with or endorsed by Meshtastic LLC or the Bitchat
+project. Meshtastic® is a registered trademark of Meshtastic LLC. This is not a MeshCore
+project. Firmware license: [GPL-3.0](LICENSE); dependencies keep their own licenses.

@@ -22,9 +22,14 @@ static NimBLEServer *server = nullptr;
 static NimBLECharacteristic *characteristic = nullptr;
 static std::atomic<bool> enabled{false}, nativeWindow{false}, economy{false}, announceNeeded{false};
 static std::atomic<uint32_t> dropped{0};
+// Raw link events for the self-test: they tell a silent phone from a write that never reached the bridge.
+static std::atomic<uint32_t> connects{0}, disconnects{0}, subscriptions{0}, writes{0}, notified{0}, notifyFailures{0},
+    mtuRequests{0};
 struct Connection {
     uint16_t handle = NO_LINK;
     bool subscribed = false;
+    bool mtuAsked = false;
+    uint32_t since = 0;
 };
 static std::array<Connection, LINKS> connections;
 static constexpr uint8_t NO_FRAME = 255;
@@ -147,6 +152,7 @@ class Callbacks : public NimBLECharacteristicCallbacks
     }
     void onWrite(NimBLECharacteristic *c, ble_gap_conn_desc *desc) override
     {
+        ++writes;
         if (!enabled || !desc)
             return;
         const auto value = c->getValue();
@@ -213,6 +219,7 @@ class Callbacks : public NimBLECharacteristicCallbacks
         for (auto &connection : connections)
             if (connection.handle == desc->conn_handle)
                 connection.subscribed = (value & 1) != 0;
+        subscriptions += value & 1;
         if (auto *link = findLink(desc->conn_handle)) {
             link->subscribed = (value & 1) != 0;
             announceNeeded = true;
@@ -283,7 +290,8 @@ void bleConnect(uint16_t handle)
                 return;
         for (size_t index = 0; index < LINKS; ++index) {
             if (connections[index].handle == NO_LINK) {
-                connections[index] = {handle, false};
+                connections[index] = {handle, false, false, millis()};
+                ++connects;
                 if (links) {
                     auto &link = (*links)[index];
                     link.handle = handle;
@@ -303,8 +311,10 @@ void bleDisconnect(uint16_t handle)
 {
     concurrency::LockGuard guard(&lock);
     for (auto &connection : connections)
-        if (connection.handle == handle)
+        if (connection.handle == handle) {
             connection = {};
+            ++disconnects;
+        }
     if (auto *link = findLink(handle)) {
         link->handle = NO_LINK;
         link->subscribed = false;
@@ -447,8 +457,11 @@ static bool sendChunk(size_t index)
         return false;
     }
     auto *buffer = ble_hs_mbuf_from_flat(chunk.data(), count);
-    if ((buffer ? ble_gatts_notify_custom(handle, attribute, buffer) : BLE_HS_ENOMEM) != 0)
+    if ((buffer ? ble_gatts_notify_custom(handle, attribute, buffer) : BLE_HS_ENOMEM) != 0) {
+        ++notifyFailures;
         return false;
+    }
+    ++notified;
     concurrency::LockGuard guard(&lock);
     if (!links)
         return false;
@@ -465,10 +478,32 @@ static bool sendChunk(size_t index)
     return true;
 }
 
+// At the default 23-byte MTU nothing the app sends fits a write, so a link the phone left there is asked to grow.
+static void askLargerMtu()
+{
+    std::array<uint16_t, LINKS> pending;
+    pending.fill(NO_LINK);
+    {
+        concurrency::LockGuard guard(&lock);
+        for (size_t index = 0; index < LINKS; ++index) {
+            auto &connection = connections[index];
+            if (connection.handle != NO_LINK && !connection.mtuAsked &&
+                !Throttle::isWithinTimespanMsAt(connection.since, 2000, millis())) {
+                connection.mtuAsked = true;
+                pending[index] = connection.handle;
+            }
+        }
+    }
+    for (const uint16_t handle : pending)
+        if (handle != NO_LINK && ble_att_mtu(handle) <= 23)
+            mtuRequests += ble_gattc_exchange_mtu(handle, nullptr, nullptr) == 0;
+}
+
 void blePoll()
 {
     if (!enabled)
         return;
+    askLargerMtu();
     // Bitchat discards a frame whose pieces arrive more than 250 ms apart, so each poll sends more than one.
     for (size_t index = 0; index < LINKS; ++index)
         for (unsigned sent = 0; sent < BURST && sendChunk(index); ++sent) {
@@ -502,6 +537,37 @@ size_t bleConnections()
     for (const auto &connection : connections)
         count += connection.handle != NO_LINK;
     return count;
+}
+size_t bleDescribe(char *out, size_t size)
+{
+    struct View {
+        uint16_t handle = NO_LINK;
+        bool subscribed = false, talked = false;
+    };
+    std::array<View, LINKS> views;
+    {
+        concurrency::LockGuard guard(&lock);
+        for (size_t index = 0; index < LINKS; ++index) {
+            views[index].handle = connections[index].handle;
+            views[index].subscribed = connections[index].subscribed;
+            views[index].talked = links && (*links)[index].handle == connections[index].handle && (*links)[index].talked;
+        }
+    }
+    int used = snprintf(out, size, "con %lu dis %lu sub %lu wr %lu ntf %lu err %lu mtu? %lu",
+                        static_cast<unsigned long>(connects.load()), static_cast<unsigned long>(disconnects.load()),
+                        static_cast<unsigned long>(subscriptions.load()), static_cast<unsigned long>(writes.load()),
+                        static_cast<unsigned long>(notified.load()), static_cast<unsigned long>(notifyFailures.load()),
+                        static_cast<unsigned long>(mtuRequests.load()));
+    // The host stack is asked outside the bridge lock, which its own callbacks take.
+    for (const auto &view : views) {
+        ble_gap_conn_desc desc{};
+        if (view.handle == NO_LINK || used < 0 || size_t(used) >= size || ble_gap_conn_find(view.handle, &desc) != 0)
+            continue;
+        used += snprintf(out + used, size - used, "\nlink %u mtu %u itv %u enc %u bond %u sub %u wr %u", unsigned(view.handle),
+                         unsigned(ble_att_mtu(view.handle)), unsigned(desc.conn_itvl), unsigned(desc.sec_state.encrypted),
+                         unsigned(desc.sec_state.bonded), unsigned(view.subscribed), unsigned(view.talked));
+    }
+    return used < 0 ? 0 : std::min(size_t(used), size ? size - 1 : 0);
 }
 void bleServicesChanged()
 {

@@ -27,6 +27,7 @@ void blePoll();
 size_t bleSubscribers();
 size_t blePhones();
 size_t bleConnections();
+size_t bleDescribe(char *out, size_t size);
 void bleServicesChanged();
 void bleDropConnections();
 uint32_t bleDrops();

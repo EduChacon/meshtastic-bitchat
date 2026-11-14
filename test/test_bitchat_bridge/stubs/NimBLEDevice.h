@@ -12,7 +12,27 @@ inline uint32_t millis()
 }
 struct ble_gap_conn_desc {
     uint16_t conn_handle;
+    uint16_t conn_itvl = 24;
+    struct {
+        unsigned encrypted : 1, authenticated : 1, bonded : 1;
+    } sec_state{};
 };
+inline uint16_t fakeMtu = 185;
+inline int ble_gap_conn_find(uint16_t handle, ble_gap_conn_desc *out)
+{
+    *out = ble_gap_conn_desc{handle};
+    return 0;
+}
+inline uint16_t ble_att_mtu(uint16_t)
+{
+    return fakeMtu;
+}
+inline std::vector<uint16_t> fakeMtuRequests;
+inline int ble_gattc_exchange_mtu(uint16_t handle, void *, void *)
+{
+    fakeMtuRequests.push_back(handle);
+    return 0;
+}
 class NimBLECharacteristic;
 class NimBLECharacteristicCallbacks
 {

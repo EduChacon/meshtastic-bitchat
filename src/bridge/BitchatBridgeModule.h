@@ -31,6 +31,7 @@ class BitchatBridgeModule : public MeshModule, private concurrency::OSThread
     void openNativeWindow();
     void closeNativeWindow();
     const char *status() const;
+    mutable char guardText[32]{};
     const char *hint() const;
     void diagnostics(char *out, size_t size) const;
     void restartLinks() { restart = 1; }

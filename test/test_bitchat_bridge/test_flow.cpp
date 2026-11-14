@@ -180,7 +180,11 @@ int main()
     // First boot: local relay plus the dedicated public channel, with no menu step.
     CHECK(bridge->enabled() && bridge->textChannel() == 1 && !bridge->prefixOnly());
     CHECK(!strcmp(channels.items[1].settings.name, PUBLIC_CHANNEL_NAME));
-    CHECK(std::string(bridge->status()) == "Starting LoRa: 30 s");
+    // The wait is a countdown, not a fixed label.
+    const std::string waiting = bridge->status();
+    CHECK(waiting.rfind("Starting LoRa: ", 0) == 0);
+    run(5000);
+    CHECK(std::string(bridge->status()).rfind("Starting LoRa: ", 0) == 0 && std::string(bridge->status()) != waiting);
     run(31000);
     CHECK(std::string(bridge->status()) == "Ready: Bitchat + LoRa" && !bridge->hint()[0]);
 
@@ -381,7 +385,7 @@ int main()
     run(3000);
     CHECK(radio().empty() && chat(bia.handle, &bridgeId).empty());
     run(90000);
-    CHECK(std::string(bridge->status()) == "Starting LoRa: 30 s");
+    CHECK(std::string(bridge->status()).rfind("Starting LoRa: ", 0) == 0);
     run(31000);
     CHECK(std::string(bridge->status()) == "Ready: Bitchat + LoRa");
     ana.write(ana.announce());
@@ -437,14 +441,18 @@ int main()
     fakeSent.clear();
     fromLoRa(0, "!Bridge ");
     run(100);
-    CHECK(fakeApp.size() == 2 && fakeRadio.empty() && fakeApp[0].channel == 1 && fakeApp[0].to == NODENUM_BROADCAST);
+    CHECK(fakeApp.size() == 3 && fakeRadio.empty() && fakeApp[0].channel == 1 && fakeApp[0].to == NODENUM_BROADCAST);
     CHECK(app(0).rfind("[bridge] Ready: Bitchat + LoRa\nBluetooth 3, Bitchat 3, people ", 0) == 0);
     CHECK(app(0).find("\nLoRa Bitchat out ") != std::string::npos && app(0).find("\nUTC ") != std::string::npos);
-    CHECK(app(0).size() <= 200 && app(1).rfind("[bridge] Bitchat link OK", 0) == 0);
+    CHECK(app(0).size() <= 200 && app(2).rfind("[bridge] Bitchat link OK", 0) == 0);
+    // The second answer describes each Bluetooth link as the radio sees it.
+    CHECK(app(1).rfind("[bridge] con ", 0) == 0 &&
+          app(1).find("\nlink 11 mtu 185 itv 24 enc 0 bond 0 sub 1 wr 1") != std::string::npos);
+    CHECK(app(1).size() <= 200);
     // The same word arriving from another radio is not answered and not imported.
     fromLoRa(0x1234, "!bridge");
     run(100);
-    CHECK(fakeApp.size() == 2 && chat(ana.handle).empty());
+    CHECK(fakeApp.size() == 3 && chat(ana.handle).empty());
     // Asked from Bitchat: the signed answer reaches the phones, proving both
     // directions; nothing goes to LoRa.
     ana.write(ana.say("!ponte"));
@@ -463,7 +471,7 @@ int main()
     const size_t dropsBefore = server.disconnected.size();
     fromLoRa(0, "!ponte reset");
     run(100);
-    CHECK(fakeApp.size() == 3 && app(2).find("restarts in 3 s") != std::string::npos);
+    CHECK(fakeApp.size() == 4 && app(3).find("restarts in 3 s") != std::string::npos);
     CHECK(fakeServiceChanges == 1 && server.disconnected.size() == dropsBefore);
     run(3100);
     CHECK(fakeServiceChanges == 1 && server.disconnected.size() == dropsBefore + 3);
@@ -481,17 +489,25 @@ int main()
     // A bonded phone's old subscription returns by itself when the Meshtastic app
     // reconnects. That is not a Bitchat phone: it is not counted, nothing is
     // imported for it, and the self-test says so.
+    // No link so far stayed at the minimum packet size, so none was asked to grow. This one is, once.
+    CHECK(fakeMtuRequests.empty());
+    fakeMtu = 23;
     Phone ghost("ghost", 20, 15);
     ghost.connect();
     run(200);
+    CHECK(fakeMtuRequests.empty());
+    run(4000);
+    CHECK(fakeMtuRequests == std::vector<uint16_t>{15});
+    fakeMtu = 185;
     CHECK(bleConnections() == 1 && bleSubscribers() == 1 && blePhones() == 0);
     fromLoRa(0x1234, "para ninguem");
     fakeApp.clear();
     fromLoRa(0, "!bridge");
     run(3000);
-    CHECK(chat(ghost.handle).empty() && fakeApp.size() == 2);
+    CHECK(chat(ghost.handle).empty() && fakeApp.size() == 3);
     CHECK(app(0).find("\nBluetooth 1, Bitchat 0, people ") != std::string::npos);
-    CHECK(app(1).find("No Bitchat app has talked to this radio") != std::string::npos && app(1).size() <= 200);
+    CHECK(app(2).find("No Bitchat app has talked to this radio") != std::string::npos && app(2).size() <= 200);
+    CHECK(app(1).find("\nlink 15 mtu 185 itv 24 enc 0 bond 0 sub 1 wr 0") != std::string::npos);
     // Once the app writes its announcement, it counts. A current app announces neighbours, capabilities
     // and a bridge cell too, which no longer fits one write at a 185-byte MTU: it arrives as two fragments.
     const size_t peopleBefore = app(0).find("people ");
@@ -514,7 +530,7 @@ int main()
     fromLoRa(0, "!bridge");
     run(100);
     CHECK(app(0).find("Bitchat 1, people ") != std::string::npos && peopleBefore != std::string::npos);
-    CHECK(app(1).rfind("[bridge] Bitchat link OK", 0) == 0);
+    CHECK(app(2).rfind("[bridge] Bitchat link OK", 0) == 0);
     ghost.write(ghost.say("cheguei em partes"));
     run(3000);
     CHECK(radio().back() == "ghost: cheguei em partes");
@@ -588,7 +604,7 @@ int main()
     CHECK(std::string(bridge->status()) == "LoRa channel changed");
     run(12000);
     CHECK(!strcmp(channels.items[1].settings.name, PUBLIC_CHANNEL_NAME) && bridge->textChannel() == 1);
-    CHECK(std::string(bridge->status()) == "Starting LoRa: 30 s");
+    CHECK(std::string(bridge->status()).rfind("Starting LoRa: ", 0) == 0);
     CHECK(bridge->startBasicMode());
     wipe();
     run(15000);
@@ -599,8 +615,8 @@ int main()
     fakeApp.clear();
     fromLoRa(0, "!bridge", 0);
     run(1100);
-    CHECK(fakeApp.size() == 2 && fakeApp[0].channel == 0 && app(0).rfind("[bridge] Bridge is off\n", 0) == 0);
-    CHECK(app(1) == "[bridge] Menu: System > Bitchat");
+    CHECK(fakeApp.size() == 3 && fakeApp[0].channel == 0 && app(0).rfind("[bridge] Bridge is off\n", 0) == 0);
+    CHECK(app(2) == "[bridge] Menu: System > Bitchat");
     delete bridge;
     bleDetach();
     CHECK(liveBytes == 0);

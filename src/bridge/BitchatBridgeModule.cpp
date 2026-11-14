@@ -475,8 +475,12 @@ const char *BitchatBridgeModule::status() const
         return "No LoRa channel";
     if (textConflict)
         return "Standby: other bridge";
-    if (textReady && textGuard())
-        return "Starting LoRa: 30 s";
+    if (textReady && textGuard()) {
+        // A countdown, so the wait is visibly moving.
+        const uint32_t left = (GUARD_MS - uint32_t(millis() - textGuardAt) + 999) / 1000;
+        snprintf(guardText, sizeof(guardText), "Starting LoRa: %lu s", static_cast<unsigned long>(left));
+        return guardText;
+    }
     return textReady ? "Ready: Bitchat + LoRa" : "Ready: Bitchat only";
 }
 
@@ -569,6 +573,9 @@ void BitchatBridgeModule::answerApp()
              "%s in %s lost %s\n%s",
              status(), unsigned(bleConnections()), phones, people, textReady ? channels.getName(settings.textChannel) : "off", tx,
              rx, missed, detail);
+    replyToApp(text);
+    const int prefix = snprintf(text, sizeof(text), "%s", REPLY_PREFIX);
+    bleDescribe(text + prefix, sizeof(text) - prefix);
     replyToApp(text);
     if (hint()[0])
         snprintf(text, sizeof(text), "[bridge] %s", hint());
@@ -1133,7 +1140,9 @@ void BitchatBridgeModule::drawFrame(OLEDDisplay *display, OLEDDisplayUiState *, 
     display->drawString(x, y, "Bitchat bridge");
     display->drawString(x, y + row, status());
     char line[60];
-    snprintf(line, sizeof(line), "Phones %u  People %u", unsigned(blePhones()), unsigned(runtime ? runtime->peers->size() : 0));
+    // Talking phones over subscribed ones: "0/1" is a phone that connected and never sent anything.
+    snprintf(line, sizeof(line), "Phones %u/%u  People %u", unsigned(blePhones()), unsigned(bleSubscribers()),
+             unsigned(runtime ? runtime->peers->size() : 0));
     display->drawString(x, y + 2 * row, line);
     char tx[8], rx[8], missed[8];
     displayCount(submittedRadio, tx);

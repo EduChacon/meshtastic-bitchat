@@ -137,6 +137,10 @@ inline uint32_t getValidTime(RTCQuality)
 
 enum RxSource { RX_SRC_LOCAL };
 inline std::vector<meshtastic_MeshPacket> fakeRadio, fakeApp;
+inline const char *getDeviceName()
+{
+    return "Meshtastic_1a2b";
+}
 inline bool isFromUs(const meshtastic_MeshPacket *p)
 {
     return p->from == 0 || p->from == nodeDB->getNodeNum();

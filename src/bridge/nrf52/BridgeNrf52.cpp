@@ -365,10 +365,13 @@ void NimBLEAdvertising::setAdvertisementData(const NimBLEAdvertisementData &)
     Bluefruit.Advertising.addService(bridgeService);
 }
 
-void NimBLEAdvertising::setScanResponseData(const NimBLEAdvertisementData &)
+void NimBLEAdvertising::setScanResponseData(const NimBLEAdvertisementData &data)
 {
-    // This device has no screen to bring the Meshtastic advertisement back, so its service stays visible here.
     bitchat::nativeScanResponse();
+    if (data.name)
+        Bluefruit.ScanResponse.addData(BLE_GAP_AD_TYPE_COMPLETE_LOCAL_NAME, data.name, uint8_t(strlen(data.name)));
+    else
+        Bluefruit.ScanResponse.addName();
 }
 
 namespace bitchat

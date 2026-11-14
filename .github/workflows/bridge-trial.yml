@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
 
 concurrency:
-  group: bridge-nrf52-${{ github.ref }}
+  group: bridge-trial-${{ github.ref }}
   cancel-in-progress: true
 
 permissions:
@@ -89,6 +89,10 @@ jobs:
           set -o pipefail
           mkdir -p evidence dist
           pio run -e "$BRIDGE_ENV" -t buildprog 2>&1 | tee evidence/build.log
+      - name: Static analysis
+        run: |
+          set -o pipefail
+          pio check -e "$BRIDGE_ENV" --skip-packages --src-filters '+<src/bridge/>' --fail-on-defect high 2>&1 | tee evidence/cppcheck.log
       - name: Package for the web flasher
         run: |
           python tools/bridge/package_release.py --environment "$BRIDGE_ENV"

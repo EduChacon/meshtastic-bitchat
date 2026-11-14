@@ -56,7 +56,7 @@ efetiva, PSK, papel de canal, versão e problemas do rádio continuam determinan
 | Seeed XIAO ESP32-S3                     | PREV/NT                            | COMP só na `1.0`; hardware NT        | Com o módulo Wio-SX1262; tela opcional                                      |
 | LILYGO T-Deck                           | PREV/NT                            | COMP só na `1.0`; hardware NT        | 16 MB; alvo `t-deck`, não `t-deck-tft` nem T-Deck Pro                       |
 | Station G2                              | PREV/NT                            | COMP só na `1.0`; hardware NT        | 16 MB; potência alta, conferir limites regionais                            |
-| SenseCAP T1000-E                        | PREV/NT; primeira bancada stock    | Sem binário; exige porte             | nRF52840/LR1110; recepção direta de SX127x tem restrição documentada        |
+| SenseCAP T1000-E                        | PREV/NT; primeira bancada stock    | Arquivo experimental; hardware NT    | nRF52840/LR1110; recepção direta de SX127x tem restrição documentada        |
 | RAK4631/WisBlock, T-Echo e outros nRF52 | PREV/NT                            | Sem binário; exige porte             | Pilha Bluetooth e armazenamento diferentes do ESP32; UF2                    |
 | T-Beam clássico, T-LoRa32, T3-S3        | PREV/NT                            | Sem binário                          | ESP32 clássico ou 4 MB: fora do leiaute revisado e sem medição de memória   |
 | Heltec V2 e outras                      | PREV/NT                            | Sem binário                          | Chip, flash, pinagem e potência diferem; nunca usar binário de outro modelo |

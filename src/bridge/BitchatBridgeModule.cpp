@@ -1156,6 +1156,12 @@ int32_t BitchatBridgeModule::work()
     }
     if (advertisingChanged) {
         bleConfigure(active, nativeWindow || clockWindow, settings.economy);
+        // The radio's own name when it fits, otherwise "Mesh" with the same four-digit ending.
+        const char *full = getDeviceName();
+        const size_t length = strlen(full);
+        char name[12];
+        snprintf(name, sizeof(name), "%s%s", length > 11 ? "Mesh" : "", length > 11 ? full + length - 5 : full);
+        bleName(name);
         if (nimbleBluetooth && nimbleBluetooth->isActive() && !nimbleBluetooth->isDeInit)
             nimbleBluetooth->refreshBridgeAdvertising();
         advertisingChanged = false;

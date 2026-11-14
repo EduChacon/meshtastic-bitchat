@@ -78,12 +78,13 @@ class NimBLEUUID
   public:
     explicit NimBLEUUID(const char *) {}
 };
+inline std::string fakeScanName;
 class NimBLEAdvertisementData
 {
   public:
     void setFlags(int) {}
     void setCompleteServices(const NimBLEUUID &) {}
-    void setName(const char *) {}
+    void setName(const char *text) { fakeScanName = text; }
 };
 class NimBLEAdvertising
 {

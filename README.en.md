@@ -6,7 +6,7 @@ An embedded bridge derived from the official Meshtastic firmware. It is designed
 for the unmodified Bitchat and Meshtastic apps, with no computer, MQTT, Nostr or internet in the
 operating path. A computer is used to build, install and diagnose the firmware.
 
-**Current version (beta): [v1.0.0-beta.4](https://github.com/EduChacon/meshtastic-bitchat/releases/tag/v1.0.0-beta.4).** Drops the mandatory `!lora`, fixes
+**Current version (beta): [v1.0.0-beta.5](https://github.com/EduChacon/meshtastic-bitchat/releases/tag/v1.0.0-beta.5).** Drops the mandatory `!lora`, fixes
 message losses in group chat, recovers the clock without the Meshtastic app, simplifies the
 menu and adds eight ESP32-S3 devices. [What changed and why](docs/bridge/CHANGES.md#english).
 
@@ -16,7 +16,9 @@ subscribed but sent nothing to the radio. With `1.0.0-beta.4` the operator repor
 recognised (`Phones 1/1`, `People 2`) and text in both directions (`LoRa out 2 in 1`). The
 `!bridge` report of that session showed the new path in use (`path 9`, 230 frames received and
 59 sent through the phone's own service, no write from the phone to the bridge service), with
-the Meshtastic app on the same link. It is one session on one device, with no endurance test. The other nine targets were only compiled. Back up before
+the Meshtastic app on the same link. It is one session on one device, with no endurance test. The other nine targets were only compiled.
+`1.0.0-beta.5` adds the commands for radios without a screen and changes the Bluetooth
+advertisement; both were simulated and compiled, **not tested on a device**. Back up before
 installing and read the
 [limits](docs/bridge/CHANGES.md#english) and the [bench procedure](docs/bridge/TESTING.md).
 
@@ -52,14 +54,18 @@ administrative commands.
 | Cardputer ADV + Cap LoRa-1262    | `m5stack-cardputer-adv`   | 8 MB  |
 
 Firmware is built **for each board model**. The same CPU does not imply the same pins, radio,
-flash, partitions or bootloader; another board's image can prevent booting. T1000-E, RAK4631,
-T-Echo, classic T-Beam, T-LoRa32 and T3-S3 **have no bridge binary** but work as stock nodes in
-mode B. [Matrix and conditions](docs/bridge/COMPATIBILITY.md).
+flash, partitions or bootloader; another board's image can prevent booting. RAK4631, T-Echo,
+classic T-Beam, T-LoRa32 and T3-S3 **have no bridge binary** but work as stock nodes in mode B.
+[Matrix and conditions](docs/bridge/COMPATIBILITY.md).
+
+The **SenseCAP T1000-E** has a separate **experimental** file attached to the release: it
+compiles, but it has never run on a device and is outside the release checks.
+[Status, installation and procedure](docs/bridge/T1000E.md) (in Portuguese).
 
 ## Install
 
-1. From [v1.0.0-beta.4](https://github.com/EduChacon/meshtastic-bitchat/releases/tag/v1.0.0-beta.4), download
-   **`meshtastic-bitchat-1.0.0-beta.4.zip`**. It is a single file for all ten devices.
+1. From [v1.0.0-beta.5](https://github.com/EduChacon/meshtastic-bitchat/releases/tag/v1.0.0-beta.5), download
+   **`meshtastic-bitchat-1.0.0-beta.5.zip`**. It is a single file for all ten devices.
 2. In the [official Web Flasher](https://flasher.meshtastic.org/), select the board, load the
    ZIP and use **Update**. Do not select **Erase Flash and Install**. If the board offers the
    colour interface (MUI), leave it unticked.
@@ -101,14 +107,21 @@ Optional adjustments on a radio with a screen: `Bitchat only`, `Bitchat + LoRa`,
 `Battery saver`, `Find Meshtastic app`, `Reconnect phones`). The status screen says in plain words what is
 happening and what to do.
 
+**Radio without a screen.** The same modes, as text, from the Meshtastic app connected to the
+radio: `!bridge off`, `!bridge on`, `!bridge local` (Bluetooth only) and `!bridge lora`
+(Bitchat + LoRa on the channel where the command is sent). `!bridge help` lists the commands.
+Coming from another radio or from Bitchat, these commands change nothing. Daily use does not
+need the Meshtastic app; the exception is the LoRa region, which a radio that was never
+configured must receive once.
+
 ## Build and documentation
 
 Base: Meshtastic **2.7.26.54e0d8d**, commit `54e0d8d0ab2ff56b3a9ce967e53f79e49af560fb`.
 Bitchat reference: iOS **1.8.0**, commit `30c58eee349e172b37f69faa2113c9d5f2c76c23`.
 
 ```sh
-git fetch origin tag v1.0.0-beta.4
-git checkout --detach v1.0.0-beta.4
+git fetch origin tag v1.0.0-beta.5
+git checkout --detach v1.0.0-beta.5
 python3 -m venv .venv
 .venv/bin/python -m pip install platformio==6.2.0 intelhex==2.3.0
 git submodule update --init protobufs

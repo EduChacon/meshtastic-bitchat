@@ -213,6 +213,8 @@ int main()
     CHECK(std::string(bridge->status()).rfind("Starting LoRa: ", 0) == 0 && std::string(bridge->status()) != waiting);
     run(31000);
     CHECK(std::string(bridge->status()) == "Ready: Bitchat + LoRa" && !bridge->hint()[0]);
+    // The scan response names the radio in the 11 characters left beside the Meshtastic service.
+    CHECK(bleAdvertise() && fakeScanName == "Mesh_1a2b");
 
     Phone ana("ana", 1, 11), bia("bia", 2, 12), caio("caio", 3, 13);
     for (const auto *phone : {&ana, &bia, &caio})

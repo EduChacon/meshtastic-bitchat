@@ -23,6 +23,7 @@ static NimBLEServer *server = nullptr;
 static NimBLECharacteristic *characteristic = nullptr;
 static std::atomic<bool> enabled{false}, nativeWindow{false}, economy{false}, announceNeeded{false};
 static std::atomic<uint32_t> dropped{0};
+static char advertisedName[12] = "BC Bridge";
 // Raw link events for the self-test: they tell a silent phone from a write that never reached the bridge.
 static std::atomic<uint32_t> connects{0}, disconnects{0}, subscriptions{0}, writes{0}, notified{0}, notifyFailures{0},
     remoteFrames{0}, remoteWrites{0};
@@ -608,6 +609,11 @@ void bleConfigure(bool on, bool native, bool lowPower)
     }
 }
 
+void bleName(const char *name)
+{
+    snprintf(advertisedName, sizeof(advertisedName), "%s", name);
+}
+
 bool bleAdvertise()
 {
     if (!enabled || nativeWindow)
@@ -621,7 +627,7 @@ bool bleAdvertise()
     // The Meshtastic service stays in the scan response, so its app finds a radio that has no menu to
     // bring the firmware's own advertisement back. With it, 11 bytes are left for the name.
     response.setCompleteServices(NimBLEUUID(MESHTASTIC_UUID));
-    response.setName("BC Bridge");
+    response.setName(advertisedName);
     advertising->setAdvertisementData(primary);
     advertising->setScanResponseData(response);
     advertising->setScanResponse(true);

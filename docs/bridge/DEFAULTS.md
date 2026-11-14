@@ -144,14 +144,16 @@ exigindo o PIN ou um vínculo existente; esta versão não remove autenticação
 A [documentação oficial de Bluetooth](https://meshtastic.org/docs/configuration/radio/bluetooth/)
 explica os modos de PIN. Em ESP32, Wi-Fi habilitado impede o Bluetooth nesta base.
 
-Depois da `1.0.0-beta.4`, ainda sem publicação:
+A partir da `1.0.0-beta.5`:
 
 a) os modos da ponte podem ser trocados pelos comandos `!bridge on`, `off`, `local` e `lora`,
 descritos acima, sem tela;
 
 b) o serviço do Meshtastic passou a constar da resposta de varredura do anúncio da ponte, para
 que o aplicativo Meshtastic encontre o rádio sem a janela `Find Meshtastic app`, que depende
-do menu. Não foi verificado em aparelho se todo telefone encontra um serviço anunciado só ali.
+do menu. O nome anunciado ali é o do próprio rádio quando cabe em 11 caracteres; se não couber,
+`Mesh_` e os quatro dígitos finais (por exemplo, `Mesh_1a2b`). Não foi verificado em aparelho
+se todo telefone encontra um serviço anunciado só ali.
 
 O uso diário não exige o aplicativo Meshtastic: o canal `Bitchat` é criado pela ponte e a hora
 pode vir do primeiro telefone Bitchat. A exceção é a **região do LoRa**: um rádio que nunca foi

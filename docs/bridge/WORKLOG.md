@@ -234,8 +234,15 @@ rádios sem tela: `!bridge on`, `off`, `local`, `lora` e `help`, aceitos só do 
 conectado ao próprio rádio. O teste novo revelou um defeito: um comando que desligava a ponte
 deixava o mesmo ciclo seguir com a memória já liberada; o ciclo agora termina após o comando.
 c) O serviço do Meshtastic entrou na resposta de varredura do anúncio da ponte nos ESP32, com o
-nome reduzido para `BC Bridge` para caber. Muda o anúncio do Heltec V3 já ensaiado; precisa de
-novo ensaio antes de publicar.
+nome reduzido para caber. Muda o anúncio do Heltec V3 já ensaiado.
+
+Décimo segundo passo. O operador pediu a publicação imediata, com suporte a rádios sem tela.
+Acrescentado: o nome anunciado na resposta de varredura passa a ser o do próprio rádio (inteiro
+quando cabe em 11 caracteres; senão `Mesh_` e os quatro dígitos finais). Versão `1.0.0-beta.5`:
+os dez alvos ESP32 pelo fluxo de verificação de sempre e, à parte, o arquivo
+`EXPERIMENTAL-t1000-e-bitchat-1.0.0-beta.5.uf2`, fora das verificações. Estado declarado nas
+notas: as mudanças desta versão foram simuladas (965 verificações de fluxo) e compiladas, sem
+ensaio em aparelho; o ensaio em aparelho continua sendo o da `1.0.0-beta.4`, em um Heltec V3.
 
 ## Investigação de boot — 2026-11-13
 

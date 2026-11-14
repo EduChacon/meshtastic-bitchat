@@ -20,6 +20,8 @@ void bleReleaseBuffers();
 void bleConnect(uint16_t handle);
 void bleDisconnect(uint16_t handle);
 void bleConfigure(bool enabled, bool nativeWindow, bool economy);
+// At most 11 characters: what is left of the scan response beside the Meshtastic service.
+void bleName(const char *name);
 bool bleAdvertise();
 bool bleReceive(BleInput &output);
 bool bleBroadcast(Bytes frame, uint16_t exclude = NO_LINK);

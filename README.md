@@ -15,6 +15,11 @@ e [início rápido](docs/bridge/DEFAULTS.md). A entrega entre aparelhos ainda pr
 o merge de firmware permanece pendente. Consulte o [roteiro Windows](docs/bridge/WINDOWS_RECOVERY.md)
 e o [registro da investigação](docs/bridge/BOOT_INCIDENT.md).
 
+**Código posterior à `.5`:** a árvore contém uma revisão candidata, ainda não publicada
+nem validada em aparelho, que dispensa o `!lora`, corrige perdas em conversa de grupo e
+simplifica o menu. As instruções desta página valem para os binários da `.5`; as diferenças
+estão em [revisão candidata](docs/bridge/CANDIDATE.md).
+
 **Estado: experimental.** Testes de software e compilação não comprovam funcionamento em
 campo. Os resultados da CI da revisão e as lacunas devem ser consultados antes da instalação.
 

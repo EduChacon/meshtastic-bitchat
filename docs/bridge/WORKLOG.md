@@ -78,6 +78,19 @@ critérios de aprovação e registros estão em [TESTING](TESTING.md); recupera�
 [INSTALL](INSTALL.md). Não executar o harness upstream de hardware como teste de software:
 seu fluxo de instalação pode gravar rádios conectados.
 
+## Revisão candidata — 2026-11-14
+
+Revisão do código da `.5` comparada com o Bitchat iOS 1.8.0, motivada por relato do operador
+de funcionamento inconstante, sobretudo em grupo. As causas de perda encontradas, as mudanças
+e os limites estão em [CANDIDATE.md](CANDIDATE.md). O firmware `.5`, até então fora da `main`,
+foi incorporado ao ramo de trabalho com a documentação da `main`.
+
+Evidência: todos os testes de host anteriores, ajustados ao novo comportamento, e o teste novo
+de fluxo completo (`tools/bridge/test_flow.py`, 666 verificações), que compila o módulo de
+produção. O ambiente de trabalho não alcança o registro do PlatformIO; a compilação dos dois
+alvos depende da CI do repositório. Nenhum comando acessou ou gravou rádio. Entrega entre
+aparelhos, tela, consumo e estabilidade prolongada permanecem não validados.
+
 ## Investigação de boot — 2026-11-13
 
 As instalações foram suspensas nos dois READMEs e nas pré-releases, preservando os arquivos

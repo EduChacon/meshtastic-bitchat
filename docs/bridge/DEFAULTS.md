@@ -1,5 +1,8 @@
 # Integração padrão — experimental .5
 
+> A árvore contém uma [revisão candidata](CANDIDATE.md) posterior à `.5`. Os trechos marcados
+> com **Candidata** descrevem o código atual; os demais valem para as duas.
+
 ## O que a instalação ativa
 
 Desde a revisão `.4`, o firmware ativa o relé Bitchat por BLE e a tradução de texto no primeiro boot,
@@ -47,13 +50,17 @@ persistidas. O aviso `Low memory: bridge OFF` é descrito em [MEMORY_FIX.md](MEM
 5. Enviar `Teste 1` pelo canal `Bitchat` do Meshtastic remoto: deve aparecer em `#mesh` com
    atribuição `[MT !…]`. Enviar `!lora Teste 2` em `#mesh`: deve aparecer nesse canal remoto.
 
-Texto sem `!lora ` não é exportado para LoRa. DMs, posição, credenciais, telemetria, arquivos
-e voz não são traduzidos. O túnel C continua de laboratório e exige ativação separada; não
+Na `.5`, texto sem `!lora ` não é exportado para LoRa. **Candidata:** todo texto público do
+`#mesh` é exportado como `apelido: texto`, o prefixo é opcional e pode voltar a ser exigido em
+`Settings → LoRa: only !lora`; a atribuição de entrada usa o nome do nó (`[MT nome] …`).
+DMs, posição, credenciais, telemetria, arquivos e voz não são traduzidos. O túnel C continua de laboratório e exige ativação separada; não
 é necessário para texto entre um iPhone Bitchat e um rádio stock com Meshtastic.
 
 Na tela: `System → Bitchat bridge → More options → Status` mostra estado, clientes BLE e
 canal de texto. `BLE clients: 0` não confirma conexão Bitchat. `Open Meshtastic: clock`
 significa que falta hora confiável; a ponte não aprende a hora de mensagens BLE arbitrárias.
+**Candidata:** `Status` fica no primeiro nível do menu; os textos equivalentes são
+`Phones connected: 0` e `Clock not set`, com a orientação `Open Meshtastic app`.
 Se o Meshtastic não aparecer na lista após a hora estar ajustada, usar **Switch phone app →
 Find Meshtastic: 5m**. Existência dos dois serviços GATT não demonstra uso simultâneo em iOS.
 

@@ -42,7 +42,7 @@ upstream não entra no pacote publicado.
 | Ponte desativada                                     | Compilação de `heltec-v3` sem flag                                                                | Regressão funcional stock ainda NT                           |
 | Menus e consentimento                                | Callbacks reais com ciclo de tela simulado; controle negativo `.3`; SIM                           | Sem OLED, botão ou iOS reais                                 |
 | Padrão automático e migração                         | Métodos reais com canais/NVS/hora simulados; erros e preservação; SIM                             | Sem corte de alimentação ou escrita flash física             |
-| Fluxo completo em grupo                              | Módulo e adaptador BLE de produção com três telefones e rádio simulados, assinaturas reais; SIM  | Sem controlador BLE, iOS, RF ou temporização real            |
+| Fluxo completo em grupo                              | Módulo e adaptador BLE de produção com três telefones e rádio simulados, assinaturas reais; SIM   | Sem controlador BLE, iOS, RF ou temporização real            |
 | Repetibilidade                                       | Duas compilações da aplicação no mesmo ambiente de CI com epoch fixo                              | Não promete binário idêntico entre SOs/toolchains diferentes |
 
 O adaptador BLE também é executado no host com substitutos de NimBLE/heap, ASan e UBSan,

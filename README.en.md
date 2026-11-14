@@ -15,6 +15,10 @@ and [quick start](docs/bridge/DEFAULTS.md#english). Device-to-device delivery st
 firmware merging remains pending. Read the [Windows guide](docs/bridge/WINDOWS_RECOVERY.md)
 and [investigation record](docs/bridge/BOOT_INCIDENT.md).
 
+**Code after `.5`:** the tree holds an unreleased candidate, not validated on hardware, that
+drops the mandatory `!lora`, fixes losses in group chat and simplifies the menu. This page
+describes the `.5` binaries; differences are in the [candidate notes](docs/bridge/CANDIDATE.md).
+
 **Status: experimental.** Software tests and builds do not establish field operation.
 Consult the revision's CI results and limitations before installing.
 

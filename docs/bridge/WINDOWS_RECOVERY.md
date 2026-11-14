@@ -1,26 +1,26 @@
-# Heltec V3: preparação e novo teste no Windows
+# Backup privado e instalação pelo Windows
 
-Este roteiro é específico do Heltec WiFi LoRa 32 V3, ESP32-S3, flash de 8 MB.
-A pré-release `v0.1.0-experimental.4` mantém as correções de inicialização da `.3` e corrige
-a confirmação de canais no menu. BLE/texto público dedicado são ativados no primeiro boot
-desta revisão; ler [o padrão antes de instalar](DEFAULTS.md). **Boot físico desta versão ainda não validado.**
-O firmware anterior `.2` permanece suspenso. Não há garantia de risco zero.
+O exemplo usa o Heltec WiFi LoRa 32 V3. Para outro aparelho da [lista](COMPATIBILITY.md), trocar
+`heltec-v3` pelo nome do modelo nos arquivos e no parâmetro `--model` (por exemplo `heltec-v4`,
+`t-deck`, `tbeam-s3-core`). O programa confere chip ESP32-S3 e tamanho da flash (8 ou 16 MB),
+mas não distingue modelos de placa. **Boot físico da `.6` ainda não validado em nenhum
+aparelho.** Ler [o padrão antes de instalar](DEFAULTS.md). Não há garantia de risco zero.
 
 ## 1. Baixar os arquivos
 
-Em [v0.1.0-experimental.4](https://github.com/EduChacon/meshtastic-bitchat/releases/tag/v0.1.0-experimental.4),
+Em [v0.1.0-experimental.6](https://github.com/EduChacon/meshtastic-bitchat/releases/tag/v0.1.0-experimental.6),
 baixar para a mesma pasta:
 
-- `meshtastic-bitchat-heltec-v3-0.1.0-experimental.4-<commit>.zip`;
+- `meshtastic-bitchat-heltec-v3-0.1.0-experimental.6-<commit>.zip`;
 - `prepare_flash.py` e `verify_artifact.py`;
 - `SHA256SUMS`.
 
-Não usar `Source code`, o pacote Cardputer, uma imagem `.factory.bin` ou a versão `.2`.
+Não usar `Source code`, o pacote de outro modelo, uma imagem `.factory.bin` ou a versão `.2`.
 Conferir o SHA-256 do ZIP com `Get-FileHash .\meshtastic-bitchat-heltec-v3-*.zip -Algorithm SHA256`
 e a entrada correspondente em `SHA256SUMS`. Manter somente o ZIP escolhido nessa pasta.
 
 Guardar também o [ZIP oficial 2.7.26 para ESP32-S3](https://github.com/meshtastic/firmware/releases/download/v2.7.26.54e0d8d/firmware-esp32s3-2.7.26.54e0d8d.zip)
-para eventual retorno. A aplicação exata é `firmware-heltec-v3-2.7.26.54e0d8d.bin`, SHA-256
+para eventual retorno. Para o Heltec V3, a aplicação é `firmware-heltec-v3-2.7.26.54e0d8d.bin`, SHA-256
 `34c38ff938380a64ad905ab2b1086172190d83bce0b62d53b95ac490d96c1fc6`.
 O fluxo de retorno é documentado, ainda não ensaiado fisicamente neste projeto.
 
@@ -39,8 +39,8 @@ No **PowerShell**, dentro da pasta dos arquivos baixados:
 ```powershell
 py -3 -m venv "$env:LOCALAPPDATA\MeshtasticBitchat\tools"
 & "$env:LOCALAPPDATA\MeshtasticBitchat\tools\Scripts\python.exe" -m pip install esptool==4.11.0
-$pacotes = @(Get-ChildItem .\meshtastic-bitchat-heltec-v3-0.1.0-experimental.4-*.zip)
-if ($pacotes.Count -ne 1) { throw "Mantenha somente um ZIP Heltec .4 nesta pasta" }
+$pacotes = @(Get-ChildItem .\meshtastic-bitchat-heltec-v3-0.1.0-experimental.6-*.zip)
+if ($pacotes.Count -ne 1) { throw "Mantenha somente um ZIP .6 do modelo nesta pasta" }
 & "$env:LOCALAPPDATA\MeshtasticBitchat\tools\Scripts\python.exe" .\prepare_flash.py $pacotes[0].FullName --model heltec-v3 --port COM3 --read-backup
 ```
 

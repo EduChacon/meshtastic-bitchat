@@ -1,89 +1,86 @@
-# Meshtastic ↔ Bitchat 0.1.0-experimental.5
+# Meshtastic ↔ Bitchat 0.1.0-experimental.6
 
-**Correção de memória; pré-release sem aceite físico.**
+**Pré-release sem aceite em aparelho.** Os testes desta versão são simulações em computador e
+compilação. Nenhum dos dez alvos foi ligado com este firmware, e oito deles nunca receberam
+versão alguma da ponte. Fazer backup privado antes de instalar. Não há garantia de risco zero.
 
-A `.4` pode mostrar `Low memory: bridge OFF` antes de criar o canal. Esta revisão reduz
-alocações iniciais e evita exigir dois grandes blocos contínuos. No modelo host, a reserva
-inicial cai de aproximadamente 67 KB para 23 KB. A margem de segurança permanece intacta.
-Isso é uma correção testada em software, ainda sem confirmação no aparelho afetado.
-[Diagnóstico, testes e limites](https://github.com/EduChacon/meshtastic-bitchat/blob/v0.1.0-experimental.5/docs/bridge/MEMORY_FIX.md).
+## O que muda em relação à `.5`
+
+- **`!lora` opcional.** Todo texto público do `#mesh` segue para o canal LoRa como
+  `apelido: texto`. Em `Settings`, `LoRa: only !lora` volta a exigir o prefixo.
+- **Conversa em grupo.** Filas Bluetooth maiores, cópias reconhecidas antes da conferência de
+  assinatura, rajada de seis mensagens por pessoa em vez de uma a cada 30 s, repetição nativa
+  do Meshtastic no canal e fim do bloqueio permanente entre duas pontes.
+- **Texto longo** é dividido em até três partes em vez de ser recusado.
+- **Hora após falta de energia.** Sem hora confiável, o primeiro telefone Bitchat que conecta
+  fornece a hora. Um telefone próximo pode adiantar esse relógio até a hora confiável voltar.
+- **Menu e tela de estado** em frases, com orientação do que fazer.
+- **Oito aparelhos novos**, todos ESP32-S3.
+
+[Mudanças, motivos, limites e evidência](https://github.com/EduChacon/meshtastic-bitchat/blob/v0.1.0-experimental.6/docs/bridge/CANDIDATE.md).
+
+**Atenção ao padrão novo:** qualquer pessoa que escreva no `#mesh` ao alcance da ponte tem o
+texto publicado no canal LoRa `Bitchat`, cuja chave é pública.
 
 ## Baixar para instalar
 
-Nos anexos abaixo, escolher o ZIP do modelo exato:
+Escolher nos anexos o ZIP do modelo exato:
 
-- **Heltec V3:** `meshtastic-bitchat-heltec-v3-0.1.0-experimental.5-<commit>.zip`.
-- **Cardputer ADV + Cap LoRa-1262:** `meshtastic-bitchat-m5stack-cardputer-adv-0.1.0-experimental.5-<commit>.zip`.
+| Aparelho                         | ZIP começa por                                |
+| -------------------------------- | --------------------------------------------- |
+| Heltec V3                        | `meshtastic-bitchat-heltec-v3-`               |
+| Heltec V4 (OLED)                 | `meshtastic-bitchat-heltec-v4-`               |
+| Heltec Wireless Stick Lite V3    | `meshtastic-bitchat-heltec-wsl-v3-`           |
+| Heltec Wireless Tracker V1.1     | `meshtastic-bitchat-heltec-wireless-tracker-` |
+| Heltec Wireless Paper            | `meshtastic-bitchat-heltec-wireless-paper-`   |
+| LILYGO T-Beam Supreme            | `meshtastic-bitchat-tbeam-s3-core-`           |
+| Seeed XIAO ESP32-S3 + Wio-SX1262 | `meshtastic-bitchat-seeed-xiao-s3-`           |
+| LILYGO T-Deck                    | `meshtastic-bitchat-t-deck-`                  |
+| Station G2                       | `meshtastic-bitchat-station-g2-`              |
+| Cardputer ADV + Cap LoRa-1262    | `meshtastic-bitchat-m5stack-cardputer-adv-`   |
 
-Fazer backup privado e preflight pelo [roteiro Windows desta versão](https://github.com/EduChacon/meshtastic-bitchat/blob/v0.1.0-experimental.5/docs/bridge/WINDOWS_RECOVERY.md).
-No [flasher oficial](https://flasher.meshtastic.org/), selecionar o modelo, carregar o ZIP e
-usar **Atualizar / Update**. Não usar **Apagar Flash e Instalar**. Não é necessário merge.
-O ZIP contém só a aplicação; o `-update.bin` do mesmo modelo é a alternativa. Não usar em
-Heltec V2/V4, T1000-E, T-Deck ou Cardputer original. Conferir os hashes em `SHA256SUMS`.
+Fazer backup privado e conferência pelo [roteiro Windows](https://github.com/EduChacon/meshtastic-bitchat/blob/v0.1.0-experimental.6/docs/bridge/WINDOWS_RECOVERY.md). No
+[flasher oficial](https://flasher.meshtastic.org/), selecionar o modelo, carregar o ZIP e usar
+**Atualizar / Update**. Não usar **Apagar Flash e Instalar**. O ZIP contém só a aplicação; o
+`-update.bin` do mesmo modelo é a alternativa. Conferir os hashes em `SHA256SUMS`.
+
+Não há binário para T1000-E, RAK4631, T-Echo, T-Beam clássico, T-LoRa32, T3-S3, Heltec V2,
+Cardputer original nem para as variantes com interface colorida (`-tft`). Um ZIP só é aceito
+pelo verificador para o próprio modelo.
 
 ## Usar
 
-Após o primeiro boot, conectar Meshtastic para fornecer a hora. Sem hora confiável, o rádio
-anuncia Meshtastic automaticamente; com hora válida, volta a anunciar Bitchat. Desde a `.4`, BLE e texto
-dedicado são ativados uma vez; a `.5` preserva essa escolha e não repete a migração. Um canal de
-texto já autorizado é preservado; caso contrário, cria-se **Bitchat**, secundário e público,
-somente em posição vazia. Nenhum canal existente é escolhido por nome ou sobrescrito.
-
-**A chave desse canal é pública; seu texto será publicado no `#mesh` local.**
-[Ler o início rápido, chave e limites antes de instalar](https://github.com/EduChacon/meshtastic-bitchat/blob/v0.1.0-experimental.5/docs/bridge/DEFAULTS.md).
-Adicionar somente esse canal no rádio remoto stock, mantendo suas demais configurações.
-O canal primário continua excluído. Escolhas posteriores de OFF/BLE-only persistem.
-
-Para mudar o padrão, abrir **System → Bitchat bridge**:
-
-1. **Local Bitchat:** somente relé Bluetooth, sem tradução/túnel LoRa da ponte.
-2. **Bitchat + LoRa:** selecionar canal secundário e confirmar que seu texto será público
-   no Bitchat local. Aguardar 30 segundos antes do primeiro teste.
-
-No Meshtastic remoto stock, enviar texto normal **no canal selecionado**. No Bitchat público,
-enviar `!lora texto` para o sentido contrário. Manter Bitchat aberto perto da ponte e conferir
-as conexões BLE. Contadores não comprovam entrega no iPhone.
-
-**More options** reúne perfil fixo/econômico, alternância de descoberta entre os apps, estado,
-ajuda e túnel de laboratório. O perfil atual é explícito. Os modos básicos desativam o túnel
-privado; ele exige ativação separada. O modo local desliga B/C sem apagar os canais Meshtastic.
-
-[Detalhes e teste do menu](https://github.com/EduChacon/meshtastic-bitchat/blob/v0.1.0-experimental.5/docs/bridge/MENU_FIX.md).
-**Heltec sem tela:** a ativação padrão não exige menu, mas o pareamento e a hora fornecida
-por Meshtastic ainda são necessários. Não há configurador USB próprio. A placa sem OLED
-continua sem aceite físico. Após corte de energia, pode ser necessário fornecer a hora novamente.
+Abrir o Bitchat perto do rádio e conversar no `#mesh`. No rádio remoto com firmware original,
+adicionar somente o canal `Bitchat` com a [chave pública](https://github.com/EduChacon/meshtastic-bitchat/blob/v0.1.0-experimental.6/docs/bridge/DEFAULTS.md). O texto do canal
+aparece no `#mesh` como `[MT nome do nó] texto`. Para mudar o modo: `System → Bitchat bridge`.
+Em rádio sem tela valem os padrões automáticos.
 
 ## Verificação e arquivos técnicos
 
-A publicação depende dos dois builds, reconstrução idêntica, testes de protocolo/entradas
-inválidas, BLE, memória limitada, inicialização, menu, configuração padrão, artefatos e análise estática, mais compilação stock Heltec.
-A suíte do menu usa código real com fakes de tela/transporte/armazenamento e ASan/UBSan;
-não equivale a teste OLED/iOS. A `.5` ainda exige boot, preservação, entrega, estabilidade e
-rollback físicos. Não há garantia de risco zero.
+A publicação depende, para os dez alvos, de compilação, reconstrução idêntica, análise
+estática e dos testes de host: protocolo com 19 vetores oficiais e 100.000 entradas
+malformadas, adaptador Bluetooth, memória, menu, padrões, inicialização, pacotes e o fluxo
+completo com três telefones e um rádio simulados. Nada disso equivale a ensaio com
+controlador Bluetooth, iOS ou rádio reais.
 
-`technical-package-0.1.0-experimental.5.tar.gz` reúne fontes correspondentes, dependências,
+`technical-package-0.1.0-experimental.6.tar.gz` reúne fontes correspondentes, dependências,
 licenças, símbolos, manifestos e resultados dos testes. Não é arquivo para o flasher.
-`prepare_flash.py`, `verify_artifact.py` e `WINDOWS_RECOVERY.md` apoiam backup/preflight.
-A base permanece Meshtastic 2.7.26.54e0d8d, com as correções de boot da `.3`.
+A base permanece Meshtastic 2.7.26.54e0d8d.
 
 ## English
 
-**Memory allocation fix; no hardware acceptance for .5.** Lazy BLE buffers, shared broadcast
-payloads and smaller runtime blocks reduce startup memory in the host model from about
-67 KB to 23 KB. The safety reserve and existing settings are retained. The exact heap
-condition of the affected physical device is unknown; a new hardware test is required.
+**No hardware acceptance.** This version was checked by host simulation and compilation only.
+None of the ten targets has been run with it; eight never ran any version of the bridge.
 
-Choose the board-specific `.5` ZIP above, perform private backup/preflight, and use **Update**
-in the official flasher. Do not erase flash. No merge is required. Set the clock through
-Meshtastic. Local BLE plus dedicated public text are enabled once since .4; .5 preserves that migration state; a new **Bitchat** secondary channel is created only in an empty slot when no text
-channel was already authorized. Its key is public and its text is exported to local **#mesh**.
-Add only that channel to the remote stock radio. Later OFF/BLE-only choices persist.
-See the [English quick start](https://github.com/EduChacon/meshtastic-bitchat/blob/v0.1.0-experimental.5/docs/bridge/DEFAULTS.md#english).
-Wait 30 seconds; send ordinary text on that Meshtastic
-channel, or `!lora text` in public Bitchat for the opposite direction. Both basic choices
-disable lab tunneling. Power, app discovery, status and lab settings are under **More options**.
+Changes since `.5`: `!lora` is optional (every public `#mesh` message goes to the LoRa channel
+as `nick: text`; `Settings → LoRa: only !lora` restores the prefix); group chat losses fixed
+(deeper Bluetooth queues, relayed copies recognised before signature checks, a burst of six
+messages per person, Meshtastic's own retransmission, no permanent block between two bridges);
+long text is split in up to three parts; a radio without a trusted clock takes the time from
+the first Bitchat phone that connects (a nearby phone can push that clock ahead until a
+trusted source returns); plain-language menu and status; eight more ESP32-S3 devices.
 
-Software checks do not prove phone delivery. Automatic setup does not require an OLED,
-but native pairing and clock setup still do; screenless hardware is not physically validated.
-The technical archive contains corresponding source, dependency licenses, debug symbols
-and test evidence. It is not flasher input. The base and startup safeguards remain unchanged.
+Choose the ZIP for the exact model from the table above, make a private backup, and use
+**Update** in the official flasher. Do not erase flash. With the new default, anyone writing
+in `#mesh` within reach of the bridge has that text published on the public `Bitchat` LoRa
+channel. [Details in English](https://github.com/EduChacon/meshtastic-bitchat/blob/v0.1.0-experimental.6/docs/bridge/CANDIDATE.md#english).

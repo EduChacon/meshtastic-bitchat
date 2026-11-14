@@ -51,7 +51,9 @@ o controlador ou o escalonador FreeRTOS; a inicialização real ainda exige banc
 
 Logs da CI identificam commit, ferramenta, comando e resultado real. Desde o incidente de
 boot, publicação exige acionamento explícito após os gates físicos; push só verifica e
-gera candidatos. Não interpretar um job ignorado como aprovado.
+gera candidatos. Não interpretar um job ignorado como aprovado. A `.6` foi publicada como pré-release
+por decisão do operador, **sem** os gates físicos abaixo; eles continuam pendentes para
+qualquer afirmação de funcionamento em aparelho.
 
 ## Reprodução dos vetores
 

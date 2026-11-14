@@ -1,6 +1,6 @@
 # Arquitetura e decisões
 
-> Os limites e o tratamento de eco abaixo descrevem a `.5`. A [revisão candidata](CANDIDATE.md)
+> Os limites e o tratamento de eco abaixo descrevem a `.5`. A [`.6`](CANDIDATE.md)
 > altera filas, ritmo por origem, formato do texto, journal e sobreposição de pontes; a tabela
 > de limites daquele documento prevalece para o código atual da árvore.
 

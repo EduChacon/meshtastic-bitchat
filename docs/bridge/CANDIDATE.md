@@ -1,13 +1,12 @@
-# Revisão candidata posterior à experimental .5
+# Experimental .6: mudanças em relação à .5
 
-**Estado: não publicada e não validada em aparelho.** Este documento descreve o código da
-árvore depois da `.5`. Os binários da release `.5` continuam com o comportamento descrito
-em [DEFAULTS.md](DEFAULTS.md) na revisão da tag. Nenhuma entrega entre aparelhos está
+**Estado: pré-release, não validada em aparelho.** Este documento descreve o que muda da `.5`
+para a `.6`, os motivos, os limites e a evidência. Nenhuma entrega entre aparelhos está
 classificada como confirmada em hardware; os gates de [TESTING.md](TESTING.md) continuam valendo.
 
 ## O que muda para quem usa
 
-| Assunto                | `.5`                                               | Candidata                                                          |
+| Assunto                | `.5`                                               | `.6`                                                               |
 | ---------------------- | -------------------------------------------------- | ------------------------------------------------------------------ |
 | Bitchat → LoRa         | Somente texto iniciado por `!lora `                | Todo texto público do `#mesh`; `!lora ` aceito e removido do texto |
 | Texto visto no rádio   | `[BC 3fa9…] texto [mb1:…:…]`                       | `apelido: texto`                                                   |
@@ -91,7 +90,7 @@ desta; a mistura de revisões não foi ensaiada.
 
 ## Aparelhos
 
-Além do Heltec V3 e do Cardputer ADV, a candidata tem alvos de compilação para Heltec V4,
+Além do Heltec V3 e do Cardputer ADV, a `.6` tem alvos de compilação para Heltec V4,
 Heltec Wireless Stick Lite V3, Heltec Wireless Tracker, Heltec Wireless Paper, LILYGO T-Beam
 Supreme, Seeed XIAO ESP32-S3, LILYGO T-Deck e Station G2. Todos são ESP32-S3 com 8 ou 16 MB e
 usam a interface padrão; as variantes com interface `MUI` não têm o menu da ponte. O
@@ -155,7 +154,7 @@ telefone nunca é gravada como piso, para que um adiantamento não sobreviva ao 
 
 ## English
 
-Unreleased candidate after `.5`, host-tested only. Every public `#mesh` message is exported
+Prerelease `.6`, host-tested only. Every public `#mesh` message is exported
 to the selected LoRa channel as `nick: text`; `!lora ` is still accepted and can be made
 mandatory again under `Settings`. Loop protection no longer depends on the prefix: text from
 another bridge and text starting with `[MT ` are never exported. Long text is split in up to

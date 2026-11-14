@@ -78,7 +78,7 @@ critérios de aprovação e registros estão em [TESTING](TESTING.md); recupera�
 [INSTALL](INSTALL.md). Não executar o harness upstream de hardware como teste de software:
 seu fluxo de instalação pode gravar rádios conectados.
 
-## Revisão candidata — 2026-11-14
+## Experimental .6 — 2026-11-14
 
 Revisão do código da `.5` comparada com o Bitchat iOS 1.8.0, motivada por relato do operador
 de funcionamento inconstante, sobretudo em grupo. As causas de perda encontradas, as mudanças
@@ -90,6 +90,11 @@ de fluxo completo (`tools/bridge/test_flow.py`, 709 verificações), que compila
 produção. O ambiente de trabalho não alcança o registro do PlatformIO; a compilação dos dois
 alvos depende da CI do repositório. Nenhum comando acessou ou gravou rádio. Entrega entre
 aparelhos, tela, consumo e estabilidade prolongada permanecem não validados.
+
+Na mesma data, por decisão do operador: hora fornecida pelo telefone Bitchat na falta de fonte
+confiável; repetição nativa do Meshtastic para o texto da ponte; alvos de compilação para mais
+oito aparelhos ESP32-S3, com as ferramentas de pacote aceitando 16 MB; e publicação como
+pré-release `.6`, sem os gates físicos de [TESTING.md](TESTING.md), que continuam pendentes.
 
 ## Investigação de boot — 2026-11-13
 

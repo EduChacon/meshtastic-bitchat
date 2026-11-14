@@ -15,7 +15,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from verify_artifact import APP_SLOT, MODELS  # noqa: E402
 
 BOARDS = {model + "-bitchat": (model, *target) for model, target in MODELS.items()}
-VERSION = "0.1.0-experimental.5"
+VERSION = "0.1.0-experimental.6"
 
 
 def sha256(data):
@@ -153,7 +153,8 @@ def main():
         "LEIA-ANTES.txt": (
             "EXPERIMENTAL. Nenhum ensaio desta revisao em hardware. BLE e texto publico Bitchat ativos por padrao.\n"
             "No primeiro boot desta revisao: cria canal publico Bitchat em espaco livre; nao exporta o primario.\n"
-            "Conecte Meshtastic para fornecer a hora; depois abra #mesh no Bitchat. Leia docs/bridge/DEFAULTS.md.\n"
+            "Todo texto publico do #mesh ao alcance e publicado no canal LoRa Bitchat. Leia docs/bridge/CANDIDATE.md.\n"
+            "Sem hora confiavel, o primeiro telefone Bitchat que conecta fornece a hora.\n"
             f"Alvo exclusivo: {model}; ESP32-S3; {flash // 2**20} MB; app0 0x10000.\n"
             "Este ZIP contem somente atualizacao de aplicativo. Nao e instalacao de fabrica.\n"
             "Nao inclui apagamento integral; atualiza os setores da aplicacao. Falhas ainda podem impedir boot.\n"

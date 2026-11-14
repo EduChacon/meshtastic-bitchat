@@ -6,139 +6,106 @@ An experimental embedded bridge derived from the official Meshtastic firmware. I
 for the unmodified Bitchat and Meshtastic apps, with no computer, MQTT, Nostr or internet in the
 operating path. A computer is used to build, install and diagnose the firmware.
 
-**Experimental memory fix: [v0.1.0-experimental.5](https://github.com/EduChacon/meshtastic-bitchat/releases/tag/v0.1.0-experimental.5).**
-Reduces startup reservations that can prevent activation with `Low memory: bridge OFF`.
-Keeps settings, protocol limits and memory safeguards. See [fix and evidence](docs/bridge/MEMORY_FIX.md#english)
-and [quick start](docs/bridge/DEFAULTS.md#english). Device-to-device delivery still needs hardware acceptance.
+**Current prerelease: [v0.1.0-experimental.6](https://github.com/EduChacon/meshtastic-bitchat/releases/tag/v0.1.0-experimental.6).** Drops the mandatory `!lora`, fixes
+message losses in group chat, recovers the clock without the Meshtastic app, simplifies the
+menu and adds eight ESP32-S3 devices. [What changed and why](docs/bridge/CANDIDATE.md#english).
 
-**The `main` branch still contains earlier firmware.** Use the release tag and assets;
-firmware merging remains pending. Read the [Windows guide](docs/bridge/WINDOWS_RECOVERY.md)
-and [investigation record](docs/bridge/BOOT_INCIDENT.md).
+**Status: experimental, no hardware acceptance.** This version was checked by host simulation
+and compilation only. None of the ten targets has been run with this firmware; eight of them
+never ran any version of the bridge. Back up before installing and read the
+[limits](docs/bridge/CANDIDATE.md#english) and the [bench procedure](docs/bridge/TESTING.md).
 
-**Code after `.5`:** the tree holds an unreleased candidate, not validated on hardware, that
-drops the mandatory `!lora`, fixes losses in group chat, simplifies the menu and adds build
-targets for eight more ESP32-S3 boards. This page describes the `.5` binaries; differences are
-in the [candidate notes](docs/bridge/CANDIDATE.md).
+## How it works
 
-**Status: experimental.** Software tests and builds do not establish field operation.
-Consult the revision's CI results and limitations before installing.
+| Mode                  | Behavior                                                                                       | Modified radios                              |
+| --------------------- | ---------------------------------------------------------------------------------------------- | -------------------------------------------- |
+| A — Bitchat only      | Bounded Bitchat packet relay over Bluetooth with signature checks, TTL and deduplication       | One per Bluetooth area; uses no LoRa airtime |
+| B — Bitchat + LoRa    | Public `#mesh` text ↔ native text on a dedicated Meshtastic channel                            | One; other radios keep stock firmware        |
+| C — laboratory tunnel | Bitchat packets preserved on private port 256 between two bridges; separate opt-in and consent | Two                                          |
 
-## Independent modes
+On first boot the bridge enables A and B and creates the public `Bitchat` channel in an empty
+slot, without touching the primary or any existing channel. That channel's key is public and
+listed in the [guide](docs/bridge/DEFAULTS.md#english): **its text appears in Bitchat `#mesh`,
+and every public `#mesh` message within reach of the bridge is published on that LoRa channel.**
 
-| Mode                  | Implemented behavior                                                                                           | Modified radios                                                  |
-| --------------------- | -------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------- |
-| A — local BLE         | Bounded Bitchat packet relay with signature checks, TTL and deduplication                                      | One per BLE area; mode A uses no LoRa airtime                    |
-| B — shared text       | `!lora text` to native text on a dedicated Meshtastic channel; channel text to public Bitchat                  | One; other radios remain stock                                   |
-| C — laboratory tunnel | Preserved packets on private port 256; discovery and `!bctun text`; separate opt-in for opaque private traffic | Two endpoints; stock intermediate nodes require separate testing |
+B does not translate DMs, Noise sessions, private groups, position, telemetry, files, voice or
+administrative commands.
 
-**Local BLE and text integration are enabled by default in this revision.** On first boot,
-including an upgrade, the bridge uses an already authorized text channel or creates the
-dedicated public `Bitchat` channel in an empty slot. It does not select or replace existing
-channels based on name or position. The primary channel is excluded. The [guide](docs/bridge/DEFAULTS.md#english)
-publishes the interoperability key: it is not secret. Later OFF or BLE-only choices persist.
-Laboratory mode C still requires separate activation.
+## Devices
 
-B does not translate DMs, Noise sessions, position, telemetry, files, voice or administrative
-commands. Selecting another channel requires confirmation that its text becomes public
-on local Bitchat; the PSK does not protect that exported copy.
+| Device                           | File name starts with                         | Flash |
+| -------------------------------- | --------------------------------------------- | ----- |
+| Heltec V3                        | `meshtastic-bitchat-heltec-v3-`               | 8 MB  |
+| Heltec V4 (OLED)                 | `meshtastic-bitchat-heltec-v4-`               | 16 MB |
+| Heltec Wireless Stick Lite V3    | `meshtastic-bitchat-heltec-wsl-v3-`           | 8 MB  |
+| Heltec Wireless Tracker V1.1     | `meshtastic-bitchat-heltec-wireless-tracker-` | 8 MB  |
+| Heltec Wireless Paper            | `meshtastic-bitchat-heltec-wireless-paper-`   | 8 MB  |
+| LILYGO T-Beam Supreme            | `meshtastic-bitchat-tbeam-s3-core-`           | 8 MB  |
+| Seeed XIAO ESP32-S3 + Wio-SX1262 | `meshtastic-bitchat-seeed-xiao-s3-`           | 8 MB  |
+| LILYGO T-Deck                    | `meshtastic-bitchat-t-deck-`                  | 16 MB |
+| Station G2                       | `meshtastic-bitchat-station-g2-`              | 16 MB |
+| Cardputer ADV + Cap LoRa-1262    | `meshtastic-bitchat-m5stack-cardputer-adv-`   | 8 MB  |
 
-## Release targets
+Firmware is built **for each board model**. The same CPU does not imply the same pins, radio,
+flash, partitions or bootloader; another board's image can prevent booting. T1000-E, RAK4631,
+T-Echo, classic T-Beam, T-LoRa32 and T3-S3 **have no bridge binary** but work as stock nodes in
+mode B. [Matrix and conditions](docs/bridge/COMPATIBILITY.md).
 
-- `heltec-v3-bitchat`: Heltec WiFi LoRa 32 V3, ESP32-S3/SX1262, 8 MB flash.
-- `m5stack-cardputer-adv-bitchat`: Cardputer **ADV** with **Cap LoRa-1262**, matching the
-  upstream target revision, 8 MB flash. The original Cardputer and other accessories are not interchangeable.
+## Install
 
-T1000-E, RAK4631, T-Deck, T-Echo, other Heltec/LilyGO boards and other Meshtastic devices are
-intended **stock-node** candidates for mode B when radio, band, region, preset, frequency and
-channel match. That does not make these bridge binaries installable on them. Bridge ports
-for T1000-E/nRF52 and T-Deck are not included in this release.
-[Compatibility matrix](https://github.com/EduChacon/meshtastic-bitchat/blob/v0.1.0-experimental.5/docs/bridge/COMPATIBILITY.md).
+1. From [v0.1.0-experimental.6](https://github.com/EduChacon/meshtastic-bitchat/releases/tag/v0.1.0-experimental.6), download the ZIP for the exact model,
+   `prepare_flash.py`, `verify_artifact.py` and `SHA256SUMS`.
+2. Follow the [Windows private-backup procedure](docs/bridge/WINDOWS_RECOVERY.md) and check the hash.
+3. In the [official Web Flasher](https://flasher.meshtastic.org/), select the board and the ZIP
+   and use **Update**. Do not select **Erase Flash and Install**.
 
-The protocol core is shared, but firmware is built **for each board model**. The same CPU
-does not imply the same pins, radio, flash, partitions or bootloader. There is no universal
-ESP32 or nRF52 image; installing another board's image can prevent booting.
-
-## Downloads
-
-Available release: [**v0.1.0-experimental.5**](https://github.com/EduChacon/meshtastic-bitchat/releases/tag/v0.1.0-experimental.5), for recovery testing after private
-backup and preflight. Choose the ZIP beginning with the correct board name and containing `.4`.
-
-| Board                         | Package for the official flasher                                                                                                                                                                |
-| ----------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Heltec V3**                 | [**Download Heltec V3 ZIP**](https://github.com/EduChacon/meshtastic-bitchat/releases/download/v0.1.0-experimental.5/meshtastic-bitchat-heltec-v3-0.1.0-experimental.5-be61e1d.zip)             |
-| Cardputer ADV + Cap LoRa-1262 | [Download Cardputer ADV ZIP](https://github.com/EduChacon/meshtastic-bitchat/releases/download/v0.1.0-experimental.5/meshtastic-bitchat-m5stack-cardputer-adv-0.1.0-experimental.5-be61e1d.zip) |
-
-1. Follow the [Windows private-backup procedure](https://github.com/EduChacon/meshtastic-bitchat/blob/main/docs/bridge/WINDOWS_RECOVERY.md).
-2. Check the download against [SHA256SUMS](https://github.com/EduChacon/meshtastic-bitchat/releases/download/v0.1.0-experimental.5/SHA256SUMS).
-3. In the [official Web Flasher](https://flasher.meshtastic.org/), select the board and ZIP,
-   then **Update**. Do not select **Erase Flash and Install**.
-
-Both backup/preflight scripts and the guide remain attached. Each board also has a matching
-`-update.bin` alternative; **Source code** is not an installable firmware package.
-A merge is not required to install the release assets. For a private repository, sign into
-an account with access before downloading. [Publication verification for .4](docs/bridge/RELEASE_CHECKS.md).
-
-The [technical package](https://github.com/EduChacon/meshtastic-bitchat/releases/download/v0.1.0-experimental.5/technical-package-0.1.0-experimental.5.tar.gz) contains corresponding source, dependencies, licenses,
-ELF/map symbols, manifests, test evidence and the release attachments with their hashes.
-It is not a flasher input. Source history, tags and the
-[investigation record](docs/bridge/BOOT_INCIDENT.md) are preserved.
+Each board also has a matching `-update.bin`; **Source code** is not firmware. To return to
+stock, use the official Meshtastic 2.7.26 image for the same model.
 
 ## Use
 
-After installation and first-boot checks, connect Meshtastic to set the clock. Without valid
-time the radio automatically advertises Meshtastic; with valid time it returns to Bitchat.
-Share only the `Bitchat` channel with the remote stock radio and allow 30 seconds.
-See the [quick start](docs/bridge/DEFAULTS.md#english) for the public key and full-channel cases.
+1. Open **Bitchat** near the radio. If the radio has no clock (for instance after a power
+   cut), the first Bitchat phone that connects supplies it; the Meshtastic app and GPS also
+   do, and take precedence.
+2. On the remote stock radio, add only the `Bitchat` channel with the public key from the
+   [guide](docs/bridge/DEFAULTS.md#english), keeping region, preset and frequency compatible.
+3. Chat normally: `#mesh` text reaches the channel as `nick: text`; channel text reaches
+   `#mesh` as `[MT node name] text`.
 
-Send ordinary text **on that Meshtastic channel**; send `!lora text` in Bitchat `#mesh`
-for the opposite direction. Keep Bitchat open nearby for the first test.
-To change operation, open `System → Bitchat bridge`:
-
-1. **Local Bitchat:** Bluetooth relaying, with bridge text translation and LoRa tunnel disabled.
-2. **Bitchat + LoRa:** select a secondary channel and confirm public export to local Bitchat.
-   Allow 30 seconds before the first message.
-
-**More options** contains power profiles, app discovery, status and lab settings. Basic modes disable the
-tunnel; enabling it later requires its own selection and consent.
-
-See the [menu guide](docs/bridge/MENU_FIX.md); the [previous guide](docs/bridge/USAGE.en.md)
-documents `.3`. Automatic activation also applies to a confirmed screenless Heltec V3;
-Meshtastic pairing and valid time are still required. This is implemented and host-tested,
-**not validated on a screenless board**. No custom USB configurator or simultaneous-discovery
-guarantee is included.
+On a radio with a screen, `System → Bitchat bridge` offers `Bitchat only`, `Bitchat + LoRa`,
+`Turn bridge off`, `Status` and `Settings`. Under `Settings`, `LoRa: all messages` can be
+switched to `LoRa: only !lora`, so that only text starting with `!lora ` leaves over LoRa. The
+status screen says in plain words what is happening and what to do. Without a screen the
+defaults apply.
 
 ## Build and documentation
 
-Base: Meshtastic **2.7.26.54e0d8d**, commit
-`54e0d8d0ab2ff56b3a9ce967e53f79e49af560fb`, the Beta listed as the stable download on the
-[official downloads page](https://meshtastic.org/downloads/) checked on 2026-11-13.
-This release does not use the Alpha 2.8.2 line.
+Base: Meshtastic **2.7.26.54e0d8d**, commit `54e0d8d0ab2ff56b3a9ce967e53f79e49af560fb`.
 Bitchat reference: iOS **1.8.0**, commit `30c58eee349e172b37f69faa2113c9d5f2c76c23`.
 
-To build the correction, check out the tag in a clean working copy:
-
 ```sh
-git fetch origin tag v0.1.0-experimental.5
-git checkout --detach v0.1.0-experimental.5
+git fetch origin tag v0.1.0-experimental.6
+git checkout --detach v0.1.0-experimental.6
 python3 -m venv .venv
 .venv/bin/python -m pip install platformio==6.2.0 intelhex==2.3.0
 git submodule update --init protobufs
 SOURCE_DATE_EPOCH=1794528000 .venv/bin/pio run -e heltec-v3-bitchat -t buildprog
 ```
 
-These commands build software; they do not upload it. Use the pinned official sources and
-tools. Initial preparation requires dependency downloads. Detailed engineering documents
-are currently in Portuguese:
+These commands build software; they do not upload it. Detailed engineering documents are
+in Portuguese:
 
-- [Architecture, limits and falsifiable hypotheses](https://github.com/EduChacon/meshtastic-bitchat/blob/v0.1.0-experimental.5/docs/bridge/ARCHITECTURE.md)
-- [Compatibility and feature coverage](https://github.com/EduChacon/meshtastic-bitchat/blob/v0.1.0-experimental.5/docs/bridge/COMPATIBILITY.md)
-- [Installation, verifier and recovery](https://github.com/EduChacon/meshtastic-bitchat/blob/v0.1.0-experimental.5/docs/bridge/INSTALL.md)
-- [Threats, privacy and limitations](https://github.com/EduChacon/meshtastic-bitchat/blob/v0.1.0-experimental.5/docs/bridge/SECURITY.md)
-- [Tests, bench procedure, power measurements and acceptance criteria](https://github.com/EduChacon/meshtastic-bitchat/blob/v0.1.0-experimental.5/docs/bridge/TESTING.md)
-- [Sources, provenance and licenses](https://github.com/EduChacon/meshtastic-bitchat/blob/v0.1.0-experimental.5/docs/bridge/SOURCES.md)
-- [Comparison with other bridges and evidence limits](docs/bridge/COMPARISON.md)
-- [Implementation and validation record](https://github.com/EduChacon/meshtastic-bitchat/blob/v0.1.0-experimental.5/docs/bridge/WORKLOG.md)
+- [Changes, limits and evidence for this version](docs/bridge/CANDIDATE.md#english)
+- [Default setup and the public channel key](docs/bridge/DEFAULTS.md#english)
+- [Compatibility and feature coverage](docs/bridge/COMPATIBILITY.md)
+- [Architecture and decisions](docs/bridge/ARCHITECTURE.md)
+- [Installation, verifier and recovery](docs/bridge/INSTALL.md)
+- [Threats, privacy and limitations](docs/bridge/SECURITY.md)
+- [Tests, bench procedure and acceptance criteria](docs/bridge/TESTING.md)
+- [Sources, provenance and licenses](docs/bridge/SOURCES.md)
+- [Comparison with other bridges](docs/bridge/COMPARISON.md)
+- [Work record](docs/bridge/WORKLOG.md) and [`.2` boot investigation](docs/bridge/BOOT_INCIDENT.md)
 - [Original firmware README](docs/bridge/README.upstream.md)
 
-Official upstream history and the original project history are preserved. This is not a
-MeshCore project. Firmware license: [GPL-3.0](LICENSE); dependencies retain their own licenses.
+This is not a MeshCore project. Firmware license: [GPL-3.0](LICENSE); dependencies keep their
+own licenses.

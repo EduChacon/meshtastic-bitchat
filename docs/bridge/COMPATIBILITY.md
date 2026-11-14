@@ -44,26 +44,26 @@ qualquer nó Meshtastic que participe do mesmo enlace/configuração e apresente
 Não há lista de fabricantes codificada para a tradução. Banda, modulação, região, frequência
 efetiva, PSK, papel de canal, versão e problemas do rádio continuam determinantes.
 
-| Família                                 | Como nó stock remoto/intermediário | Como ponte                               | Condição importante                                                         |
-| --------------------------------------- | ---------------------------------- | ---------------------------------------- | --------------------------------------------------------------------------- |
-| Heltec V3                               | PREV/NT                            | COMP na `.5` e na candidata; hardware NT | ESP32-S3/SX1262, 8 MB; confirmar revisão e banda físicas                    |
-| Cardputer ADV + Cap LoRa-1262           | PREV/NT                            | COMP na `.5` e na candidata; hardware NT | Confirmar Cap/revisão, comutação de antena e banda; não confundir original  |
-| Heltec V4                               | PREV/NT                            | Alvo só na candidata; hardware NT        | ESP32-S3, 16 MB; alvo com OLED, não o `heltec-v4-tft`                       |
-| Heltec Wireless Stick Lite V3           | PREV/NT                            | Alvo só na candidata; hardware NT        | Sem tela: só os padrões automáticos, sem menu                               |
-| Heltec Wireless Tracker                 | PREV/NT                            | Alvo só na candidata; hardware NT        | Alvo V1.1; tela pequena, textos do painel não conferidos                    |
-| Heltec Wireless Paper                   | PREV/NT                            | Alvo só na candidata; hardware NT        | Tela e-ink; alvo padrão, não o InkHUD                                       |
-| LILYGO T-Beam Supreme                   | PREV/NT                            | Alvo só na candidata; hardware NT        | `tbeam-s3-core`; não vale para o T-Beam clássico                            |
-| Seeed XIAO ESP32-S3                     | PREV/NT                            | Alvo só na candidata; hardware NT        | Com o módulo Wio-SX1262; tela opcional                                      |
-| LILYGO T-Deck                           | PREV/NT                            | Alvo só na candidata; hardware NT        | 16 MB; alvo `t-deck`, não `t-deck-tft` nem T-Deck Pro                       |
-| Station G2                              | PREV/NT                            | Alvo só na candidata; hardware NT        | 16 MB; potência alta, conferir limites regionais                            |
-| SenseCAP T1000-E                        | PREV/NT; primeira bancada stock    | Sem binário; exige porte                 | nRF52840/LR1110; recepção direta de SX127x tem restrição documentada        |
-| RAK4631/WisBlock, T-Echo e outros nRF52 | PREV/NT                            | Sem binário; exige porte                 | Pilha Bluetooth e armazenamento diferentes do ESP32; UF2                    |
-| T-Beam clássico, T-LoRa32, T3-S3        | PREV/NT                            | Sem binário                              | ESP32 clássico ou 4 MB: fora do leiaute revisado e sem medição de memória   |
-| Heltec V2 e outras                      | PREV/NT                            | Sem binário                              | Chip, flash, pinagem e potência diferem; nunca usar binário de outro modelo |
+| Família                                 | Como nó stock remoto/intermediário | Como ponte                          | Condição importante                                                         |
+| --------------------------------------- | ---------------------------------- | ----------------------------------- | --------------------------------------------------------------------------- |
+| Heltec V3                               | PREV/NT                            | COMP na `.5` e na `.6`; hardware NT | ESP32-S3/SX1262, 8 MB; confirmar revisão e banda físicas                    |
+| Cardputer ADV + Cap LoRa-1262           | PREV/NT                            | COMP na `.5` e na `.6`; hardware NT | Confirmar Cap/revisão, comutação de antena e banda; não confundir original  |
+| Heltec V4                               | PREV/NT                            | COMP só na `.6`; hardware NT        | ESP32-S3, 16 MB; alvo com OLED, não o `heltec-v4-tft`                       |
+| Heltec Wireless Stick Lite V3           | PREV/NT                            | COMP só na `.6`; hardware NT        | Sem tela: só os padrões automáticos, sem menu                               |
+| Heltec Wireless Tracker                 | PREV/NT                            | COMP só na `.6`; hardware NT        | Alvo V1.1; tela pequena, textos do painel não conferidos                    |
+| Heltec Wireless Paper                   | PREV/NT                            | COMP só na `.6`; hardware NT        | Tela e-ink; alvo padrão, não o InkHUD                                       |
+| LILYGO T-Beam Supreme                   | PREV/NT                            | COMP só na `.6`; hardware NT        | `tbeam-s3-core`; não vale para o T-Beam clássico                            |
+| Seeed XIAO ESP32-S3                     | PREV/NT                            | COMP só na `.6`; hardware NT        | Com o módulo Wio-SX1262; tela opcional                                      |
+| LILYGO T-Deck                           | PREV/NT                            | COMP só na `.6`; hardware NT        | 16 MB; alvo `t-deck`, não `t-deck-tft` nem T-Deck Pro                       |
+| Station G2                              | PREV/NT                            | COMP só na `.6`; hardware NT        | 16 MB; potência alta, conferir limites regionais                            |
+| SenseCAP T1000-E                        | PREV/NT; primeira bancada stock    | Sem binário; exige porte            | nRF52840/LR1110; recepção direta de SX127x tem restrição documentada        |
+| RAK4631/WisBlock, T-Echo e outros nRF52 | PREV/NT                            | Sem binário; exige porte            | Pilha Bluetooth e armazenamento diferentes do ESP32; UF2                    |
+| T-Beam clássico, T-LoRa32, T3-S3        | PREV/NT                            | Sem binário                         | ESP32 clássico ou 4 MB: fora do leiaute revisado e sem medição de memória   |
+| Heltec V2 e outras                      | PREV/NT                            | Sem binário                         | Chip, flash, pinagem e potência diferem; nunca usar binário de outro modelo |
 
-Os oito alvos marcados como "só na candidata" foram acrescentados depois da `.5`. Cada um
+Os oito alvos marcados como "só na `.6`" foram acrescentados depois da `.5`. Cada um
 estende o ambiente stock do próprio aparelho e é aceito pelas ferramentas de pacote somente
-para esse modelo. A compilação de cada alvo consta da CI do commit; nenhum deles foi ligado
+para esse modelo. COMP indica compilação na CI da publicação; nenhum deles foi ligado
 com este firmware, e
 tela, botões, memória livre e rádio dependem de ensaio por modelo.
 

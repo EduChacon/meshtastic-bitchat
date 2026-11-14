@@ -6,7 +6,7 @@ An embedded bridge derived from the official Meshtastic firmware. It is designed
 for the unmodified Bitchat and Meshtastic apps, with no computer, MQTT, Nostr or internet in the
 operating path. A computer is used to build, install and diagnose the firmware.
 
-**Current version (beta): [v1.0.0-beta](https://github.com/EduChacon/meshtastic-bitchat/releases/tag/v1.0.0-beta).** Drops the mandatory `!lora`, fixes
+**Current version (beta): [v1.0.0-beta.2](https://github.com/EduChacon/meshtastic-bitchat/releases/tag/v1.0.0-beta.2).** Drops the mandatory `!lora`, fixes
 message losses in group chat, recovers the clock without the Meshtastic app, simplifies the
 menu and adds eight ESP32-S3 devices. [What changed and why](docs/bridge/CHANGES.md#english).
 
@@ -33,18 +33,18 @@ administrative commands.
 
 ## Devices
 
-| Device                           | File name starts with                         | Flash |
-| -------------------------------- | --------------------------------------------- | ----- |
-| Heltec V3                        | `meshtastic-bitchat-heltec-v3-`               | 8 MB  |
-| Heltec V4 (OLED)                 | `meshtastic-bitchat-heltec-v4-`               | 16 MB |
-| Heltec Wireless Stick Lite V3    | `meshtastic-bitchat-heltec-wsl-v3-`           | 8 MB  |
-| Heltec Wireless Tracker V1.1     | `meshtastic-bitchat-heltec-wireless-tracker-` | 8 MB  |
-| Heltec Wireless Paper            | `meshtastic-bitchat-heltec-wireless-paper-`   | 8 MB  |
-| LILYGO T-Beam Supreme            | `meshtastic-bitchat-tbeam-s3-core-`           | 8 MB  |
-| Seeed XIAO ESP32-S3 + Wio-SX1262 | `meshtastic-bitchat-seeed-xiao-s3-`           | 8 MB  |
-| LILYGO T-Deck                    | `meshtastic-bitchat-t-deck-`                  | 16 MB |
-| Station G2                       | `meshtastic-bitchat-station-g2-`              | 16 MB |
-| Cardputer ADV + Cap LoRa-1262    | `meshtastic-bitchat-m5stack-cardputer-adv-`   | 8 MB  |
+| Device                           | Target in the flasher     | Flash |
+| -------------------------------- | ------------------------- | ----- |
+| Heltec V3                        | `heltec-v3`               | 8 MB  |
+| Heltec V4 (OLED)                 | `heltec-v4`               | 16 MB |
+| Heltec Wireless Stick Lite V3    | `heltec-wsl-v3`           | 8 MB  |
+| Heltec Wireless Tracker V1.1     | `heltec-wireless-tracker` | 8 MB  |
+| Heltec Wireless Paper            | `heltec-wireless-paper`   | 8 MB  |
+| LILYGO T-Beam Supreme            | `tbeam-s3-core`           | 8 MB  |
+| Seeed XIAO ESP32-S3 + Wio-SX1262 | `seeed-xiao-s3`           | 8 MB  |
+| LILYGO T-Deck                    | `t-deck`                  | 16 MB |
+| Station G2                       | `station-g2`              | 16 MB |
+| Cardputer ADV + Cap LoRa-1262    | `m5stack-cardputer-adv`   | 8 MB  |
 
 Firmware is built **for each board model**. The same CPU does not imply the same pins, radio,
 flash, partitions or bootloader; another board's image can prevent booting. T1000-E, RAK4631,
@@ -53,30 +53,39 @@ mode B. [Matrix and conditions](docs/bridge/COMPATIBILITY.md).
 
 ## Install
 
-1. From [v1.0.0-beta](https://github.com/EduChacon/meshtastic-bitchat/releases/tag/v1.0.0-beta), download the ZIP for the exact model,
-   `prepare_flash.py`, `verify_artifact.py` and `SHA256SUMS`.
-2. Follow the [Windows private-backup procedure](docs/bridge/WINDOWS_RECOVERY.md) and check the hash.
-3. In the [official Web Flasher](https://flasher.meshtastic.org/), select the board and the ZIP
-   and use **Update**. Do not select **Erase Flash and Install**.
+1. From [v1.0.0-beta.2](https://github.com/EduChacon/meshtastic-bitchat/releases/tag/v1.0.0-beta.2), download
+   **`meshtastic-bitchat-1.0.0-beta.2.zip`**. It is a single file for all ten devices.
+2. In the [official Web Flasher](https://flasher.meshtastic.org/), select the board, load the
+   ZIP and use **Update**. Do not select **Erase Flash and Install**. If the board offers the
+   colour interface (MUI), leave it unticked.
 
-Each board also has a matching `-update.bin`; **Source code** is not firmware. To return to
-stock, use the official Meshtastic 2.7.26 image for the same model.
+The flasher writes only the selected board's application; choosing the wrong board can prevent
+booting. Nothing else is required: the bridge comes configured and every adjustment is
+optional. A [backup procedure](docs/bridge/WINDOWS_RECOVERY.md) is available for those who
+want a copy of the radio first. To return to stock, use the official Meshtastic 2.7.26 image
+for the same model.
 
 ## Use
 
-1. Open **Bitchat** near the radio. If the radio has no clock (for instance after a power
-   cut), the first Bitchat phone that connects supplies it; the Meshtastic app and GPS also
-   do, and take precedence.
-2. On the remote stock radio, add only the `Bitchat` channel with the public key from the
-   [guide](docs/bridge/DEFAULTS.md#english), keeping region, preset and frequency compatible.
-3. Chat normally: `#mesh` text reaches the channel as `nick: text`; channel text reaches
-   `#mesh` as `[MT node name] text`.
+After flashing, the bridge is already on and the public `Bitchat` channel exists:
 
-On a radio with a screen, `System → Bitchat bridge` offers `Bitchat only`, `Bitchat + LoRa`,
-`Turn bridge off`, `Status` and `Settings`. Under `Settings`, `LoRa: all messages` can be
-switched to `LoRa: only !lora`, so that only text starting with `!lora ` leaves over LoRa. The
-status screen says in plain words what is happening and what to do. Without a screen the
-defaults apply.
+1. Open **Bitchat** near the radio and chat in `#mesh`. A radio without a clock takes the time
+   from the first Bitchat phone that connects.
+2. On the remote stock radio, add the `Bitchat` channel: open [this link](https://meshtastic.org/e/?add=true#CisSIMXrNZ7S8cg9qWpGbzZahdf-jswEx8THkKp3ToygVmRbGgdCaXRjaGF0) on the phone
+   with the Meshtastic app and confirm that the channel is **added**, or type the name and key
+   from the [guide](docs/bridge/DEFAULTS.md#english). This is the only step outside the
+   bridge, because that radio does not run the bridge firmware.
+3. `#mesh` text reaches the channel as `nick: text`; channel text reaches `#mesh` as
+   `[MT node name] text`.
+
+**The default channel is common to every bridge.** Its key is public: every bridge within LoRa
+range shares the same room. For a closed group, create a secondary channel with its own key in
+the Meshtastic app and select it under `System → Bitchat bridge → Bitchat + LoRa`.
+
+Optional adjustments on a radio with a screen: `Bitchat only`, `Bitchat + LoRa`,
+`Turn bridge off`, `Status` and `Settings` (`LoRa: all messages` or `LoRa: only !lora`,
+`Battery saver`, `Find Meshtastic app`). The status screen says in plain words what is
+happening and what to do.
 
 ## Build and documentation
 
@@ -84,8 +93,8 @@ Base: Meshtastic **2.7.26.54e0d8d**, commit `54e0d8d0ab2ff56b3a9ce967e53f79e49af
 Bitchat reference: iOS **1.8.0**, commit `30c58eee349e172b37f69faa2113c9d5f2c76c23`.
 
 ```sh
-git fetch origin tag v1.0.0-beta
-git checkout --detach v1.0.0-beta
+git fetch origin tag v1.0.0-beta.2
+git checkout --detach v1.0.0-beta.2
 python3 -m venv .venv
 .venv/bin/python -m pip install platformio==6.2.0 intelhex==2.3.0
 git submodule update --init protobufs

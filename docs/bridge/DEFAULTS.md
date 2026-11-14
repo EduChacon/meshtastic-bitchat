@@ -37,9 +37,12 @@ automaticamente: corrigir essas opções pelo aplicativo Meshtastic.
    telefone Bitchat que conecta fornece a hora. O aplicativo Meshtastic, o GPS e o RTC também
    fornecem e têm precedência. Enquanto falta hora, o rádio alterna o anúncio Bluetooth a
    cada 20 s entre os dois aplicativos.
-3. No rádio remoto com firmware original, adicionar **somente o canal `Bitchat`**, com o mesmo
-   nome e a chave pública acima, ou compartilhá-lo pela função nativa do aplicativo. Não
-   importar uma configuração que substitua todos os canais sem revisar. Os dois rádios
+3. No rádio remoto com firmware original, adicionar **somente o canal `Bitchat`**. O caminho
+   mais curto é abrir [este link](https://meshtastic.org/e/?add=true#CisSIMXrNZ7S8cg9qWpGbzZahdf-jswEx8THkKp3ToygVmRbGgdCaXRjaGF0)
+   no telefone com o aplicativo Meshtastic e confirmar a **adição** do canal; também serve
+   digitar o nome e a chave pública acima, ou compartilhar o canal pela função do aplicativo.
+   O link foi montado a partir do formato de canais do Meshtastic e não foi ensaiado: se o
+   aplicativo propuser **substituir** os canais em vez de adicionar, cancelar e digitar a chave. Os dois rádios
    precisam de região, preset e frequência compatíveis.
 4. Aguardar os 30 segundos iniciais (`Starting LoRa: 30 s`) e conversar:
    - texto no canal `Bitchat` do Meshtastic aparece no `#mesh` como `[MT nome do nó] texto`;
@@ -48,6 +51,22 @@ automaticamente: corrigir essas opções pelo aplicativo Meshtastic.
 Texto com mais de 200 bytes é dividido em até três partes. DMs, grupos privados, posição,
 credenciais, telemetria, arquivos e voz não são traduzidos. O túnel de laboratório exige
 ativação separada e não é necessário para a conversa entre Bitchat e Meshtastic.
+
+## Canal comum e canal próprio
+
+A chave padrão é a mesma em todo rádio com este firmware. Com poucas pontes, isso só facilita.
+Com muitas na mesma região, o canal `Bitchat` vira uma sala pública comum: todas as pontes ao
+alcance do LoRa trocam texto entre si, sem privacidade. Laços e duplicação entre pontes são
+contidos, e há limite por pessoa e de tempo de transmissão, mas a conversa de um grupo se
+mistura à dos outros. Para um grupo fechado:
+
+1. no aplicativo Meshtastic, criar um canal secundário com nome e chave próprios, com MQTT
+   desligado, no rádio da ponte e nos rádios remotos;
+2. no rádio da ponte, `System → Bitchat bridge → Bitchat + LoRa`, escolher esse canal e
+   confirmar. A ponte passa a usar somente ele.
+
+Em local público, `Settings → LoRa: only !lora` limita o que sai pelo LoRa ao texto que a
+pessoa marcou de propósito.
 
 ## Menu e tela
 

@@ -165,14 +165,13 @@ jobs:
           cp docs/bridge/WINDOWS_RECOVERY.md release/WINDOWS_RECOVERY.md
           cd release
           sha256sum * > SHA256SUMS
-      - name: Consolidate technical files and publish only the installation catalog
+      - name: Build the single installation ZIP and the technical package
         run: |
           version="$(python -c 'import runpy; print(runpy.run_path("tools/bridge/package_release.py")["VERSION"])')"
           mkdir -p technical/original-assets published
+          python tools/bridge/bundle_release.py release --output published --version "$version"
           cp release/* technical/original-assets/
           tar -czf "published/technical-package-$version.tar.gz" -C technical original-assets
-          cp release/meshtastic-bitchat-*.zip release/firmware-*-update.bin published/
-          cp release/prepare_flash.py release/verify_artifact.py release/WINDOWS_RECOVERY.md published/
           cd published
           sha256sum * > SHA256SUMS
       - name: Publish beta release

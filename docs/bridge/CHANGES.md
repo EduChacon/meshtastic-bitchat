@@ -98,6 +98,12 @@ empacotador, o verificador e o backup passaram a aceitar o leiaute de 16 MB, com
 partição de aplicação de `0x640000` em `0x10000`. A [matriz](COMPATIBILITY.md) lista as
 condições de cada um e os aparelhos que ficaram de fora. Nenhum alvo novo foi ensaiado.
 
+## Instalação
+
+A publicação traz um único ZIP para os dez aparelhos. O flasher oficial procura no ZIP o
+arquivo `firmware-<placa>-…-update.bin` da placa escolhida, e cada placa tem exatamente um.
+Os pacotes por modelo, o verificador e o backup ficam no pacote técnico, como passos opcionais.
+
 ## Menu
 
 ```text
@@ -149,6 +155,8 @@ telefone nunca é gravada como piso, para que um adiantamento não sobreviva ao 
 
 ## Decisões em aberto
 
+- **Canal comum.** A chave padrão é a mesma em toda ponte; em uso amplo, o canal `Bitchat` vira
+  uma sala pública regional. O [guia](DEFAULTS.md) descreve o canal próprio para grupo fechado.
 - **Padrão de envio.** `all messages` foi adotado como padrão a pedido do operador. Em local
   público, `only !lora` preserva a intenção de quem escreve.
 

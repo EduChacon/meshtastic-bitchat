@@ -1,17 +1,21 @@
-# Backup privado e instalação pelo Windows
+# Backup privado antes de instalar (opcional)
+
+Instalar exige somente o ZIP único e o flasher oficial, como descrito no
+[README](../../README.md). Este roteiro é para quem quer, antes, uma cópia completa da flash do
+rádio e a conferência de partições. Ele só lê o aparelho.
 
 O exemplo usa o Heltec WiFi LoRa 32 V3. Para outro aparelho da [lista](COMPATIBILITY.md), trocar
 `heltec-v3` pelo nome do modelo nos arquivos e no parâmetro `--model` (por exemplo `heltec-v4`,
 `t-deck`, `tbeam-s3-core`). O programa confere chip ESP32-S3 e tamanho da flash (8 ou 16 MB),
-mas não distingue modelos de placa. **Boot físico da `1.0` ainda não validado em nenhum
-aparelho.** Ler [o padrão antes de instalar](DEFAULTS.md). Não há garantia de risco zero.
+mas não distingue modelos de placa. **Boot físico desta versão ainda não validado em nenhum
+aparelho.** Não há garantia de risco zero.
 
 ## 1. Baixar os arquivos
 
-Em [v1.0.0-beta](https://github.com/EduChacon/meshtastic-bitchat/releases/tag/v1.0.0-beta),
-baixar para a mesma pasta:
+Em [v1.0.0-beta.2](https://github.com/EduChacon/meshtastic-bitchat/releases/tag/v1.0.0-beta.2), baixar
+`technical-package-1.0.0-beta.2.tar.gz` e extrair, para a mesma pasta:
 
-- `meshtastic-bitchat-heltec-v3-1.0.0-beta-<commit>.zip`;
+- `meshtastic-bitchat-heltec-v3-1.0.0-beta.2-<commit>.zip`;
 - `prepare_flash.py` e `verify_artifact.py`;
 - `SHA256SUMS`.
 
@@ -39,8 +43,8 @@ No **PowerShell**, dentro da pasta dos arquivos baixados:
 ```powershell
 py -3 -m venv "$env:LOCALAPPDATA\MeshtasticBitchat\tools"
 & "$env:LOCALAPPDATA\MeshtasticBitchat\tools\Scripts\python.exe" -m pip install esptool==4.11.0
-$pacotes = @(Get-ChildItem .\meshtastic-bitchat-heltec-v3-1.0.0-beta-*.zip)
-if ($pacotes.Count -ne 1) { throw "Mantenha somente um ZIP 1.0.0-beta do modelo nesta pasta" }
+$pacotes = @(Get-ChildItem .\meshtastic-bitchat-heltec-v3-1.0.0-beta.2-*.zip)
+if ($pacotes.Count -ne 1) { throw "Mantenha somente um ZIP 1.0.0-beta.2 do modelo nesta pasta" }
 & "$env:LOCALAPPDATA\MeshtasticBitchat\tools\Scripts\python.exe" .\prepare_flash.py $pacotes[0].FullName --model heltec-v3 --port COM3 --read-backup
 ```
 

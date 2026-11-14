@@ -103,6 +103,10 @@ para a `1.0` e documentos das revisões anteriores em `history/`. A CI passou a 
 publicar somente a partir da `main`, e o fluxo de aviso das pré-releases suspensas, já
 cumprido, foi removido.
 
+A `1.0.0-beta.2` muda só a forma de entrega, a pedido do operador: um único ZIP para os dez
+aparelhos, aceito pelo flasher oficial, com os pacotes por modelo e as ferramentas de backup
+no pacote técnico. O firmware é o mesmo da `1.0.0-beta`.
+
 ## Investigação de boot — 2026-11-13
 
 As instalações foram suspensas nos dois READMEs e nas pré-releases, preservando os arquivos

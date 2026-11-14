@@ -5,6 +5,7 @@ import importlib.util
 import json
 import re
 import runpy
+import sys
 import tempfile
 import unittest
 import zipfile
@@ -123,6 +124,40 @@ class PackageTests(unittest.TestCase):
                 self.assertEqual(
                     int(declared.group(1)), PREFLIGHT.MODELS[model][0], model
                 )
+
+    def test_single_zip_gives_the_flasher_one_file_per_board(self):
+        sys.path.insert(0, str(ROOT / "tools/bridge"))
+        bundler = runpy.run_path(str(ROOT / "tools/bridge/bundle_release.py"))
+        with tempfile.TemporaryDirectory() as directory:
+            release = Path(directory) / "release"
+            release.mkdir()
+            for model in PREFLIGHT.MODELS:
+                name = f"firmware-{model}-bridge-9.9.9-abcdef0-update.bin"
+                (release / name).write_bytes(model.encode())
+            archive = bundler["bundle"](
+                release, Path(directory), "9.9.9", ROOT / "LICENSE"
+            )
+            self.assertEqual(archive.name, "meshtastic-bitchat-9.9.9.zip")
+            with zipfile.ZipFile(archive) as package:
+                names = package.namelist()
+                self.assertEqual(len(names), len(PREFLIGHT.MODELS) + 3)
+                for model in PREFLIGHT.MODELS:
+                    chosen = bundler["flasher_choice"](names, model)
+                    self.assertEqual(len(chosen), 1, model)
+                    self.assertEqual(package.read(chosen[0]), model.encode())
+                # Colour-interface targets are not built: the flasher finds nothing for them.
+                self.assertEqual(bundler["flasher_choice"](names, "t-deck-tft"), [])
+                self.assertEqual(bundler["flasher_choice"](names, "heltec-v4-tft"), [])
+                for line in package.read("SHA256SUMS").decode().splitlines():
+                    checksum, name = line.split("  ", 1)
+                    self.assertEqual(
+                        hashlib.sha256(package.read(name)).hexdigest(), checksum
+                    )
+            (
+                release / "firmware-heltec-v3-bridge-9.9.8-abcdef0-update.bin"
+            ).write_bytes(b"x")
+            with self.assertRaises(SystemExit):
+                bundler["bundle"](release, Path(directory), "9.9.9", ROOT / "LICENSE")
 
     def test_each_board_accepts_only_its_own_package(self):
         for model, (hardware, flash) in PREFLIGHT.MODELS.items():

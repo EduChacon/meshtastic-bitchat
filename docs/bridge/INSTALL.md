@@ -1,8 +1,10 @@
 # Instalação e recuperação
 
-> **`1.0`:** há pacotes para dez aparelhos ESP32-S3, de 8 e de 16 MB; a lista está em
-> [COMPATIBILITY.md](COMPATIBILITY.md). O procedimento abaixo vale para todos, trocando o nome
-> do modelo. As tabelas desta página citam o Heltec V3 e o Cardputer ADV como exemplos.
+> **`1.0`:** a instalação usa um único ZIP para os dez aparelhos ESP32-S3 e o flasher oficial,
+> como descrito no [README](../../README.md). Esta página detalha os pacotes por modelo, o
+> verificador e a recuperação, que acompanham o pacote técnico e são opcionais. As tabelas
+> citam o Heltec V3 e o Cardputer ADV como exemplos; a lista completa está em
+> [COMPATIBILITY.md](COMPATIBILITY.md).
 
 **Pré-releases anteriores à `.3` retiradas dos downloads:** o boot reportado da `.2` no Heltec V3
 travou e reiniciou pelo watchdog. A `.3` contém correções de inicialização para teste,

@@ -188,6 +188,32 @@ A publicação da `.4` ficou pendente porque os trabalhos do GitHub Actions pass
 em dois segundos, sem executar passo algum; o pacote do Heltec V3 foi retirado da execução
 verificada do commit `6facd9f` e entregue ao operador diretamente.
 
+Oitavo passo. Relatório `!bridge` da mesma sessão, às 19:38 UTC:
+
+```text
+con 1 dis 0 sub 1 wr 0 ntf 0 err 0 in 230 out 59
+link 1 mtu 255 itv 40 enc 1 bond 1 sub 1 wr 1 path 9
+Bluetooth 1, Bitchat 1, people 2
+LoRa Bitchat out 2 in 1 lost 0
+rx 230 ok 87 tx 59
+old 0 sig 4 fmt 0
+ver 0 pol 104 full 28
+```
+
+Conclusões sustentadas pela medição: a) o que resolveu foi o caminho pelo serviço do telefone
+(`path 9`); todos os 230 quadros recebidos vieram por ele e os 59 enviados saíram por ele; b)
+o iOS expôs o serviço do aplicativo ao rádio nesse aparelho, o que confirma ali a hipótese do
+sexto passo; c) o defeito original **continua presente**: o telefone não fez escrita alguma
+no serviço da ponte (`wr 0`); ele só deixou de impedir a troca; d) o MTU era 255, logo o pedido de
+MTU não foi o fator; e) havia uma única conexão, criptografada e pareada, portanto a do
+aplicativo Meshtastic: os dois aplicativos conviveram nela; f) nenhuma mensagem contada como
+perdida. Sem explicação medida: `full 28`. Como `lost 0`, a origem compatível com o código é
+a recusa de fragmentos quando as três remontagens simultâneas estão ocupadas, que não entra
+na conta de perdidas; isso é inferência, e um texto longo vindo do telefone, que chega em
+fragmentos, pode ser afetado. `pol 104` é o esperado: pedidos de sincronização que a ponte
+ignora de propósito. Continua sem ensaio: duração, reconexão, queda de energia e Bitchat em
+segundo plano.
+
 ## Investigação de boot — 2026-11-13
 
 As instalações foram suspensas nos dois READMEs e nas pré-releases, preservando os arquivos

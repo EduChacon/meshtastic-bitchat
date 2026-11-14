@@ -3,8 +3,8 @@
 **Versão beta, com um aparelho relatado em funcionamento.** Em um Heltec V3 com Bitchat iOS
 1.8.0, as versões até a `1.0.0-beta.3` não trocavam mensagens com o aplicativo. Com esta
 versão, o operador relatou o telefone reconhecido (`Phones 1/1`, `People 2`) e texto nos dois
-sentidos (`LoRa out 2 in 1`). É um relato de uso, sem medição de qual mudança resolveu e sem
-ensaio de duração. Os outros nove alvos foram apenas compilados. Fazer backup privado antes de
+sentidos (`LoRa out 2 in 1`). O relatório `!bridge` dessa sessão mostrou o caminho novo em
+uso: `path 9`, `in 230 out 59`, `wr 0`. É uma sessão em um aparelho, sem ensaio de duração. Os outros nove alvos foram apenas compilados. Fazer backup privado antes de
 instalar. Não há garantia de risco zero.
 
 **O que foi medido no aparelho antes desta versão.** O Bitchat se conecta ao rádio e se inscreve no serviço da
@@ -103,7 +103,7 @@ A base permanece Meshtastic 2.7.26.54e0d8d.
 
 ## English
 
-**One device reported working.** With `1.0.0-beta.4` on a Heltec V3 and Bitchat iOS 1.8.0, the operator reported the phone recognised (`Phones 1/1`, `People 2`) and text in both directions (`LoRa out 2 in 1`); this is a usage report, with no measurement of which change fixed it and no endurance test. Versions up to `1.0.0-beta.3` did not exchange messages with the app: the phone connects and subscribes to the bridge service, but the bridge receives no write from it, with the Meshtastic app open or closed. The earlier `experimental.5` fails the same way on the same phone. The cause is not determined; the app only writes when iOS reports that the link accepts writes without response, and it has no other way to deliver data to a peripheral.
+**One device reported working.** With `1.0.0-beta.4` on a Heltec V3 and Bitchat iOS 1.8.0, the operator reported the phone recognised (`Phones 1/1`, `People 2`) and text in both directions (`LoRa out 2 in 1`); the `!bridge` report of that session showed the new path in use (`path 9`, `in 230 out 59`, `wr 0`). It is one session on one device, with no endurance test. Versions up to `1.0.0-beta.3` did not exchange messages with the app: the phone connects and subscribes to the bridge service, but the bridge receives no write from it, with the Meshtastic app open or closed. The earlier `experimental.5` fails the same way on the same phone. The cause is not determined; the app only writes when iOS reports that the link accepts writes without response, and it has no other way to deliver data to a peripheral.
 
 **Since `1.0.0-beta.3`:** a second data path, in which the bridge looks for the Bitchat service the app itself publishes, over the same link, and subscribes to it, so the phone's packets arrive as notifications and the bridge's leave as whole-frame writes (not yet shown on hardware that iOS exposes that service to a connected peripheral); an MTU exchange requested on connect; notifications only to phones whose writes have arrived; LoRa text in parts of at most 96 bytes; per-link measurements in `!bridge`; `Phones talking/subscribed` on the screen; a real countdown for `Starting LoRa`. Correction: the 22-byte bridge marker was already present in `experimental.5`, not introduced in `1.0.0-beta` as the `1.0.0-beta.3` notes said.
 

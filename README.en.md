@@ -13,9 +13,10 @@ menu and adds eight ESP32-S3 devices. [What changed and why](docs/bridge/CHANGES
 **Status: beta, with one device reported working.** On a Heltec V3 with Bitchat iOS 1.8.0,
 versions up to `1.0.0-beta.3` did not exchange messages with the app: the phone connected and
 subscribed but sent nothing to the radio. With `1.0.0-beta.4` the operator reported the phone
-recognised (`Phones 1/1`, `People 2`) and text in both directions (`LoRa out 2 in 1`). This is
-a usage report, not a full bench test: there is no measurement of which change in the version
-fixed it, and no endurance test. The other nine targets were only compiled. Back up before
+recognised (`Phones 1/1`, `People 2`) and text in both directions (`LoRa out 2 in 1`). The
+`!bridge` report of that session showed the new path in use (`path 9`, 230 frames received and
+59 sent through the phone's own service, no write from the phone to the bridge service), with
+the Meshtastic app on the same link. It is one session on one device, with no endurance test. The other nine targets were only compiled. Back up before
 installing and read the
 [limits](docs/bridge/CHANGES.md#english) and the [bench procedure](docs/bridge/TESTING.md).
 

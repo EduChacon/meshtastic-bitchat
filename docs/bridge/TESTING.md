@@ -70,8 +70,9 @@ Não copiar chaves de um iPhone nem usar tráfego pessoal como fixture.
 
 Estado em aparelho (Heltec V3, Bitchat iOS 1.8.0): até a `1.0.0-beta.3` o telefone se
 inscrevia no serviço da ponte e não enviava nada. Com a `.4`, o operador relatou `Phones 1/1`,
-`People 2`, `LoRa out 2 in 1` e mensagens nos dois sentidos. Falta a leitura abaixo, que diz
-qual caminho está em uso; sem ela, a causa da melhora fica **não determinada**.
+`People 2`, `LoRa out 2 in 1` e mensagens nos dois sentidos, e a leitura abaixo deu `path 9`,
+`in 230 out 59` e `wr 0`: o caminho pelo serviço do telefone em uso, e o telefone ainda sem
+escrever no serviço da ponte. Classificação: uma sessão em um aparelho, não aceite.
 
 1. Gravar a `.4` pelo flasher, com **Update**.
 2. Abrir o Bitchat perto do rádio e esperar 1 minuto. Anotar a linha `Phones a/b  People c` da

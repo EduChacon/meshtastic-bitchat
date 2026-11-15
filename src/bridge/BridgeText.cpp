@@ -108,6 +108,8 @@ Command bridgeCommand(Bytes text)
                            {" link off", Command::LinkOff},
                            {" guide", Command::Guide},
                            {" guia", Command::GuidePt},
+                           {" who", Command::Who},
+                           {" quem", Command::WhoPt},
                            {" economy on", Command::EconomyOn},
                            {" economy off", Command::EconomyOff}};
             for (const auto &choice : choices)
@@ -127,16 +129,16 @@ const char *guideLine(bool portuguese, bool forApp, GuideMode mode, size_t index
         "Guide 1/4: right now this radio only relays Bitchat between phones; LoRa is off.",
         "2/4: text from LoRa shows as [MT name]. Private messages do not cross.",
         "3/4: LoRa is slow and public. Keep texts short; anyone with the channel can read.",
-        "4/4: send !bridge here to see the state of the radio.",
-        "4/4: !bridge shows the state; !bridge help lists the commands."};
+        "4/4: here, !bridge shows the state and !bridge who lists who was heard on LoRa.",
+        "4/4: !bridge shows the state, !bridge who the names from LoRa, !bridge help the rest."};
     static const char *const portugueseLines[] = {
         "Guia 1/4: este rádio leva o texto público do #mesh a um canal LoRa e traz o de lá.",
         "Guia 1/4: este rádio leva ao LoRa o texto do #mesh iniciado por !lora e traz o de lá.",
         "Guia 1/4: agora este rádio só repassa o Bitchat entre telefones, sem usar o LoRa.",
         "2/4: o que vem do LoRa aparece como [MT nome]. Mensagens privadas não atravessam.",
         "3/4: o LoRa é lento e público. Escreva pouco; quem tem o canal lê tudo.",
-        "4/4: envie !bridge aqui para ver o estado do rádio.",
-        "4/4: !bridge mostra o estado; !bridge help lista os comandos."};
+        "4/4: aqui, !bridge mostra o estado e !ponte quem lista quem foi ouvido no LoRa.",
+        "4/4: !bridge mostra o estado, !ponte quem os nomes do LoRa, !bridge help o resto."};
     if (index >= GUIDE_LINES)
         return nullptr;
     const size_t entry = index == 0 ? static_cast<size_t>(mode) : index == GUIDE_LINES - 1 ? (forApp ? 6 : 5) : index + 2;

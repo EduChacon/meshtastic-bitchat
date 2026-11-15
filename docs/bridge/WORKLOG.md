@@ -297,6 +297,12 @@ repositório MeshCore, em `docs/bitchat/ROADMAP.md`.
 Antes do envio à `main`, a execução 43759738089 do ramo de trabalho compilou o Heltec V3, com a
 análise estática, e o T1000-E, sem falhas.
 
+Décimo oitavo passo. O operador mandou seguir o roteiro. Versão `1.0.0-beta.11`: `!bridge who` e
+`!ponte quem` respondem, no aplicativo Meshtastic conectado ao rádio e no `#mesh` do Bitchat, com
+até doze nomes ouvidos no canal LoRa nas últimas seis horas, do mais recente ao mais antigo; a
+tabela fica só em memória. O guia e a ajuda passam a citar o comando. Verificado em simulação
+(945 verificações do núcleo e 1224 de fluxo).
+
 ## Investigação de boot — 2026-11-13
 
 As instalações foram suspensas nos dois READMEs e nas pré-releases, preservando os arquivos

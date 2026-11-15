@@ -536,7 +536,7 @@ int main()
         run(3000);
         auto guide = chat(bia.handle, &bridgeId);
         CHECK(guide.size() == before + GUIDE_LINES && guide[before].rfind("[bridge] Guia 1/4:", 0) == 0 &&
-              guide.back().rfind("[bridge] 4/4: envie !bridge", 0) == 0 && radio().empty());
+              guide.back().rfind("[bridge] 4/4: aqui, !bridge", 0) == 0 && radio().empty());
         for (const auto &line : guide)
             CHECK(line.size() <= BITCHAT_TEXT_LIMIT);
         bia.write(bia.say("!bridge guide"));
@@ -636,6 +636,24 @@ int main()
         fromLoRa(0, "!bridge", 1);
         run(1100);
         CHECK(app(0).find("\nSaver off, kept " + std::to_string(BITCHAT_HISTORY_ENTRIES) + "\n") != std::string::npos);
+        // Who spoke on LoRa, the latest first: asked from Bitchat or from the app, in either language.
+        run(5000);
+        fakeSent.clear();
+        eva.write(eva.say("!ponte quem"));
+        run(600);
+        {
+            const auto who = chat(eva.handle, &bridgeId);
+            CHECK(who.size() == 1 && who[0].size() <= BITCHAT_TEXT_LIMIT &&
+                  who[0].rfind("[bridge] No LoRa, \xc3\xbaltimas 6 h: R\xc3\xa1"
+                               "dio Sul",
+                               0) == 0);
+        }
+        fakeApp.clear();
+        fromLoRa(0, "!bridge who", 1);
+        run(1100);
+        CHECK(fakeApp.size() == 1 && app(0).rfind("[bridge] On LoRa, last 6 h: R\xc3\xa1"
+                                                  "dio Sul",
+                                                  0) == 0);
         bleDisconnect(eva.handle);
         run(1000);
         fakeSent.clear();
@@ -887,7 +905,7 @@ int main()
     fromLoRa(0, "!bridge help", 1);
     run(1100);
     CHECK(fakeApp.size() == 6 && app(5).rfind("[bridge] !bridge shows the state.", 0) == 0 && app(5).size() <= 200 &&
-          app(5).find("!ponte guia") != std::string::npos && app(5).back() == '.');
+          app(5).find("!ponte quem, guia") != std::string::npos && app(5).back() == '.');
     fromLoRa(0, "!bridge link off", 1);
     run(1100);
     CHECK(!bridge->linked() && app(6).rfind("[bridge] Link off", 0) == 0);
@@ -915,11 +933,11 @@ int main()
         fromLoRa(0, "!bridge guide", 1);
         run(1100);
         CHECK(fakeApp.size() == before + GUIDE_LINES && app(before).rfind("[bridge] Guide 1/4:", 0) == 0 &&
-              app(before + 3).find("!bridge help lists the commands") != std::string::npos);
+              app(before + 3).find("!bridge help the rest") != std::string::npos);
         fromLoRa(0, "!Ponte Guia", 1);
         run(1100);
         CHECK(fakeApp.size() == before + 2 * GUIDE_LINES && app(before + GUIDE_LINES).rfind("[bridge] Guia 1/4:", 0) == 0 &&
-              app(before + 2 * GUIDE_LINES - 1).find("lista os comandos") != std::string::npos);
+              app(before + 2 * GUIDE_LINES - 1).find("!bridge help o resto") != std::string::npos);
     }
     CHECK(radio().size() == onAir);
     delete bridge;

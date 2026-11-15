@@ -114,6 +114,13 @@ class BitchatBridgeModule : public MeshModule, private concurrency::OSThread
             uint32_t at = 0;
         };
         std::array<Asked, 4> asked{};
+        // Names that spoke on the LoRa channel, for "!bridge who".
+        struct Heard {
+            std::array<char, bitchat::LABEL_LIMIT + 1> name{};
+            uint32_t at = 0;
+            bool used = false;
+        };
+        std::array<Heard, 12> heard{};
         bitchat::BoundedQueue<RadioItem, RadioItem::QUEUE> radioQueue;
         bitchat::RateGate radioGate, cryptoGate;
         bitchat::BleInput input;
@@ -149,6 +156,10 @@ class BitchatBridgeModule : public MeshModule, private concurrency::OSThread
     void originate(uint8_t type, bitchat::Bytes payload, bool keep = false);
     void answerSync(const bitchat::Packet &packet, uint16_t source);
     size_t kept() const;
+    void noteHeard(const char *name, size_t size);
+    // "Ana, Rita +2": whole names, the latest first, as many as fit.
+    size_t heardNames(char *out, size_t capacity) const;
+    size_t whoText(bool portuguese, char *out, size_t capacity) const;
     void announce();
     bool record(const bitchat::Digest &id, bool persist = true);
     bool seen(const bitchat::Digest &id) const;

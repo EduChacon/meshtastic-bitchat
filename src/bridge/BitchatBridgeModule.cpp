@@ -575,7 +575,7 @@ void BitchatBridgeModule::answerApp()
     }
     if (command == Command::Help) {
         replyToApp("[bridge] !bridge shows the state. !bridge on, off, local (Bluetooth only), lora (LoRa on this channel), "
-                   "link on, link off, economy on, economy off, reset, guide (!ponte guia: Portuguese).");
+                   "link on, link off, economy on, economy off, reset, who, guide. Portuguese: !ponte quem, guia.");
         return;
     }
     if (command == Command::Guide || command == Command::GuidePt) {
@@ -583,6 +583,12 @@ void BitchatBridgeModule::answerApp()
             snprintf(text, sizeof(text), "%s%s", REPLY_PREFIX, guideLine(command == Command::GuidePt, true, guideMode(), line));
             replyToApp(text);
         }
+        return;
+    }
+    if (command == Command::Who || command == Command::WhoPt) {
+        const size_t prefix = snprintf(text, sizeof(text), "%s", REPLY_PREFIX);
+        whoText(command == Command::WhoPt, text + prefix, sizeof(text) - prefix);
+        replyToApp(text);
         return;
     }
     if (command == Command::EconomyOn || command == Command::EconomyOff) {
@@ -782,6 +788,66 @@ void BitchatBridgeModule::originate(uint8_t type, Bytes payload, bool keep)
         ++originatedBle;
 }
 
+void BitchatBridgeModule::noteHeard(const char *name, size_t size)
+{
+    const uint32_t now = millis();
+    auto *slot = &runtime->heard[0];
+    for (auto &entry : runtime->heard) {
+        if (entry.used && strlen(entry.name.data()) == size && !memcmp(entry.name.data(), name, size)) {
+            slot = &entry;
+            break;
+        }
+        // otherwise a free place, or the one heard longest ago
+        if (slot->used && (!entry.used || int32_t(entry.at - slot->at) < 0))
+            slot = &entry;
+    }
+    slot->name.fill(0);
+    memcpy(slot->name.data(), name, std::min(size, slot->name.size() - 1));
+    slot->at = now;
+    slot->used = true;
+}
+
+size_t BitchatBridgeModule::heardNames(char *out, size_t capacity) const
+{
+    const uint32_t now = millis();
+    std::array<bool, 12> listed{};
+    size_t size = 0, left = 0;
+    for (const auto &entry : runtime->heard)
+        left += entry.used && Throttle::isWithinTimespanMsAt(entry.at, uint32_t(HISTORY_MS), now);
+    out[0] = 0;
+    while (left) {
+        const Runtime::Heard *latest = nullptr;
+        size_t index = 0;
+        for (size_t i = 0; i < runtime->heard.size(); ++i) {
+            const auto &entry = runtime->heard[i];
+            if (!listed[i] && entry.used && Throttle::isWithinTimespanMsAt(entry.at, uint32_t(HISTORY_MS), now) &&
+                (!latest || int32_t(entry.at - latest->at) > 0)) {
+                latest = &entry;
+                index = i;
+            }
+        }
+        // room for this name, its separator and, if others stay out, the count of them
+        const size_t need = strlen(latest->name.data()) + (size ? 2 : 0), tail = left > 1 ? 4 : 0;
+        if (size + need + tail >= capacity)
+            break;
+        size += snprintf(out + size, capacity - size, "%s%s", size ? ", " : "", latest->name.data());
+        listed[index] = true;
+        --left;
+    }
+    if (left && size + 4 < capacity)
+        size += snprintf(out + size, capacity - size, " +%u", unsigned(left));
+    return size;
+}
+
+size_t BitchatBridgeModule::whoText(bool portuguese, char *out, size_t capacity) const
+{
+    const size_t size = snprintf(out, capacity, "%s", portuguese ? "No LoRa, últimas 6 h: " : "On LoRa, last 6 h: ");
+    if (!runtime || !heardNames(out + size, capacity - size))
+        return snprintf(out, capacity, "%s",
+                        portuguese ? "Ninguém foi ouvido no LoRa nas últimas 6 h." : "Nobody was heard on LoRa in the last 6 h.");
+    return strlen(out);
+}
+
 size_t BitchatBridgeModule::kept() const
 {
     return runtime && runtime->history ? runtime->history->count(utc()) : 0;
@@ -976,7 +1042,7 @@ bool BitchatBridgeModule::handleFrame(Bytes frame, uint16_t source, bool fromTun
     const bool publicMessage = packet.type == 2 && !packet.directed();
     const Command asked = publicMessage && !packet.compressed() ? bridgeCommand(packet.payload) : Command::None;
     if (asked != Command::None) {
-        // Anyone nearby may ask, so answers are spaced out; only the state and the guide are answered here.
+        // Anyone nearby may ask, so answers are spaced out; only the state, the guide and the names are answered.
         if (asked == Command::Guide || asked == Command::GuidePt) {
             if (!Throttle::isWithinTimespanMsAt(guidedAt, 30000, now)) {
                 guidedAt = now;
@@ -984,7 +1050,16 @@ bool BitchatBridgeModule::handleFrame(Bytes frame, uint16_t source, bool fromTun
             }
         } else if (!Throttle::isWithinTimespanMsAt(repliedAt, 5000, now)) {
             repliedAt = now;
-            answerBitchat();
+            if (asked == Command::Who || asked == Command::WhoPt) {
+                char text[BITCHAT_TEXT_LIMIT + 1];
+                const size_t prefix = snprintf(text, sizeof(text), "%s", REPLY_PREFIX);
+                const size_t size = prefix + whoText(asked == Command::WhoPt, text + prefix, sizeof(text) - prefix);
+                if (!Throttle::isWithinTimespanMsAt(announcedAt, 5000, now))
+                    announce();
+                originate(2, {reinterpret_cast<const uint8_t *>(text), std::min<size_t>(size, BITCHAT_TEXT_LIMIT)});
+            } else {
+                answerBitchat();
+            }
         }
         return true;
     }
@@ -1136,6 +1211,7 @@ ProcessMessage BitchatBridgeModule::accept(const meshtastic_MeshPacket &packet)
             }
         }
         const Bytes name{reinterpret_cast<const uint8_t *>(label), labelSize};
+        noteHeard(label, labelSize);
         TextPlan plan;
         Result result = planBitchatText(labelSize, payload, plan);
         if (result == Result::Ok && record(id, blePhones() > 0)) {

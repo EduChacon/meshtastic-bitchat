@@ -3,6 +3,7 @@
 
 import argparse
 import hashlib
+import json
 import re
 import zipfile
 from pathlib import Path
@@ -26,7 +27,18 @@ def flasher_choice(names, model):
     return [n for n in names if pattern.search(n) and n.endswith("update.bin")]
 
 
-def bundle(release, output, version, license_file):
+COUNTRY = (
+    "PACOTE DO PAIS: {title}. Em radio que nunca teve regiao, a ponte define a regiao {code} na\n"
+    "primeira partida, sem o aplicativo Meshtastic. Radio que ja tem regiao nao e alterado.\n"
+    "Transmitir em faixa nao permitida no lugar de uso pode ser proibido: confira a regra local.\n"
+)
+
+
+def bundle(release, output, version, license_file, region=None):
+    regions = json.loads(Path(__file__).with_name("regions.json").read_text(encoding="utf-8"))
+    if region and region not in regions:
+        raise SystemExit(f"Unknown region {region}")
+    country = regions.get(region)
     payloads = {}
     for model in MODELS:
         found = sorted(release.glob(f"firmware-{model}-bridge-*-update.bin"))
@@ -36,13 +48,15 @@ def bundle(release, output, version, license_file):
     for model in MODELS:
         if len(flasher_choice(payloads, model)) != 1:
             raise SystemExit(f"The flasher could not pick a single file for {model}")
-    payloads["LEIA-ANTES.txt"] = NOTICE.format(models=", ".join(MODELS)).encode()
+    notice = NOTICE.format(models=", ".join(MODELS)) + (COUNTRY.format(**country) if country else "")
+    payloads["LEIA-ANTES.txt"] = notice.encode()
     payloads["LICENSE"] = license_file.read_bytes()
     payloads["SHA256SUMS"] = "".join(
         f"{hashlib.sha256(data).hexdigest()}  {name}\n"
         for name, data in sorted(payloads.items())
     ).encode()
-    archive = output / f"meshtastic-bitchat-{version}.zip"
+    suffix = "-" + country["title"].replace(" ", "-") if country else ""
+    archive = output / f"meshtastic-bitchat-{version}{suffix}.zip"
     with zipfile.ZipFile(archive, "w", zipfile.ZIP_DEFLATED, compresslevel=9) as target:
         for name, data in sorted(payloads.items()):
             info = zipfile.ZipInfo(name, (2026, 11, 14, 0, 0, 0))
@@ -58,9 +72,10 @@ def main():
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--version", required=True)
     parser.add_argument("--license", type=Path, default=Path("LICENSE"))
+    parser.add_argument("--region", help="country package (tools/bridge/regions.json)")
     args = parser.parse_args()
     args.output.mkdir(parents=True, exist_ok=True)
-    print(bundle(args.release, args.output, args.version, args.license).name)
+    print(bundle(args.release, args.output, args.version, args.license, args.region).name)
 
 
 if __name__ == "__main__":

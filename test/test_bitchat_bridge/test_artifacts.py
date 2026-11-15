@@ -159,6 +159,44 @@ class PackageTests(unittest.TestCase):
             with self.assertRaises(SystemExit):
                 bundler["bundle"](release, Path(directory), "9.9.9", ROOT / "LICENSE")
 
+    def test_country_packages(self):
+        sys.path.insert(0, str(ROOT / "tools/bridge"))
+        bundler = runpy.run_path(str(ROOT / "tools/bridge/bundle_release.py"))
+        flags = runpy.run_path(str(ROOT / "tools/bridge/region_flags.py"))
+        enum = (ROOT / "src/mesh/generated/meshtastic/config.pb.h").read_text()
+        core = (ROOT / "src/mesh/NodeDB.cpp").read_text()
+        # The region is set only in bridge builds made for a country, and only when the radio has none.
+        guard = core.index("#if defined(MESHTASTIC_ENABLE_BITCHAT) && defined(BRIDGE_FACTORY_REGION)")
+        block = core[guard : core.index("#endif", guard)]
+        self.assertIn("if (config.lora.region == meshtastic_Config_LoRaConfig_RegionCode_UNSET) {", block)
+        self.assertEqual(core.count("BRIDGE_FACTORY_REGION"), 2)
+        self.assertEqual(sorted(flags["REGIONS"]), ["brasil", "eua", "europa"])
+        with tempfile.TemporaryDirectory() as directory:
+            release = Path(directory) / "release"
+            release.mkdir()
+            for model in PREFLIGHT.MODELS:
+                name = f"firmware-{model}-bridge-9.9.9-abcdef0-update.bin"
+                (release / name).write_bytes(model.encode())
+            for name, country in flags["REGIONS"].items():
+                constant = flags["flag"](name).split("=", 1)[1]
+                self.assertIn(f"    {constant} = ", enum)
+                archive = bundler["bundle"](release, Path(directory), "9.9.9", ROOT / "LICENSE", name)
+                self.assertEqual(archive.name, f"meshtastic-bitchat-9.9.9-{flags['slug'](name)}.zip")
+                with zipfile.ZipFile(archive) as package:
+                    note = package.read("LEIA-ANTES.txt").decode()
+                    self.assertIn(f"PACOTE DO PAIS: {country['title']}.", note)
+                    self.assertIn(f"regiao {country['code']} ", note)
+                    for model in PREFLIGHT.MODELS:
+                        self.assertEqual(len(bundler["flasher_choice"](package.namelist(), model)), 1)
+            self.assertNotIn(
+                "PACOTE DO PAIS",
+                zipfile.ZipFile(bundler["bundle"](release, Path(directory), "9.9.9", ROOT / "LICENSE"))
+                .read("LEIA-ANTES.txt")
+                .decode(),
+            )
+            with self.assertRaises(SystemExit):
+                bundler["bundle"](release, Path(directory), "9.9.9", ROOT / "LICENSE", "marte")
+
     def test_each_board_accepts_only_its_own_package(self):
         for model, (hardware, flash) in PREFLIGHT.MODELS.items():
             with tempfile.TemporaryDirectory() as directory:

@@ -26,7 +26,7 @@ env:
 jobs:
   verify:
     runs-on: ubuntu-24.04
-    timeout-minutes: 60
+    timeout-minutes: 150
     strategy:
       fail-fast: false
       matrix:
@@ -115,6 +115,26 @@ jobs:
           path: dist/*
           if-no-files-found: error
           retention-days: 30
+      # The same environment again for each country of tools/bridge/regions.json: only the region a radio
+      # that never had one starts with changes.
+      - name: Package for each country
+        env:
+          BRIDGE_ENV: ${{ matrix.environment }}
+        run: |
+          set -o pipefail
+          for region in $(python tools/bridge/region_flags.py --list); do
+            PLATFORMIO_BUILD_FLAGS="$(python tools/bridge/region_flags.py "$region")" \
+              pio run -e "$BRIDGE_ENV" -t buildprog 2>&1 | tee "evidence/build-$region.log" | tail -4
+            python tools/bridge/package_release.py --environment "$BRIDGE_ENV" --region "$region" --output "countries/$region"
+            python tools/bridge/verify_artifact.py "countries/$region"/meshtastic-bitchat-*.zip --model "${BRIDGE_ENV%-bitchat}" --package-only
+          done
+      - name: Upload country files
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: country-${{ matrix.environment }}
+          path: countries/*
+          if-no-files-found: error
+          retention-days: 30
       - name: Preserve evidence even on failure
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
@@ -127,7 +147,7 @@ jobs:
   experimental:
     # A trial target outside the release checks: built and attached as it is, never tested on hardware.
     runs-on: ubuntu-24.04
-    timeout-minutes: 45
+    timeout-minutes: 90
     env:
       BRIDGE_ENV: tracker-t1000-e-bitchat
     steps:
@@ -148,6 +168,12 @@ jobs:
           pio run -e "$BRIDGE_ENV" 2>&1 | tee evidence/build.log
           version="$(python -c 'import runpy; print(runpy.run_path("tools/bridge/package_release.py")["VERSION"])')"
           cp ".pio/build/$BRIDGE_ENV"/firmware-*.uf2 "experimental/EXPERIMENTAL-t1000-e-bitchat-$version.uf2"
+          for region in $(python tools/bridge/region_flags.py --list); do
+            PLATFORMIO_BUILD_FLAGS="$(python tools/bridge/region_flags.py "$region")" \
+              pio run -e "$BRIDGE_ENV" 2>&1 | tee "evidence/build-$region.log" | tail -4
+            cp ".pio/build/$BRIDGE_ENV"/firmware-*.uf2 \
+              "experimental/EXPERIMENTAL-t1000-e-bitchat-$version-$(python tools/bridge/region_flags.py "$region" --slug).uf2"
+          done
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: experimental-tracker-t1000-e
@@ -185,6 +211,11 @@ jobs:
           pattern: experimental-*
           merge-multiple: true
           path: experimental
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          pattern: country-*
+          merge-multiple: true
+          path: countries
       - name: Package corresponding project source and evidence
         run: |
           git archive --format=tar --prefix=meshtastic-bitchat/ HEAD > /tmp/project-source.tar
@@ -206,6 +237,9 @@ jobs:
           version="$(python -c 'import runpy; print(runpy.run_path("tools/bridge/package_release.py")["VERSION"])')"
           mkdir -p technical/original-assets published
           python tools/bridge/bundle_release.py release --output published --version "$version"
+          for region in $(python tools/bridge/region_flags.py --list); do
+            python tools/bridge/bundle_release.py "countries/$region" --output published --version "$version" --region "$region"
+          done
           cp release/* technical/original-assets/
           tar -czf "published/technical-package-$version.tar.gz" -C technical original-assets
           cp experimental/* published/

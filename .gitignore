@@ -37,6 +37,7 @@ venv/
 release/
 dist/
 evidence/
+countries/
 .vscode/extensions.json
 /compile_commands.json
 src/mesh/raspihttp/certificate.pem

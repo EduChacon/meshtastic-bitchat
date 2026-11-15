@@ -1,0 +1,14 @@
+{
+  "brasil": {
+    "title": "Brasil",
+    "code": "ANZ"
+  },
+  "eua": {
+    "title": "EUA",
+    "code": "US"
+  },
+  "europa": {
+    "title": "Europa e Reino Unido",
+    "code": "EU_868"
+  }
+}

@@ -277,6 +277,21 @@ NodeDB::NodeDB()
         config.security.is_managed = config.device.is_managed;
     }
 
+#if defined(MESHTASTIC_ENABLE_BITCHAT) && defined(BRIDGE_FACTORY_REGION)
+    // Bridge file made for one country: only a radio that never had a region starts in that country's.
+    if (config.lora.region == meshtastic_Config_LoRaConfig_RegionCode_UNSET) {
+        config.lora.region = BRIDGE_FACTORY_REGION;
+        config.lora.tx_enabled = true;
+        initRegion();
+        if (myRegion->dutyCycle < 100)
+            config.lora.ignore_mqtt = true;
+        if (strcmp(moduleConfig.mqtt.root, default_mqtt_root) == 0) {
+            snprintf(moduleConfig.mqtt.root, sizeof(moduleConfig.mqtt.root), "%s/%s", default_mqtt_root, myRegion->name);
+            saveWhat |= SEGMENT_MODULECONFIG;
+        }
+    }
+#endif
+
 #if !(MESHTASTIC_EXCLUDE_PKI_KEYGEN || MESHTASTIC_EXCLUDE_PKI)
 
     if (!owner.is_licensed && config.lora.region != meshtastic_Config_LoRaConfig_RegionCode_UNSET) {

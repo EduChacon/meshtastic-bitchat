@@ -9,7 +9,8 @@ continua valendo após reiniciar. Um canal de texto já escolhido e autorizado �
 
 Se não houver canal escolhido, o firmware cria `Bitchat` como **canal secundário público**,
 somente em uma posição desativada e vazia. Usa a API nativa de canais e persiste pelo NodeDB.
-Não altera região, preset, slot RF, potência, canal primário ou chaves existentes. MQTT e
+Não altera região, preset, slot RF, potência, canal primário ou chaves existentes (a única
+exceção são os [pacotes por país](#pacotes-por-país), em rádio que nunca teve região). MQTT e
 compartilhamento de posição ficam desativados nesse canal novo. Não formata armazenamento.
 
 Chave pública de interoperabilidade, em Base64:
@@ -187,8 +188,42 @@ se todo telefone encontra um serviço anunciado só ali.
 
 O uso diário não exige o aplicativo Meshtastic: o canal `Bitchat` é criado pela ponte e a hora
 pode vir do primeiro telefone Bitchat. A exceção é a **região do LoRa**: um rádio que nunca foi
-configurado não transmite até que a região seja definida por um cliente Meshtastic, uma vez. A
-instalação por `Update` preserva a região já definida. Nenhum aparelho sem tela foi ensaiado.
+configurado não transmite até que a região seja definida, uma vez, por um cliente Meshtastic ou
+por um [pacote do país](#pacotes-por-país). A instalação por `Update` preserva a região já
+definida. Nenhum aparelho sem tela foi ensaiado.
+
+## Pacotes por país
+
+A partir da `1.0.0-beta.9`. Servem para entregar um rádio pronto a quem só vai usar o Bitchat.
+Ao lado do pacote normal, a página da versão traz um arquivo por país:
+
+| Arquivo                      | Região do Meshtastic | Faixa              |
+| ---------------------------- | -------------------- | ------------------ |
+| `…-Brasil.zip`               | `ANZ`                | 915 a 928 MHz      |
+| `…-EUA.zip`                  | `US`                 | 902 a 928 MHz      |
+| `…-Europa-e-Reino-Unido.zip` | `EU_868`             | 869,4 a 869,65 MHz |
+
+a) O programa é o mesmo do pacote normal, com uma diferença: na partida, se o rádio **nunca teve
+região**, a ponte grava a do país, liga a transmissão e segue como se a região tivesse sido
+definida pelo aplicativo. Rádio que já tem região não é alterado, qualquer que seja ela.
+
+b) O pacote normal continua sem definir região.
+
+c) A instalação é a mesma, por `Update` no flasher oficial, sobre um rádio que já tem o
+Meshtastic. Com o pacote do país, um rádio saído da caixa passa a funcionar como ponte sem
+abrir o aplicativo Meshtastic: a ponte cria o canal e toma a hora do primeiro telefone Bitchat.
+
+d) Para o Brasil foi usada a região `ANZ`, que a comunidade [Meshbrasil](https://www.meshbrasil.com/meshtastic-frequencia-brasil.html)
+descreve como o padrão adotado no país; o Meshtastic também tem a região `BR_902` (902 a
+907,5 MHz), que não se comunica com quem usa `ANZ`. As faixas são as da
+[tabela oficial](https://meshtastic.org/docs/configuration/radio/lora/).
+
+e) Transmitir em faixa não permitida no lugar de uso pode ser proibido. O cumprimento da regra
+local é de quem usa o rádio.
+
+f) Para o T1000-E há um arquivo `EXPERIMENTAL-…-<país>.uf2` por país, com o mesmo comportamento.
+
+**Só compilado; a definição automática da região não foi ensaiada em aparelho.**
 
 ## Testes e limites
 

@@ -15,7 +15,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from verify_artifact import APP_SLOT, MODELS  # noqa: E402
 
 BOARDS = {model + "-bitchat": (model, *target) for model, target in MODELS.items()}
-VERSION = "1.0.0-beta.8"
+VERSION = "1.0.0-beta.9"
 
 
 def sha256(data):
@@ -59,8 +59,13 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--environment", required=True, choices=BOARDS)
     parser.add_argument("--output", type=Path, default=Path("dist"))
+    parser.add_argument("--region", help="country package this build was made for (tools/bridge/regions.json)")
     args = parser.parse_args()
     root = Path(__file__).resolve().parents[2]
+    regions = json.loads(Path(__file__).with_name("regions.json").read_text(encoding="utf-8"))
+    if args.region and args.region not in regions:
+        raise SystemExit(f"Unknown region {args.region}")
+    country = regions.get(args.region)
     if subprocess.check_output(
         ["git", "status", "--porcelain", "--untracked-files=normal"],
         cwd=root,
@@ -143,6 +148,9 @@ def main():
         "contains_partitions": False,
         "erase": False,
     }
+    if country:
+        manifest["factory_region"] = country["code"]
+        manifest["factory_region_package"] = country["title"]
     args.output.mkdir(parents=True, exist_ok=True)
     payloads = {
         filename: application,
@@ -161,6 +169,12 @@ def main():
             "Confirme modelo, banda, antena, backup privado, particoes, slot ativo e rollback.\n"
             "Use tools/bridge/verify_artifact.py antes de abrir o flasher oficial.\n"
             "Leia docs/bridge/INSTALL.md. Nunca envie backups ao repositorio.\n"
+            + (
+                f"PACOTE DO PAIS: {country['title']}. Em radio que nunca teve regiao, a ponte define a regiao "
+                f"{country['code']} na primeira partida. Radio que ja tem regiao nao e alterado.\n"
+                if country
+                else ""
+            )
         ).encode(),
     }
     checksums = "".join(

@@ -45,6 +45,14 @@ jobs:
           set -o pipefail
           mkdir -p evidence
           pio run -e "$BRIDGE_ENV" 2>&1 | tee evidence/build.log
+      - name: One country build
+        if: matrix.environment == 'tracker-t1000-e-bitchat'
+        env:
+          BRIDGE_ENV: ${{ matrix.environment }}
+        run: |
+          set -o pipefail
+          PLATFORMIO_BUILD_FLAGS="$(python tools/bridge/region_flags.py brasil)" \
+            pio run -e "$BRIDGE_ENV" 2>&1 | tee evidence/build-brasil.log | tail -4
       - name: Report size
         if: always()
         env:
@@ -70,7 +78,7 @@ jobs:
 
   esp32:
     runs-on: ubuntu-24.04
-    timeout-minutes: 45
+    timeout-minutes: 75
     env:
       BRIDGE_ENV: heltec-v3-bitchat
     steps:
@@ -97,6 +105,15 @@ jobs:
         run: |
           python tools/bridge/package_release.py --environment "$BRIDGE_ENV"
           python tools/bridge/verify_artifact.py dist/meshtastic-bitchat-*.zip --model "${BRIDGE_ENV%-bitchat}" --package-only
+      - name: One country build, as the release makes them
+        run: |
+          set -o pipefail
+          region=brasil
+          PLATFORMIO_BUILD_FLAGS="$(python tools/bridge/region_flags.py "$region")" \
+            pio run -e "$BRIDGE_ENV" -t buildprog 2>&1 | tee "evidence/build-$region.log" | tail -4
+          python tools/bridge/package_release.py --environment "$BRIDGE_ENV" --region "$region" --output "countries/$region"
+          python tools/bridge/verify_artifact.py "countries/$region"/meshtastic-bitchat-*.zip --model "${BRIDGE_ENV%-bitchat}" --package-only
+          grep -c "BRIDGE_FACTORY_REGION" "evidence/build-$region.log" || true
       - name: Report
         if: always()
         run: |

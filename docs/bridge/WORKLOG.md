@@ -275,6 +275,15 @@ mensagem. Verificado só em simulação (756 verificações do núcleo e 1144 de
 Antes do envio à `main`, a execução 43755477133 do ramo de trabalho compilou o pacote ESP32 e o
 T1000-E, com e sem a ponte, sem falhas.
 
+Décimo sexto passo. O operador pediu arquivos por país, à parte do normal, para entregar um rádio
+pronto a quem só usa o Bitchat. Versão `1.0.0-beta.9`: nos arquivos do país, e só neles, um rádio
+que nunca teve região recebe a do país na partida (`ANZ` no Brasil, por ser a adotada pela
+comunidade Meshbrasil; `US`; `EU_868`), pelo mesmo caminho que o firmware segue quando o
+aplicativo define a região pela primeira vez. Isso abre uma exceção à regra de a ponte não
+alterar a região; rádio que já tem região continua intocado. A publicação compila cada alvo
+mais uma vez por país. Não há teste de bancada dessa partida: a verificação é por compilação e
+pelos testes de empacotamento.
+
 ## Investigação de boot — 2026-11-13
 
 As instalações foram suspensas nos dois READMEs e nas pré-releases, preservando os arquivos

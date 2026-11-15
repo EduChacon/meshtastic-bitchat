@@ -264,6 +264,8 @@ passa a ter os comandos `!bridge economy on` e `!bridge economy off`, aceitos do
 Meshtastic conectado ao próprio rádio; o relatório `!bridge` mostra `Saver on` ou `Saver off`.
 O efeito do ajuste e o padrão (desligado) não mudaram. Verificado só em simulação (645
 verificações do núcleo e 1002 de fluxo) e por compilação.
+Antes do envio à `main`, a execução 43742629894 do ramo de trabalho compilou o pacote ESP32 e o
+T1000-E, com e sem a ponte, sem falhas.
 
 ## Investigação de boot — 2026-11-13
 

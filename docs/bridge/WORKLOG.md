@@ -294,6 +294,8 @@ codificado e o identificador de pacote foram escritos a partir do código do apl
 conferidos com valores calculados à parte; não houve ensaio com o aplicativo real. Verificado em
 simulação (944 verificações do núcleo e 1213 de fluxo). O roteiro geral das ideias está no
 repositório MeshCore, em `docs/bitchat/ROADMAP.md`.
+Antes do envio à `main`, a execução 43759738089 do ramo de trabalho compilou o Heltec V3, com a
+análise estática, e o T1000-E, sem falhas.
 
 ## Investigação de boot — 2026-11-13
 

@@ -1063,6 +1063,12 @@ bool BitchatBridgeModule::handleFrame(Bytes frame, uint16_t source, bool fromTun
         }
         return true;
     }
+    // Like any phone that stays in the house, the bridge keeps what it heard for whoever arrives later. The
+    // newcomer shows a message only if it has met the author before: the app accepts a peer's announce for
+    // fifteen minutes and then relies on the identities it remembers.
+    if (publicMessage && !startsWith(packet.payload, TUNNEL_PREFIX) && BITCHAT_HISTORY_ENTRIES &&
+        allocateBuffer(runtime->history))
+        runtime->history->keep(crypto, frame);
     if (textReady && publicMessage && !startsWith(packet.payload, TUNNEL_PREFIX) &&
         (!settings.reserved[1] || startsWith(packet.payload, LORA_PREFIX))) {
         exportText(packet, *peer, id);

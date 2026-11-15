@@ -620,7 +620,8 @@ int main()
         run(600);
         {
             const auto more = chat(eva.handle, &bridgeId);
-            CHECK(more.size() == 3 && more[0] == from + "primeira");
+            // the rest of the three are older messages the phones wrote, kept under their own names
+            CHECK(!more.empty() && more[0] == from + "primeira" && chat(eva.handle).size() == 3);
         }
         // Asking for another kind of packet gets nothing; live text arrives as before and is kept too.
         fakeSent.clear();
@@ -654,8 +655,37 @@ int main()
         CHECK(fakeApp.size() == 1 && app(0).rfind("[bridge] On LoRa, last 6 h: R\xc3\xa1"
                                                   "dio Sul",
                                                   0) == 0);
+        // What a phone wrote is kept too, under its own signature, for the phone that arrives after it left.
+        run(5000);
+        eva.write(eva.say("volto as 18h"));
+        run(600);
         bleDisconnect(eva.handle);
         run(1000);
+        {
+            Phone fia("fia", 10, 32);
+            fia.connect();
+            run(300);
+            fia.write(fia.announce());
+            run(600);
+            fakeSent.clear();
+            const auto wire = syncRequest(crypto, {});
+            fia.write(fia.packet(0x21, {wire.data(), wire.size()}, 0));
+            run(600);
+            bool found = false;
+            for (const auto &frame : received(fia.handle)) {
+                Packet packet;
+                CHECK(decode({frame.data(), frame.size()}, packet) == Result::Ok);
+                if (packet.type != 2 || !(packet.sender == eva.id))
+                    continue;
+                Frame canonical;
+                CHECK(packet.ttl == 0 && packet.replay() && signingBytes({frame.data(), frame.size()}, canonical) == Result::Ok);
+                CHECK(crypto.verify(canonical.bytes(), packet.signature, eva.signingPublic.data()));
+                found = text(packet.payload) == "volto as 18h";
+            }
+            CHECK(found);
+            bleDisconnect(fia.handle);
+            run(1000);
+        }
         fakeSent.clear();
     }
     // A bonded phone's old subscription returns by itself when the Meshtastic app

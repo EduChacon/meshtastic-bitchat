@@ -12,10 +12,10 @@ aparelho.** Não há garantia de risco zero.
 
 ## 1. Baixar os arquivos
 
-Em [v1.0.0-beta.11](https://github.com/EduChacon/meshtastic-bitchat/releases/tag/v1.0.0-beta.11), baixar
-`technical-package-1.0.0-beta.11.tar.gz` e extrair, para a mesma pasta:
+Em [v1.0.0-beta.12](https://github.com/EduChacon/meshtastic-bitchat/releases/tag/v1.0.0-beta.12), baixar
+`technical-package-1.0.0-beta.12.tar.gz` e extrair, para a mesma pasta:
 
-- `meshtastic-bitchat-heltec-v3-1.0.0-beta.11-<commit>.zip`;
+- `meshtastic-bitchat-heltec-v3-1.0.0-beta.12-<commit>.zip`;
 - `prepare_flash.py` e `verify_artifact.py`;
 - `SHA256SUMS`.
 
@@ -43,8 +43,8 @@ No **PowerShell**, dentro da pasta dos arquivos baixados:
 ```powershell
 py -3 -m venv "$env:LOCALAPPDATA\MeshtasticBitchat\tools"
 & "$env:LOCALAPPDATA\MeshtasticBitchat\tools\Scripts\python.exe" -m pip install esptool==4.11.0
-$pacotes = @(Get-ChildItem .\meshtastic-bitchat-heltec-v3-1.0.0-beta.11-*.zip)
-if ($pacotes.Count -ne 1) { throw "Mantenha somente um ZIP 1.0.0-beta.11 do modelo nesta pasta" }
+$pacotes = @(Get-ChildItem .\meshtastic-bitchat-heltec-v3-1.0.0-beta.12-*.zip)
+if ($pacotes.Count -ne 1) { throw "Mantenha somente um ZIP 1.0.0-beta.12 do modelo nesta pasta" }
 & "$env:LOCALAPPDATA\MeshtasticBitchat\tools\Scripts\python.exe" .\prepare_flash.py $pacotes[0].FullName --model heltec-v3 --port COM3 --read-backup
 ```
 

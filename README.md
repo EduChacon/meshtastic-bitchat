@@ -6,7 +6,7 @@ Ponte embarcada derivada do firmware oficial Meshtastic. O objetivo é usar
 os aplicativos originais Bitchat e Meshtastic, sem computador, MQTT, Nostr ou internet na
 operação. Computador continua necessário para compilar, instalar e diagnosticar.
 
-**Versão atual (beta): [v1.0.0-beta.11](https://github.com/EduChacon/meshtastic-bitchat/releases/tag/v1.0.0-beta.11).** Dispensa o `!lora`, corrige perdas
+**Versão atual (beta): [v1.0.0-beta.12](https://github.com/EduChacon/meshtastic-bitchat/releases/tag/v1.0.0-beta.12).** Dispensa o `!lora`, corrige perdas
 de mensagem em conversa de grupo, recupera a hora sem o aplicativo Meshtastic, simplifica o
 menu e acrescenta oito aparelhos ESP32-S3. [O que mudou e por quê](docs/bridge/CHANGES.md).
 
@@ -24,7 +24,8 @@ a `1.0.0-beta.7` acrescentou o comando de texto do `Battery saver` (`!bridge eco
 a `1.0.0-beta.8` acrescentou o guia dentro da ponte (`!bridge guide`, `!ponte guia`); a
 `1.0.0-beta.9` acrescentou os [pacotes por país](docs/bridge/DEFAULTS.md#pacotes-por-país); a
 `1.0.0-beta.10` acrescentou o [histórico para quem chega depois](docs/bridge/DEFAULTS.md#histórico-para-quem-chega-depois);
-a `1.0.0-beta.11` acrescenta `!bridge who`, a lista dos nomes ouvidos no LoRa.
+a `1.0.0-beta.11` acrescentou `!bridge who`, a lista dos nomes ouvidos no LoRa; a `1.0.0-beta.12`
+guarda no histórico também o que os telefones escrevem perto do rádio.
 Essas mudanças foram simuladas e compiladas, **sem ensaio em aparelho**.
 Fazer backup antes de instalar e ler os [limites](docs/bridge/CHANGES.md) e o [roteiro de ensaio](docs/bridge/TESTING.md).
 
@@ -70,8 +71,8 @@ nunca foi ligado em aparelho e está fora das verificações da versão.
 
 ## Instalar
 
-1. Em [v1.0.0-beta.11](https://github.com/EduChacon/meshtastic-bitchat/releases/tag/v1.0.0-beta.11), baixar
-   **`meshtastic-bitchat-1.0.0-beta.11.zip`**. É um arquivo só, para os dez aparelhos. Para um rádio
+1. Em [v1.0.0-beta.12](https://github.com/EduChacon/meshtastic-bitchat/releases/tag/v1.0.0-beta.12), baixar
+   **`meshtastic-bitchat-1.0.0-beta.12.zip`**. É um arquivo só, para os dez aparelhos. Para um rádio
    que nunca teve região definida, há também um arquivo por país (`…-Brasil.zip`, `…-EUA.zip`,
    `…-Europa-e-Reino-Unido.zip`), que dispensa o aplicativo Meshtastic.
 2. No [Web Flasher oficial](https://flasher.meshtastic.org/), escolher a placa, carregar o ZIP
@@ -130,8 +131,8 @@ Base: Meshtastic **2.7.26.54e0d8d**, commit `54e0d8d0ab2ff56b3a9ce967e53f79e49af
 Bitchat de referência: iOS **1.8.0**, commit `30c58eee349e172b37f69faa2113c9d5f2c76c23`.
 
 ```sh
-git fetch origin tag v1.0.0-beta.11
-git checkout --detach v1.0.0-beta.11
+git fetch origin tag v1.0.0-beta.12
+git checkout --detach v1.0.0-beta.12
 python3 -m venv .venv
 .venv/bin/python -m pip install platformio==6.2.0 intelhex==2.3.0
 git submodule update --init protobufs

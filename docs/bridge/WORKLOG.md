@@ -305,6 +305,15 @@ tabela fica só em memória. O guia e a ajuda passam a citar o comando. Verifica
 Antes do envio à `main`, a execução 43768741240 do ramo de trabalho compilou o Heltec V3, com a
 análise estática, e o T1000-E, sem falhas.
 
+Décimo nono passo. O operador pediu que as pendências fossem feitas sem intervenção. Versão
+`1.0.0-beta.12`: o histórico passa a guardar também as mensagens públicas que os telefones
+escrevem perto do rádio, com a assinatura deles. Pelo código do aplicativo, quem chega aceita um
+anúncio por 15 minutos e depois usa as identidades que guardou; por isso só vê mensagens de quem
+já conheceu. O estudo de privacidade, de pagamento e da "ponte mesh" nativa ficou no repositório
+MeshCore (`docs/bitchat/PRIVACY.md`); o túnel de laboratório deste repositório é o caminho
+indicado ali para mensagens privadas, a ensaiar antes de qualquer porte. Verificado em simulação
+(945 verificações do núcleo e 1254 de fluxo).
+
 ## Investigação de boot — 2026-11-13
 
 As instalações foram suspensas nos dois READMEs e nas pré-releases, preservando os arquivos

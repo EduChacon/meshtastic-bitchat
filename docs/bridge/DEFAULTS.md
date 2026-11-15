@@ -208,8 +208,15 @@ b) Ficam guardadas as últimas 24 mensagens (8 no T1000-E), por até seis horas,
 o rádio ou a ponte apaga tudo. Nada é gravado na memória permanente por causa de um telefone
 ausente.
 
-c) Só entra no histórico o que veio do LoRa. O que os telefones escrevem entre si não é guardado
-pela ponte; eles o trocam diretamente.
+c) A partir da `1.0.0-beta.12`, entra também o que os telefones escrevem no `#mesh` perto do
+rádio, com a assinatura de quem escreveu: a ponte faz o papel de um telefone que fica em casa.
+Quem chega depois só vê essas mensagens se já conheceu o autor antes; o Bitchat aceita o anúncio
+de uma pessoa por 15 minutos e, depois disso, usa as identidades que guardou. Mensagens com 100
+bytes ou mais (que o Bitchat compacta) não são guardadas. As duas origens dividem a mesma tabela.
+
+Privacidade: o canal `Bitchat` tem chave pública. Para que quem está fora do grupo não leia o
+LoRa, use `!bridge lora` em um canal secundário com chave própria. O estudo de privacidade e de
+pagamento está no [repositório MeshCore](https://github.com/EduChacon/Meshcore-Bitchat/blob/main/docs/bitchat/PRIVACY.md).
 
 d) Depois de religado sem ninguém por perto, o rádio fica sem hora e não consegue assinar: o
 texto que chegar até o primeiro telefone (ou o aplicativo Meshtastic) aparecer se perde.

@@ -2,6 +2,7 @@
 #include "HeapModel.h"
 #include "bridge/BitchatBridgeModule.h"
 #include "bridge/BridgeDefaults.h"
+#include "gcs_reference.h"
 #include <Curve25519.h>
 #include <HKDF.h>
 #include <algorithm>
@@ -560,14 +561,85 @@ int main()
     run(5000);
     CHECK(server.disconnected.size() == dropsBefore + 3);
 
-    // No phone connected: nothing is signed, queued or written to flash for nobody.
+    // No phone connected: nothing is sent or written to flash for nobody. The text is signed and kept in
+    // memory, and the phone that arrives later asks for what it lacks, the way the app does.
     for (const auto *phone : {&ana, &bia, &caio})
         bleDisconnect(phone->handle);
     const unsigned writes = Preferences::writes;
     fakeSent.clear();
-    fromLoRa(0x1234, "ninguem ouvindo");
+    for (const char *text : {"primeira", "segunda", "terceira", "quarta"}) {
+        fromLoRa(0x1234, text);
+        run(300);
+    }
     run(25000);
     CHECK(fakeSent.empty() && Preferences::writes == writes);
+    fakeApp.clear();
+    fromLoRa(0, "!bridge", 1);
+    run(1100);
+    // The table was already full of earlier text: these four are its newest.
+    CHECK(app(0).find("\nSaver off, kept " + std::to_string(BITCHAT_HISTORY_ENTRIES) + "\n") != std::string::npos);
+    {
+        Phone eva("eva", 9, 31);
+        eva.connect();
+        run(300);
+        eva.write(eva.announce());
+        run(600);
+        // Nothing is pushed to a phone that did not ask.
+        CHECK(blePhones() == 1 && chat(eva.handle, &bridgeId).empty());
+        const auto held = [&]() {
+            std::vector<SyncId> ids;
+            for (const auto &frame : received(eva.handle)) {
+                Packet packet;
+                CHECK(decode({frame.data(), frame.size()}, packet) == Result::Ok);
+                if (packet.type != 2 || !(packet.sender == bridgeId))
+                    continue;
+                // An answer to a request: for this phone only, and marked so the app accepts its age.
+                CHECK(packet.ttl == 0 && packet.replay() && packet.signedPacket());
+                SyncId id;
+                syncId(crypto, packet, id);
+                ids.push_back(id);
+            }
+            return ids;
+        };
+        const std::string from = "[MT R\xc3\xa1"
+                                 "dio Sul] ";
+        auto wire = syncRequest(crypto, {});
+        eva.write(eva.packet(0x21, {wire.data(), wire.size()}, 0));
+        run(600);
+        CHECK((chat(eva.handle, &bridgeId) == std::vector<std::string>{from + "quarta", from + "terceira", from + "segunda"}));
+        const auto first = held();
+        CHECK(first.size() == 3);
+        // Asked again at once, nothing more; five seconds later, holding those three, it gets the last.
+        fakeSent.clear();
+        wire = syncRequest(crypto, first);
+        eva.write(eva.packet(0x21, {wire.data(), wire.size()}, 0));
+        run(600);
+        CHECK(chat(eva.handle, &bridgeId).empty());
+        run(5000);
+        eva.write(eva.packet(0x21, {wire.data(), wire.size()}, 0));
+        run(600);
+        {
+            const auto more = chat(eva.handle, &bridgeId);
+            CHECK(more.size() == 3 && more[0] == from + "primeira");
+        }
+        // Asking for another kind of packet gets nothing; live text arrives as before and is kept too.
+        fakeSent.clear();
+        run(5000);
+        wire = syncRequest(crypto, {}, 7, 0, 1);
+        eva.write(eva.packet(0x21, {wire.data(), wire.size()}, 0));
+        run(600);
+        CHECK(chat(eva.handle, &bridgeId).empty());
+        fromLoRa(0x1234, "ao vivo");
+        run(300);
+        CHECK((chat(eva.handle, &bridgeId) == std::vector<std::string>{from + "ao vivo"}));
+        fakeApp.clear();
+        fromLoRa(0, "!bridge", 1);
+        run(1100);
+        CHECK(app(0).find("\nSaver off, kept " + std::to_string(BITCHAT_HISTORY_ENTRIES) + "\n") != std::string::npos);
+        bleDisconnect(eva.handle);
+        run(1000);
+        fakeSent.clear();
+    }
     // A bonded phone's old subscription returns by itself when the Meshtastic app
     // reconnects. That is not a Bitchat phone: it is not counted, nothing is
     // imported for it, and the self-test says so.
@@ -830,13 +902,13 @@ int main()
     CHECK(bridge->economy() && app(8).rfind("[bridge] Battery saver on", 0) == 0 && app(8).size() <= 200);
     fromLoRa(0, "!bridge", 1);
     run(1100);
-    CHECK(fakeApp.size() == 12 && app(9).find("\nSaver on\n") != std::string::npos);
+    CHECK(fakeApp.size() == 12 && app(9).find("\nSaver on, kept ") != std::string::npos);
     fromLoRa(0, "!Ponte Economy Off", 1);
     run(1100);
     CHECK(!bridge->economy() && app(12) == "[bridge] Battery saver off.");
     fromLoRa(0, "!bridge", 1);
     run(1100);
-    CHECK(app(13).find("\nSaver off\n") != std::string::npos);
+    CHECK(app(13).find("\nSaver off, kept ") != std::string::npos);
     // The guide in the app attached to the radio, in either language.
     {
         const size_t before = fakeApp.size();

@@ -2,6 +2,7 @@
 #ifdef MESHTASTIC_ENABLE_BITCHAT
 #include "BridgeBle.h"
 #include "BridgeCrypto.h"
+#include "BridgeHistory.h"
 #include "BridgeState.h"
 #include "BridgeText.h"
 #include "BridgeTunnel.h"
@@ -106,6 +107,13 @@ class BitchatBridgeModule : public MeshModule, private concurrency::OSThread
         std::unique_ptr<bitchat::BleReassembly> fragments;
         std::unique_ptr<bitchat::TunnelReassembly> tunnelFragments;
         std::unique_ptr<bitchat::DedupCache<256>> dedup;
+        // Text brought from LoRa, kept for the phones that arrive later.
+        std::unique_ptr<bitchat::History> history;
+        struct Asked {
+            uint16_t link = bitchat::NO_LINK;
+            uint32_t at = 0;
+        };
+        std::array<Asked, 4> asked{};
         bitchat::BoundedQueue<RadioItem, RadioItem::QUEUE> radioQueue;
         bitchat::RateGate radioGate, cryptoGate;
         bitchat::BleInput input;
@@ -138,9 +146,11 @@ class BitchatBridgeModule : public MeshModule, private concurrency::OSThread
     bool handleFrame(bitchat::Bytes frame, uint16_t source, bool fromTunnel);
     void exportText(const bitchat::Packet &packet, bitchat::Peer &peer, const bitchat::Digest &id);
     bool textGuard() const;
-    void originate(uint8_t type, bitchat::Bytes payload);
+    void originate(uint8_t type, bitchat::Bytes payload, bool keep = false);
+    void answerSync(const bitchat::Packet &packet, uint16_t source);
+    size_t kept() const;
     void announce();
-    bool record(const bitchat::Digest &id);
+    bool record(const bitchat::Digest &id, bool persist = true);
     bool seen(const bitchat::Digest &id) const;
     bool queueRadio(bitchat::Bytes payload, uint16_t port, uint8_t channel);
     void queueTunnel(bitchat::Bytes frame, const bitchat::Digest &id, bool persistent);

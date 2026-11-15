@@ -641,9 +641,9 @@ void BitchatBridgeModule::answerApp()
     displayCount(drops(), missed);
     snprintf(text, sizeof(text),
              "[bridge] %s\nBluetooth %u, Bitchat %u, people %u\nLoRa %.11s out "
-             "%s in %s lost %s\nSaver %s\n%.93s",
+             "%s in %s lost %s\nSaver %s, kept %u\n%.84s",
              status(), unsigned(bleConnections()), phones, people, textReady ? channels.getName(settings.textChannel) : "off", tx,
-             rx, missed, settings.economy ? "on" : "off", detail);
+             rx, missed, settings.economy ? "on" : "off", unsigned(kept() % 100), detail);
     replyToApp(text);
     const int prefix = snprintf(text, sizeof(text), "%s", REPLY_PREFIX);
     bleDescribe(text + prefix, sizeof(text) - prefix);
@@ -723,7 +723,7 @@ bool BitchatBridgeModule::seen(const Digest &id) const
     return false;
 }
 
-bool BitchatBridgeModule::record(const Digest &id)
+bool BitchatBridgeModule::record(const Digest &id, bool persist)
 {
     const uint64_t now = utc();
     if (!storageReady || !now || seen(id))
@@ -736,6 +736,9 @@ bool BitchatBridgeModule::record(const Digest &id)
     auto &entry = journal[slot];
     std::copy_n(id.begin(), entry.id.size(), entry.id.begin());
     entry.utc = now;
+    // Text kept for an absent phone is remembered in memory only: nothing is written to flash for nobody.
+    if (!persist)
+        return true;
     char key[8];
     snprintf(key, sizeof(key), "j%02u", unsigned(slot));
     if (storage.putBytes(key, &entry, sizeof(entry)) == sizeof(entry))
@@ -745,7 +748,7 @@ bool BitchatBridgeModule::record(const Digest &id)
     return false;
 }
 
-void BitchatBridgeModule::originate(uint8_t type, Bytes payload)
+void BitchatBridgeModule::originate(uint8_t type, Bytes payload, bool keep)
 {
     if (!identityReady || !utc()) {
         reject(Result::NoClock);
@@ -770,10 +773,49 @@ void BitchatBridgeModule::originate(uint8_t type, Bytes payload)
         reject(Result::Full);
         return;
     }
+    // Kept even with nobody listening: the phone that arrives later asks for what it lacks.
+    if (keep && BITCHAT_HISTORY_ENTRIES && allocateBuffer(runtime->history))
+        runtime->history->keep(crypto, runtime->working.bytes());
     if (!bleBroadcast(runtime->working.bytes()))
         reject(Result::Full);
     else
         ++originatedBle;
+}
+
+size_t BitchatBridgeModule::kept() const
+{
+    return runtime && runtime->history ? runtime->history->count(utc()) : 0;
+}
+
+// A phone says what public messages it holds; the kept ones it lacks go back to it alone, a few at a
+// time, the newest first. It asks again every few seconds, so the rest follows.
+void BitchatBridgeModule::answerSync(const Packet &packet, uint16_t source)
+{
+    static constexpr size_t BURST = 3;
+    const uint32_t now = millis();
+    SyncRequest request;
+    if (!runtime->history || source == NO_LINK || !utc() || (packet.directed() && packet.recipient != ownId) ||
+        decodeSyncRequest(packet.payload, request) != Result::Ok)
+        return;
+    // One answer per phone every five seconds; the table keeps the phones that asked last.
+    auto *slot = &runtime->asked[0];
+    for (auto &entry : runtime->asked) {
+        if (entry.link == source) {
+            slot = &entry;
+            break;
+        }
+        if (slot->link != NO_LINK && (entry.link == NO_LINK || int32_t(entry.at - slot->at) < 0))
+            slot = &entry;
+    }
+    if (slot->link == source && Throttle::isWithinTimespanMsAt(slot->at, 5000, now))
+        return;
+    *slot = {source, now};
+    size_t cursor = 0;
+    for (size_t sent = 0; sent < BURST && runtime->history->next(crypto, request, utc(), cursor, runtime->working);)
+        if (bleSendTo(runtime->working.bytes(), source))
+            ++sent;
+        else
+            break;
 }
 
 void BitchatBridgeModule::announce()
@@ -878,6 +920,10 @@ bool BitchatBridgeModule::handleFrame(Bytes frame, uint16_t source, bool fromTun
         frame = runtime->assembled.bytes();
         if (decode(frame, packet) != Result::Ok)
             return false;
+    }
+    if (packet.type == 0x21 && packet.sender != ownId && !packet.replay() && !fromTunnel) {
+        answerSync(packet, source);
+        return false;
     }
     if (packet.sender == ownId || packet.type == 0x21 || packet.replay()) {
         reject(Result::Policy);
@@ -1054,8 +1100,8 @@ ProcessMessage BitchatBridgeModule::accept(const meshtastic_MeshPacket &packet)
     refreshChannels();
     if (textReady && !textConflict && !textGuard() && packet.channel == settings.textChannel &&
         packet.decoded.portnum == meshtastic_PortNum_TEXT_MESSAGE_APP) {
-        // Bitchat keeps no mailbox on the bridge: without a phone connected there is nobody to deliver to.
-        if (!blePhones())
+        // With no phone connected the text is still signed and kept, for whoever arrives in the next hours.
+        if (!blePhones() && !BITCHAT_HISTORY_ENTRIES)
             return ProcessMessage::CONTINUE;
         const NodeNum from = getFrom(&packet);
         std::array<uint8_t, 42> material{};
@@ -1092,14 +1138,14 @@ ProcessMessage BitchatBridgeModule::accept(const meshtastic_MeshPacket &packet)
         const Bytes name{reinterpret_cast<const uint8_t *>(label), labelSize};
         TextPlan plan;
         Result result = planBitchatText(labelSize, payload, plan);
-        if (result == Result::Ok && record(id)) {
+        if (result == Result::Ok && record(id, blePhones() > 0)) {
             // A phone that just connected may not know the bridge key yet; its messages would be discarded.
-            if (!Throttle::isWithinTimespanMsAt(announcedAt, 5000, millis()))
+            if (bleListeners() && !Throttle::isWithinTimespanMsAt(announcedAt, 5000, millis()))
                 announce();
             for (size_t part = 0; part < plan.count; ++part) {
                 NativeText text;
                 if (makeBitchatText(name, payload, plan, part, text) == Result::Ok)
-                    originate(2, text.bytes());
+                    originate(2, text.bytes(), true);
             }
             ++importedRadio;
         } else {

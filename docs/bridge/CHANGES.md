@@ -79,7 +79,9 @@ host; **não há medição em aparelho que atribua a eles a instabilidade observ
     chega em até cinco partes, `[MT nome 1/3] …`.
 
 Eficiência: as chaves de canal eram derivadas a cada 20 ms e agora só quando o canal muda; a
-ponte deixa de assinar anúncios e de registrar importações quando nenhum telefone está inscrito.
+ponte deixa de assinar anúncios e de registrar importações quando nenhum telefone está inscrito
+(a partir da `1.0.0-beta.10` o texto do LoRa volta a ser assinado nesse caso, para ficar no
+[histórico](DEFAULTS.md#histórico-para-quem-chega-depois), ainda sem gravação permanente).
 
 ## Limites desta revisão
 

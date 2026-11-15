@@ -98,8 +98,10 @@ tipo e payload permanecem autenticados. O relé altera somente TTL; não reescre
 Os 19 vetores usam codec oficial/CryptoKit e incluem padding, compressão, v2 e Noise sintético.
 Isso não é ensaio de sessão Noise entre aparelhos.
 
-RSR precisa de contexto de sincronização que a ponte não mantém: é rejeitado. `REQUEST_SYNC`
-é local ao link e não é propagado. Não há histórico ou correio durável nem chaves privadas
+RSR recebido precisa de contexto de sincronização que a ponte não mantém: é rejeitado. `REQUEST_SYNC`
+é local ao link e não é propagado; a partir da `1.0.0-beta.10` a ponte o responde com o texto que
+trouxe do LoRa nas últimas seis horas (até 24 mensagens, só em memória), marcado como RSR. Não há
+correio durável nem chaves privadas
 de clientes. O rádio tem identidade própria para assinar conversões, mas não implementa
 caixa de entrada DM: enviar DM **à identidade da ponte** não é suportado.
 

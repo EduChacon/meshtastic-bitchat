@@ -25,6 +25,8 @@ void bleName(const char *name);
 bool bleAdvertise();
 bool bleReceive(BleInput &output);
 bool bleBroadcast(Bytes frame, uint16_t exclude = NO_LINK);
+// To one phone only, when it is subscribed and settled.
+bool bleSendTo(Bytes frame, uint16_t handle);
 void blePoll();
 size_t bleSubscribers();
 size_t bleListeners();

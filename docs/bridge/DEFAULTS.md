@@ -192,6 +192,31 @@ configurado não transmite até que a região seja definida, uma vez, por um cli
 por um [pacote do país](#pacotes-por-país). A instalação por `Update` preserva a região já
 definida. Nenhum aparelho sem tela foi ensaiado.
 
+## Histórico para quem chega depois
+
+A partir da `1.0.0-beta.10`. O Bitchat guarda as mensagens públicas recentes e entrega a quem
+chega as que faltam; é o que o aplicativo mostra como "ouvido aqui antes". A ponte participa
+disso com o texto que traz do LoRa.
+
+a) O texto do canal é assinado e guardado mesmo sem nenhum telefone conectado. Quando um telefone
+chega, o próprio Bitchat pergunta o que falta e a ponte entrega, três mensagens por vez, da mais
+nova para a mais antiga; o telefone repete a pergunta a cada 15 segundos, e o restante segue.
+
+b) Ficam guardadas as últimas 24 mensagens (8 no T1000-E), por até seis horas, só na memória do rádio. Desligar
+o rádio ou a ponte apaga tudo. Nada é gravado na memória permanente por causa de um telefone
+ausente.
+
+c) Só entra no histórico o que veio do LoRa. O que os telefones escrevem entre si não é guardado
+pela ponte; eles o trocam diretamente.
+
+d) Depois de religado sem ninguém por perto, o rádio fica sem hora e não consegue assinar: o
+texto que chegar até o primeiro telefone (ou o aplicativo Meshtastic) aparecer se perde.
+
+e) O relatório `!bridge` mostra `kept N`, o número de mensagens guardadas.
+
+O formato do pedido foi escrito a partir do código do aplicativo e conferido com valores
+calculados à parte, mas **não foi ensaiado com o aplicativo real**.
+
 ## Pacotes por país
 
 A partir da `1.0.0-beta.9`. Servem para entregar um rádio pronto a quem só vai usar o Bitchat.

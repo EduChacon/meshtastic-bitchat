@@ -660,6 +660,32 @@ bool bleReceive(BleInput &output)
     return false;
 }
 
+bool bleSendTo(Bytes frame, uint16_t handle)
+{
+    if (!enabled || !frame.size || frame.size > MAX_FRAME || handle == NO_LINK)
+        return false;
+    concurrency::LockGuard guard(&lock);
+    if (!links || !enabled)
+        return false;
+    for (auto &link : *links) {
+        if (link.handle != handle || !link.subscribed || !link.settled)
+            continue;
+        const uint8_t slot = links->store(frame);
+        if (slot == NO_FRAME) {
+            ++dropped;
+            return false;
+        }
+        const bool accepted = link.sent.push(Outgoing{slot, 0, millis()});
+        if (accepted)
+            links->retain(slot);
+        else
+            ++dropped;
+        links->release(slot);
+        return accepted;
+    }
+    return false;
+}
+
 bool bleBroadcast(Bytes frame, uint16_t exclude)
 {
     if (!enabled || !frame.size || frame.size > MAX_FRAME)

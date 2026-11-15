@@ -1,8 +1,10 @@
 #include "bridge/BridgeCodec.h"
 #include "bridge/BridgeCrypto.h"
+#include "bridge/BridgeHistory.h"
 #include "bridge/BridgeState.h"
 #include "bridge/BridgeText.h"
 #include "bridge/BridgeTunnel.h"
+#include "gcs_reference.h"
 #include "vectors.h"
 #include <algorithm>
 #include <array>
@@ -508,8 +510,131 @@ static void twoGatewaySimulation()
     CHECK(gatewayB.authenticate(crypto, local.bytes(), 1795000200000ULL, 200000, peer) == Result::Expired);
 }
 
+static Frame publicText(uint8_t senderByte, uint64_t timestamp, const char *text, bool signedFrame = true, bool toSomeone = false)
+{
+    PeerId sender;
+    sender.fill(senderByte);
+    std::array<uint8_t, 64> signature;
+    signature.fill(0x5a);
+    Frame frame;
+    CHECK(encode(2, sender, toSomeone ? &sender : nullptr, timestamp, 7, utf8(text),
+                 signedFrame ? Bytes{signature.data(), signature.size()} : Bytes{}, frame) == Result::Ok);
+    return frame;
+}
+
+static void history()
+{
+    // The coded set by hand, from the app's description: positions 3 and 7 with p = 2 are the deltas 3
+    // and 4, written 0|10 and 0|11; position 22 alone is 21 >> 2 = 5 ones, a zero, then 01.
+    const uint8_t near[] = {0x4c}, far[] = {0xf9};
+    CHECK(syncFilterHolds(2, 16, {near, 1}, 3) && syncFilterHolds(2, 16, {near, 1}, 7));
+    CHECK(!syncFilterHolds(2, 16, {near, 1}, 1) && !syncFilterHolds(2, 16, {near, 1}, 4) &&
+          !syncFilterHolds(2, 16, {near, 1}, 8));
+    CHECK(syncFilterHolds(2, 64, {far, 1}, 22) && !syncFilterHolds(2, 64, {far, 1}, 21) && !syncFilterHolds(2, 64, {far, 1}, 23));
+    // A position at or past the range ends the set; unusable parameters mean the phone holds nothing.
+    CHECK(syncFilterHolds(2, 7, {near, 1}, 3) && !syncFilterHolds(2, 7, {near, 1}, 7));
+    CHECK(!syncFilterHolds(0, 16, {near, 1}, 3) && !syncFilterHolds(33, 16, {near, 1}, 3) &&
+          !syncFilterHolds(2, 1, {near, 1}, 3));
+    CHECK(!syncFilterHolds(2, 16, {}, 3));
+    CHECK(gcsEncode({7, 3, 3}, 2) == std::vector<uint8_t>{0x4c} && gcsEncode({22}, 2) == std::vector<uint8_t>{0xf9});
+
+    // Identifier and position computed apart, with another SHA-256: type 2, sender 01..08, this time, "oi".
+    Packet packet;
+    packet.type = 2;
+    packet.sender = {1, 2, 3, 4, 5, 6, 7, 8};
+    packet.timestamp = 1795000000000ULL;
+    packet.payload = utf8("oi");
+    SyncId id;
+    syncId(crypto, packet, id);
+    CHECK(std::vector<uint8_t>(id.begin(), id.end()) == unhex("a6090c7854e7a4a2c44e1e427c23650d"));
+    CHECK(syncBucket(crypto, id, 3072) == 513 && syncBucket(crypto, id, 1) == 0);
+
+    // The request: P, M and the set are required; a set over the limit and a cut field are refused.
+    SyncRequest request;
+    auto wire = syncRequest(crypto, {id}, 7, 1795000000123ULL, 3);
+    CHECK(decodeSyncRequest(bytes(wire), request) == Result::Ok && request.p == 7 && request.m == 128 && request.messages &&
+          request.since == 1795000000123ULL);
+    CHECK(syncFilterHolds(request.p, request.m, request.filter, syncBucket(crypto, id, request.m)));
+    wire = syncRequest(crypto, {}, 7, 0, 1);
+    CHECK(decodeSyncRequest(bytes(wire), request) == Result::Ok && request.m == 1 && !request.messages && !request.filter.size);
+    wire = syncRequest(crypto, {}, 7, 0, -1);
+    CHECK(decodeSyncRequest(bytes(wire), request) == Result::Ok && request.messages);
+    wire.pop_back();
+    wire.pop_back();
+    CHECK(decodeSyncRequest(bytes(wire), request) == Result::Malformed);
+    wire = syncRequest(crypto, {}, 40);
+    CHECK(decodeSyncRequest(bytes(wire), request) == Result::Malformed);
+    std::vector<uint8_t> huge{1, 0, 1, 7, 2, 0, 4, 0, 0, 0, 9, 3, 4, 1};
+    huge.resize(huge.size() + 1025, 0);
+    CHECK(decodeSyncRequest(bytes(huge), request) == Result::Oversize);
+    CHECK(decodeSyncRequest({}, request) == Result::Malformed);
+
+    // The table keeps signed public messages, newest first, and lets the oldest go.
+    const uint64_t start = 1795000000000ULL;
+    History kept;
+    Frame out;
+    size_t cursor = 0;
+    wire = syncRequest(crypto, {});
+    CHECK(decodeSyncRequest(bytes(wire), request) == Result::Ok);
+    CHECK(!kept.next(crypto, request, start, cursor, out) && kept.count(start) == 0);
+    CHECK(!kept.keep(crypto, publicText(9, start, "sem assinatura", false).bytes()));
+    CHECK(!kept.keep(crypto, publicText(9, start, "para uma pessoa", true, true).bytes()));
+    CHECK(!kept.keep(crypto, publicText(9, start, std::string(HISTORY_FRAME, 'x').c_str()).bytes()));
+    std::vector<SyncId> ids;
+    for (size_t i = 0; i < BITCHAT_HISTORY_ENTRIES + 2; ++i) {
+        const Frame frame = publicText(9, start + i * 1000, ("texto " + std::to_string(i)).c_str());
+        CHECK(kept.keep(crypto, frame.bytes()));
+        CHECK(decode(frame.bytes(), packet) == Result::Ok);
+        syncId(crypto, packet, id);
+        ids.push_back(id);
+    }
+    const uint64_t now = start + (BITCHAT_HISTORY_ENTRIES + 2) * 1000;
+    CHECK(kept.count(now) == BITCHAT_HISTORY_ENTRIES);
+    cursor = 0;
+    size_t given = 0;
+    while (kept.next(crypto, request, now, cursor, out)) {
+        CHECK(decode(out.bytes(), packet) == Result::Ok && packet.ttl == 0 && packet.replay() && packet.signedPacket());
+        // newest first, and the two oldest are gone
+        CHECK(packet.timestamp == start + (BITCHAT_HISTORY_ENTRIES + 1 - given) * 1000);
+        Frame canonical;
+        // What the signature covers is the frame as it was kept.
+        CHECK(signingBytes(out.bytes(), canonical) == Result::Ok);
+        ++given;
+    }
+    CHECK(given == BITCHAT_HISTORY_ENTRIES);
+    // A phone that holds the three newest gets the fourth first.
+    wire = syncRequest(crypto, {ids[ids.size() - 1], ids[ids.size() - 2], ids[ids.size() - 3]});
+    CHECK(decodeSyncRequest(bytes(wire), request) == Result::Ok);
+    cursor = 0;
+    CHECK(kept.next(crypto, request, now, cursor, out) && decode(out.bytes(), packet) == Result::Ok &&
+          packet.timestamp == start + (BITCHAT_HISTORY_ENTRIES - 2) * 1000);
+    // The cursor of the request leaves out what is older than the phone's own set.
+    wire = syncRequest(crypto, {}, 7, now - 1500);
+    CHECK(decodeSyncRequest(bytes(wire), request) == Result::Ok);
+    cursor = 0;
+    given = 0;
+    while (kept.next(crypto, request, now, cursor, out))
+        ++given;
+    CHECK(given == 1);
+    // A request for other kinds of packet gets nothing; six hours later nothing is offered.
+    wire = syncRequest(crypto, {}, 7, 0, 1);
+    CHECK(decodeSyncRequest(bytes(wire), request) == Result::Ok);
+    cursor = 0;
+    CHECK(!kept.next(crypto, request, now, cursor, out));
+    wire = syncRequest(crypto, {});
+    CHECK(decodeSyncRequest(bytes(wire), request) == Result::Ok);
+    cursor = 0;
+    CHECK(!kept.next(crypto, request, now + HISTORY_MS + 1, cursor, out) && kept.count(now + HISTORY_MS + 1) == 0);
+    cursor = 0;
+    CHECK(kept.next(crypto, request, now + HISTORY_MS - 5000, cursor, out));
+    // A clock that went back does not show messages dated far ahead of it.
+    cursor = 0;
+    CHECK(!kept.next(crypto, request, start - 10 * FRESHNESS_MS, cursor, out));
+}
+
 int main()
 {
+    history();
     officialVectors();
     signatureRejections();
     identitiesAndText();

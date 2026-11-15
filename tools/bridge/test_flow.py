@@ -45,6 +45,7 @@ with tempfile.TemporaryDirectory(prefix="bridge-flow-") as directory:
                     "BridgeBle.cpp",
                     "BridgeCodec.cpp",
                     "BridgeDiagnostics.cpp",
+                    "BridgeHistory.cpp",
                     "BridgeState.cpp",
                     "BridgeText.cpp",
                     "BridgeTunnel.cpp",

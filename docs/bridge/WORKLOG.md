@@ -286,6 +286,15 @@ pelos testes de empacotamento.
 Antes do envio à `main`, a execução 43757243288 do ramo de trabalho compilou o Heltec V3 e o
 T1000-E também com o ajuste de país, sem falhas.
 
+Décimo sétimo passo. O operador pediu que as ideias fossem organizadas e que se começasse pelo
+histórico. Versão `1.0.0-beta.10`: a ponte passa a responder ao `REQUEST_SYNC` do aplicativo com o
+texto que trouxe do LoRa, guardado em memória (24 mensagens, seis horas), inclusive o que chegou
+sem telefone conectado; nesse caso nada é gravado na memória permanente. O pedido, o conjunto
+codificado e o identificador de pacote foram escritos a partir do código do aplicativo e
+conferidos com valores calculados à parte; não houve ensaio com o aplicativo real. Verificado em
+simulação (944 verificações do núcleo e 1213 de fluxo). O roteiro geral das ideias está no
+repositório MeshCore, em `docs/bitchat/ROADMAP.md`.
+
 ## Investigação de boot — 2026-11-13
 
 As instalações foram suspensas nos dois READMEs e nas pré-releases, preservando os arquivos

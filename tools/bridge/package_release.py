@@ -15,7 +15,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from verify_artifact import APP_SLOT, MODELS  # noqa: E402
 
 BOARDS = {model + "-bitchat": (model, *target) for model, target in MODELS.items()}
-VERSION = "1.0.0-beta.9"
+VERSION = "1.0.0-beta.10"
 
 
 def sha256(data):

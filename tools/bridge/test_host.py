@@ -65,6 +65,7 @@ def main():
         str(root / "src/bridge" / f)
         for f in (
             "BridgeCodec.cpp",
+            "BridgeHistory.cpp",
             "BridgeState.cpp",
             "BridgeText.cpp",
             "BridgeTunnel.cpp",

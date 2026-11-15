@@ -283,6 +283,8 @@ aplicativo define a região pela primeira vez. Isso abre uma exceção à regra 
 alterar a região; rádio que já tem região continua intocado. A publicação compila cada alvo
 mais uma vez por país. Não há teste de bancada dessa partida: a verificação é por compilação e
 pelos testes de empacotamento.
+Antes do envio à `main`, a execução 43757243288 do ramo de trabalho compilou o Heltec V3 e o
+T1000-E também com o ajuste de país, sem falhas.
 
 ## Investigação de boot — 2026-11-13
 

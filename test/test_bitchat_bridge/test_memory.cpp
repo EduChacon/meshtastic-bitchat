@@ -1,6 +1,7 @@
 #include "HeapModel.h"
 #include "bridge/BridgeBle.h"
 #include "bridge/BridgeDiagnostics.h"
+#include "bridge/BridgeHistory.h"
 #include "bridge/BridgeState.h"
 #include "bridge/BridgeTunnel.h"
 #include <NimBLEDevice.h>

@@ -272,6 +272,8 @@ Décimo quinto passo. O operador pediu um guia mínimo dentro do próprio comand
 aplicativo Meshtastic conectado ao rádio e no `#mesh` do Bitchat (uma vez a cada 30 segundos, no
 máximo). A primeira linha acompanha o modo em uso. `!bridge help` foi encurtado para caber em uma
 mensagem. Verificado só em simulação (756 verificações do núcleo e 1144 de fluxo).
+Antes do envio à `main`, a execução 43755477133 do ramo de trabalho compilou o pacote ESP32 e o
+T1000-E, com e sem a ponte, sem falhas.
 
 ## Investigação de boot — 2026-11-13
 

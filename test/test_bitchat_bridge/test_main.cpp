@@ -160,6 +160,21 @@ static void identitiesAndText()
     CHECK(bridgeCommand(utf8("!bridge economy on")) == Command::EconomyOn &&
           bridgeCommand(utf8("!Ponte Economy Off ")) == Command::EconomyOff);
     CHECK(bridgeCommand(utf8("!bridge economy")) == Command::None && bridgeCommand(utf8("!bridge economy onn")) == Command::None);
+    CHECK(bridgeCommand(utf8("!bridge guide")) == Command::Guide && bridgeCommand(utf8("!Ponte Guia ")) == Command::GuidePt);
+    CHECK(bridgeCommand(utf8("!bridge guides")) == Command::None);
+    // Every guide line fits a signed Bitchat message after the reply prefix, whatever the language, reader and mode.
+    for (int variant = 0; variant < 12; ++variant) {
+        const auto mode = static_cast<GuideMode>(variant / 4);
+        for (size_t line = 0; line < GUIDE_LINES; ++line) {
+            const char *text = guideLine(variant & 1, variant & 2, mode, line);
+            CHECK(text && std::strlen(text) + std::strlen(REPLY_PREFIX) <= BITCHAT_TEXT_LIMIT);
+            CHECK(std::string(text).find(std::to_string(line + 1) + "/4: ") != std::string::npos);
+        }
+        CHECK(!guideLine(variant & 1, variant & 2, mode, GUIDE_LINES));
+    }
+    CHECK(std::string(guideLine(false, false, GuideMode::NoLora, 0)).find("LoRa is off") != std::string::npos &&
+          std::string(guideLine(false, false, GuideMode::OnlyPrefixed, 0)).find("!lora") != std::string::npos &&
+          std::string(guideLine(true, true, GuideMode::AllText, 3)).find("lista os comandos") != std::string::npos);
     {
         // Text of the other network's bridge: taken across once, with that network's letters before the name.
         char crossing[LABEL_LIMIT + 8];

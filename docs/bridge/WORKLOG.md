@@ -267,6 +267,12 @@ verificações do núcleo e 1002 de fluxo) e por compilação.
 Antes do envio à `main`, a execução 43742629894 do ramo de trabalho compilou o pacote ESP32 e o
 T1000-E, com e sem a ponte, sem falhas.
 
+Décimo quinto passo. O operador pediu um guia mínimo dentro do próprio comando da ponte. Versão
+`1.0.0-beta.8`: `!bridge guide` e `!ponte guia` respondem em quatro mensagens curtas, no
+aplicativo Meshtastic conectado ao rádio e no `#mesh` do Bitchat (uma vez a cada 30 segundos, no
+máximo). A primeira linha acompanha o modo em uso. `!bridge help` foi encurtado para caber em uma
+mensagem. Verificado só em simulação (756 verificações do núcleo e 1144 de fluxo).
+
 ## Investigação de boot — 2026-11-13
 
 As instalações foram suspensas nos dois READMEs e nas pré-releases, preservando os arquivos

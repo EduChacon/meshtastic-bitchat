@@ -111,6 +111,8 @@ O comando é uma mensagem de texto comum; maiúsculas e minúsculas não importa
 | Aplicativo Meshtastic conectado ao rádio da ponte | `!bridge link on`               | Volta a levar esse texto (é o padrão)                                                                      |
 | Aplicativo Meshtastic conectado ao rádio da ponte | `!bridge economy on`            | Liga o `Battery saver` (anúncio Bluetooth lento e menos mensagens no LoRa)                                 |
 | Aplicativo Meshtastic conectado ao rádio da ponte | `!bridge economy off`           | Desliga o `Battery saver` (é o padrão)                                                                     |
+| Aplicativo Meshtastic conectado ao rádio da ponte | `!bridge guide`, `!ponte guia`  | Guia em quatro mensagens curtas, em inglês ou em português                                                 |
+| Bitchat, no `#mesh`                               | `!bridge guide`, `!ponte guia`  | O mesmo guia, assinado pela ponte, no máximo uma vez a cada 30 segundos                                    |
 
 Os comandos que mudam o estado (`on`, `off`, `local`, `lora`, `link`, `economy`, `reset`) só valem quando digitados
 no aplicativo Meshtastic conectado ao próprio rádio. Vindos de outro rádio ou do Bitchat, não

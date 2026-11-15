@@ -6,7 +6,7 @@ An embedded bridge derived from the official Meshtastic firmware. It is designed
 for the unmodified Bitchat and Meshtastic apps, with no computer, MQTT, Nostr or internet in the
 operating path. A computer is used to build, install and diagnose the firmware.
 
-**Current version (beta): [v1.0.0-beta.7](https://github.com/EduChacon/meshtastic-bitchat/releases/tag/v1.0.0-beta.7).** Drops the mandatory `!lora`, fixes
+**Current version (beta): [v1.0.0-beta.8](https://github.com/EduChacon/meshtastic-bitchat/releases/tag/v1.0.0-beta.8).** Drops the mandatory `!lora`, fixes
 message losses in group chat, recovers the clock without the Meshtastic app, simplifies the
 menu and adds eight ESP32-S3 devices. [What changed and why](docs/bridge/CHANGES.md#english).
 
@@ -19,7 +19,8 @@ recognised (`Phones 1/1`, `People 2`) and text in both directions (`LoRa out 2 i
 the Meshtastic app on the same link. It is one session on one device, with no endurance test. The other nine targets were only compiled.
 `1.0.0-beta.5` added the commands for radios without a screen and changed the Bluetooth
 advertisement; `1.0.0-beta.6` added the link with MeshCore bridges through Bitchat;
-`1.0.0-beta.7` adds the text command for `Battery saver` (`!bridge economy on` and `off`). These changes
+`1.0.0-beta.7` added the text command for `Battery saver` (`!bridge economy on` and `off`);
+`1.0.0-beta.8` adds the guide inside the bridge (`!bridge guide`, `!ponte guia`). These changes
 were simulated and compiled, **not tested on a device**. Back up before
 installing and read the
 [limits](docs/bridge/CHANGES.md#english) and the [bench procedure](docs/bridge/TESTING.md).
@@ -66,8 +67,8 @@ compiles, but it has never run on a device and is outside the release checks.
 
 ## Install
 
-1. From [v1.0.0-beta.7](https://github.com/EduChacon/meshtastic-bitchat/releases/tag/v1.0.0-beta.7), download
-   **`meshtastic-bitchat-1.0.0-beta.7.zip`**. It is a single file for all ten devices.
+1. From [v1.0.0-beta.8](https://github.com/EduChacon/meshtastic-bitchat/releases/tag/v1.0.0-beta.8), download
+   **`meshtastic-bitchat-1.0.0-beta.8.zip`**. It is a single file for all ten devices.
 2. In the [official Web Flasher](https://flasher.meshtastic.org/), select the board, load the
    ZIP and use **Update**. Do not select **Erase Flash and Install**. If the board offers the
    colour interface (MUI), leave it unticked.
@@ -113,6 +114,8 @@ happening and what to do.
 radio: `!bridge off`, `!bridge on`, `!bridge local` (Bluetooth only) and `!bridge lora`
 (Bitchat + LoRa on the channel where the command is sent). `!bridge economy on` and
 `!bridge economy off` turn `Battery saver` on and off. `!bridge help` lists the commands.
+`!bridge guide` (or `!ponte guia`, in Portuguese) explains the bridge in four short messages and
+also works in Bitchat `#mesh`.
 Coming from another radio or from Bitchat, these commands change nothing. Daily use does not
 need the Meshtastic app; the exception is the LoRa region, which a radio that was never
 configured must receive once.
@@ -123,8 +126,8 @@ Base: Meshtastic **2.7.26.54e0d8d**, commit `54e0d8d0ab2ff56b3a9ce967e53f79e49af
 Bitchat reference: iOS **1.8.0**, commit `30c58eee349e172b37f69faa2113c9d5f2c76c23`.
 
 ```sh
-git fetch origin tag v1.0.0-beta.7
-git checkout --detach v1.0.0-beta.7
+git fetch origin tag v1.0.0-beta.8
+git checkout --detach v1.0.0-beta.8
 python3 -m venv .venv
 .venv/bin/python -m pip install platformio==6.2.0 intelhex==2.3.0
 git submodule update --init protobufs

@@ -574,8 +574,15 @@ void BitchatBridgeModule::answerApp()
         return;
     }
     if (command == Command::Help) {
-        replyToApp("[bridge] !bridge shows the state. !bridge on, off, local (Bluetooth only), lora (Bitchat + LoRa on the "
-                   "channel where you send it), link on, link off, economy on, economy off, reset.");
+        replyToApp("[bridge] !bridge shows the state. !bridge on, off, local (Bluetooth only), lora (LoRa on this channel), "
+                   "link on, link off, economy on, economy off, reset, guide (!ponte guia: Portuguese).");
+        return;
+    }
+    if (command == Command::Guide || command == Command::GuidePt) {
+        for (size_t line = 0; line < GUIDE_LINES; ++line) {
+            snprintf(text, sizeof(text), "%s%s", REPLY_PREFIX, guideLine(command == Command::GuidePt, true, guideMode(), line));
+            replyToApp(text);
+        }
         return;
     }
     if (command == Command::EconomyOn || command == Command::EconomyOff) {
@@ -676,6 +683,23 @@ void BitchatBridgeModule::answerBitchat()
     if (!Throttle::isWithinTimespanMsAt(announcedAt, 5000, millis()))
         announce();
     originate(2, {reinterpret_cast<const uint8_t *>(text), std::min<size_t>(size, BITCHAT_TEXT_LIMIT)});
+}
+
+GuideMode BitchatBridgeModule::guideMode() const
+{
+    return !textReady ? GuideMode::NoLora : settings.reserved[1] ? GuideMode::OnlyPrefixed : GuideMode::AllText;
+}
+
+// The guide asked from Bitchat, for people who never see the radio's own app.
+void BitchatBridgeModule::guideBitchat(bool portuguese)
+{
+    if (!Throttle::isWithinTimespanMsAt(announcedAt, 5000, millis()))
+        announce();
+    for (size_t line = 0; line < GUIDE_LINES; ++line) {
+        char text[BITCHAT_TEXT_LIMIT + 1];
+        const int size = snprintf(text, sizeof(text), "%s%s", REPLY_PREFIX, guideLine(portuguese, false, guideMode(), line));
+        originate(2, {reinterpret_cast<const uint8_t *>(text), std::min<size_t>(size, BITCHAT_TEXT_LIMIT)});
+    }
 }
 
 void BitchatBridgeModule::reject(Result result)
@@ -904,10 +928,15 @@ bool BitchatBridgeModule::handleFrame(Bytes frame, uint16_t source, bool fromTun
     if (fromTunnel)
         return true;
     const bool publicMessage = packet.type == 2 && !packet.directed();
-    if (publicMessage && !packet.compressed() && bridgeCommand(packet.payload) != Command::None) {
-        // Anyone nearby may ask, so answers are spaced out; a reset is accepted
-        // only from the owner's app.
-        if (!Throttle::isWithinTimespanMsAt(repliedAt, 5000, now)) {
+    const Command asked = publicMessage && !packet.compressed() ? bridgeCommand(packet.payload) : Command::None;
+    if (asked != Command::None) {
+        // Anyone nearby may ask, so answers are spaced out; only the state and the guide are answered here.
+        if (asked == Command::Guide || asked == Command::GuidePt) {
+            if (!Throttle::isWithinTimespanMsAt(guidedAt, 30000, now)) {
+                guidedAt = now;
+                guideBitchat(asked == Command::GuidePt);
+            }
+        } else if (!Throttle::isWithinTimespanMsAt(repliedAt, 5000, now)) {
             repliedAt = now;
             answerBitchat();
         }

@@ -118,9 +118,11 @@ class BitchatBridgeModule : public MeshModule, private concurrency::OSThread
     uint8_t restart = 0;
     bitchat::Command appCommand = bitchat::Command::None;
     uint8_t appChannel = 0;
-    uint32_t restartAt = 0, repliedAt = 0;
+    uint32_t restartAt = 0, repliedAt = 0, guidedAt = 0;
     void answerApp();
     void answerBitchat();
+    void guideBitchat(bool portuguese);
+    bitchat::GuideMode guideMode() const;
     void replyToApp(const char *text);
     bool ensureRuntime();
     void applyDefaults();

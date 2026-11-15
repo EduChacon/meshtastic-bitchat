@@ -36,11 +36,30 @@ struct TextPlan {
     std::array<uint16_t, BITCHAT_PARTS + 1> offsets{};
 };
 
-// Status may be asked from either app; the others are accepted only from the app attached to the radio.
-enum class Command : uint8_t { None, Status, Reset, On, Off, Local, Lora, Help, LinkOn, LinkOff, EconomyOn, EconomyOff };
+// Status and the guide may be asked from either app; the others only from the app attached to the radio.
+enum class Command : uint8_t {
+    None,
+    Status,
+    Reset,
+    On,
+    Off,
+    Local,
+    Lora,
+    Help,
+    LinkOn,
+    LinkOff,
+    EconomyOn,
+    EconomyOff,
+    Guide,
+    GuidePt
+};
 // "!bridge" or "!ponte" in any letter case asks for a self-test; " reset" after
 // it restarts the Bluetooth links.
 Command bridgeCommand(Bytes text);
+// The short guide, one message per line, in English or Portuguese. Every line fits a signed Bitchat message.
+enum class GuideMode : uint8_t { AllText, OnlyPrefixed, NoLora };
+constexpr size_t GUIDE_LINES = 4;
+const char *guideLine(bool portuguese, bool forApp, GuideMode mode, size_t index);
 Result publicTextForLoRa(const Packet &packet, Bytes &body);
 // "MT " or "MC " opens the label of text that already went from one LoRa network to the other.
 bool networkTag(Bytes text);

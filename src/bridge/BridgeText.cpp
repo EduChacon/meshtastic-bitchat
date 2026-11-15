@@ -106,6 +106,8 @@ Command bridgeCommand(Bytes text)
                            {" help", Command::Help},
                            {" link on", Command::LinkOn},
                            {" link off", Command::LinkOff},
+                           {" guide", Command::Guide},
+                           {" guia", Command::GuidePt},
                            {" economy on", Command::EconomyOn},
                            {" economy off", Command::EconomyOff}};
             for (const auto &choice : choices)
@@ -114,6 +116,31 @@ Command bridgeCommand(Bytes text)
         }
     }
     return Command::None;
+}
+
+const char *guideLine(bool portuguese, bool forApp, GuideMode mode, size_t index)
+{
+    // First line per mode, then lines 2 and 3, then the last line in Bitchat and in the app.
+    static const char *const english[] = {
+        "Guide 1/4: this radio takes the public text of #mesh to a LoRa channel and back.",
+        "Guide 1/4: this radio takes #mesh text starting with !lora to a LoRa channel and back.",
+        "Guide 1/4: right now this radio only relays Bitchat between phones; LoRa is off.",
+        "2/4: text from LoRa shows as [MT name]. Private messages do not cross.",
+        "3/4: LoRa is slow and public. Keep texts short; anyone with the channel can read.",
+        "4/4: send !bridge here to see the state of the radio.",
+        "4/4: !bridge shows the state; !bridge help lists the commands."};
+    static const char *const portugueseLines[] = {
+        "Guia 1/4: este rádio leva o texto público do #mesh a um canal LoRa e traz o de lá.",
+        "Guia 1/4: este rádio leva ao LoRa o texto do #mesh iniciado por !lora e traz o de lá.",
+        "Guia 1/4: agora este rádio só repassa o Bitchat entre telefones, sem usar o LoRa.",
+        "2/4: o que vem do LoRa aparece como [MT nome]. Mensagens privadas não atravessam.",
+        "3/4: o LoRa é lento e público. Escreva pouco; quem tem o canal lê tudo.",
+        "4/4: envie !bridge aqui para ver o estado do rádio.",
+        "4/4: !bridge mostra o estado; !bridge help lista os comandos."};
+    if (index >= GUIDE_LINES)
+        return nullptr;
+    const size_t entry = index == 0 ? static_cast<size_t>(mode) : index == GUIDE_LINES - 1 ? (forApp ? 6 : 5) : index + 2;
+    return (portuguese ? portugueseLines : english)[entry];
 }
 
 Result publicTextForLoRa(const Packet &p, Bytes &body)

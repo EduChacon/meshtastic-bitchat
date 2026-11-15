@@ -528,6 +528,26 @@ int main()
     caio.write(caio.say("!bridge"));
     run(3000);
     CHECK(chat(ana.handle, &bridgeId).size() == 1 && fakeServiceChanges == 0 && radio().empty());
+    // The guide is answered in Bitchat too, in the language of the word used, and not more than twice a minute.
+    {
+        const size_t before = chat(bia.handle, &bridgeId).size();
+        ana.write(ana.say("!ponte guia"));
+        run(3000);
+        auto guide = chat(bia.handle, &bridgeId);
+        CHECK(guide.size() == before + GUIDE_LINES && guide[before].rfind("[bridge] Guia 1/4:", 0) == 0 &&
+              guide.back().rfind("[bridge] 4/4: envie !bridge", 0) == 0 && radio().empty());
+        for (const auto &line : guide)
+            CHECK(line.size() <= BITCHAT_TEXT_LIMIT);
+        bia.write(bia.say("!bridge guide"));
+        run(3000);
+        CHECK(chat(ana.handle, &bridgeId).size() == before + GUIDE_LINES);
+        run(30000);
+        bia.write(bia.say("!bridge guide "));
+        run(3000);
+        guide = chat(ana.handle, &bridgeId);
+        CHECK(guide.size() == before + 2 * GUIDE_LINES && guide[before + GUIDE_LINES].rfind("[bridge] Guide 1/4:", 0) == 0 &&
+              radio().empty());
+    }
     // Reset from the owner's app: phones are told to read the services again,
     // then every link is dropped.
     const size_t dropsBefore = server.disconnected.size();
@@ -794,7 +814,8 @@ int main()
     CHECK(!bridge->enabled() && app(4).rfind("[bridge] Bridge turned off.", 0) == 0);
     fromLoRa(0, "!bridge help", 1);
     run(1100);
-    CHECK(fakeApp.size() == 6 && app(5).rfind("[bridge] !bridge shows the state.", 0) == 0 && app(5).size() <= 200);
+    CHECK(fakeApp.size() == 6 && app(5).rfind("[bridge] !bridge shows the state.", 0) == 0 && app(5).size() <= 200 &&
+          app(5).find("!ponte guia") != std::string::npos && app(5).back() == '.');
     fromLoRa(0, "!bridge link off", 1);
     run(1100);
     CHECK(!bridge->linked() && app(6).rfind("[bridge] Link off", 0) == 0);
@@ -816,6 +837,18 @@ int main()
     fromLoRa(0, "!bridge", 1);
     run(1100);
     CHECK(app(13).find("\nSaver off\n") != std::string::npos);
+    // The guide in the app attached to the radio, in either language.
+    {
+        const size_t before = fakeApp.size();
+        fromLoRa(0, "!bridge guide", 1);
+        run(1100);
+        CHECK(fakeApp.size() == before + GUIDE_LINES && app(before).rfind("[bridge] Guide 1/4:", 0) == 0 &&
+              app(before + 3).find("!bridge help lists the commands") != std::string::npos);
+        fromLoRa(0, "!Ponte Guia", 1);
+        run(1100);
+        CHECK(fakeApp.size() == before + 2 * GUIDE_LINES && app(before + GUIDE_LINES).rfind("[bridge] Guia 1/4:", 0) == 0 &&
+              app(before + 2 * GUIDE_LINES - 1).find("lista os comandos") != std::string::npos);
+    }
     CHECK(radio().size() == onAir);
     delete bridge;
     bleDetach();

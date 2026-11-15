@@ -575,7 +575,18 @@ void BitchatBridgeModule::answerApp()
     }
     if (command == Command::Help) {
         replyToApp("[bridge] !bridge shows the state. !bridge on, off, local (Bluetooth only), lora (Bitchat + LoRa on the "
-                   "channel where you send it), link on, link off, reset.");
+                   "channel where you send it), link on, link off, economy on, economy off, reset.");
+        return;
+    }
+    if (command == Command::EconomyOn || command == Command::EconomyOff) {
+        // The screen menu's "Battery saver", for radios without a screen.
+        const bool value = command == Command::EconomyOn;
+        if (!setEconomy(value))
+            replyToApp("[bridge] Not changed: Storage error");
+        else
+            replyToApp(value ? "[bridge] Battery saver on: Bluetooth announces once a second and fewer messages go to "
+                               "LoRa. Apps may take longer to find the radio."
+                             : "[bridge] Battery saver off.");
         return;
     }
     if (command == Command::LinkOn || command == Command::LinkOff) {
@@ -615,6 +626,7 @@ void BitchatBridgeModule::answerApp()
         return;
     }
     const unsigned phones = unsigned(blePhones()), people = unsigned(runtime ? runtime->peers->size() : 0);
+    // The counters come last and are cut to what one message holds.
     char detail[100], tx[8], rx[8], missed[8];
     diagnostics(detail, sizeof(detail));
     displayCount(submittedRadio, tx);
@@ -622,9 +634,9 @@ void BitchatBridgeModule::answerApp()
     displayCount(drops(), missed);
     snprintf(text, sizeof(text),
              "[bridge] %s\nBluetooth %u, Bitchat %u, people %u\nLoRa %.11s out "
-             "%s in %s lost %s\n%s",
+             "%s in %s lost %s\nSaver %s\n%.93s",
              status(), unsigned(bleConnections()), phones, people, textReady ? channels.getName(settings.textChannel) : "off", tx,
-             rx, missed, detail);
+             rx, missed, settings.economy ? "on" : "off", detail);
     replyToApp(text);
     const int prefix = snprintf(text, sizeof(text), "%s", REPLY_PREFIX);
     bleDescribe(text + prefix, sizeof(text) - prefix);

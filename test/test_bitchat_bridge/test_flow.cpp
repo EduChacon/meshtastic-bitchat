@@ -801,6 +801,21 @@ int main()
     fromLoRa(0, "!Ponte Link On", 1);
     run(1100);
     CHECK(bridge->linked() && app(7).rfind("[bridge] Link on", 0) == 0);
+    // The screen menu's battery saver can be chosen by text, for radios without a screen. It shows in the
+    // state and is kept.
+    CHECK(!bridge->economy());
+    fromLoRa(0, "!bridge economy on", 1);
+    run(1100);
+    CHECK(bridge->economy() && app(8).rfind("[bridge] Battery saver on", 0) == 0 && app(8).size() <= 200);
+    fromLoRa(0, "!bridge", 1);
+    run(1100);
+    CHECK(fakeApp.size() == 12 && app(9).find("\nSaver on\n") != std::string::npos);
+    fromLoRa(0, "!Ponte Economy Off", 1);
+    run(1100);
+    CHECK(!bridge->economy() && app(12) == "[bridge] Battery saver off.");
+    fromLoRa(0, "!bridge", 1);
+    run(1100);
+    CHECK(app(13).find("\nSaver off\n") != std::string::npos);
     CHECK(radio().size() == onAir);
     delete bridge;
     bleDetach();

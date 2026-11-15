@@ -157,6 +157,9 @@ static void identitiesAndText()
     CHECK(bridgeCommand(utf8("!bridge link on")) == Command::LinkOn &&
           bridgeCommand(utf8("!Ponte Link Off ")) == Command::LinkOff);
     CHECK(bridgeCommand(utf8("!bridge link")) == Command::None && bridgeCommand(utf8("!bridge link offf")) == Command::None);
+    CHECK(bridgeCommand(utf8("!bridge economy on")) == Command::EconomyOn &&
+          bridgeCommand(utf8("!Ponte Economy Off ")) == Command::EconomyOff);
+    CHECK(bridgeCommand(utf8("!bridge economy")) == Command::None && bridgeCommand(utf8("!bridge economy onn")) == Command::None);
     {
         // Text of the other network's bridge: taken across once, with that network's letters before the name.
         char crossing[LABEL_LIMIT + 8];

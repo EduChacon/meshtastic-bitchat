@@ -37,7 +37,7 @@ struct TextPlan {
 };
 
 // Status may be asked from either app; the others are accepted only from the app attached to the radio.
-enum class Command : uint8_t { None, Status, Reset, On, Off, Local, Lora, Help, LinkOn, LinkOff };
+enum class Command : uint8_t { None, Status, Reset, On, Off, Local, Lora, Help, LinkOn, LinkOff, EconomyOn, EconomyOff };
 // "!bridge" or "!ponte" in any letter case asks for a self-test; " reset" after
 // it restarts the Bluetooth links.
 Command bridgeCommand(Bytes text);

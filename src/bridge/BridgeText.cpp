@@ -98,9 +98,16 @@ Command bridgeCommand(Bytes text)
             static const struct {
                 const char *word;
                 Command command;
-            } choices[] = {{" reset", Command::Reset},    {" on", Command::On},           {" off", Command::Off},
-                           {" local", Command::Local},    {" lora", Command::Lora},       {" help", Command::Help},
-                           {" link on", Command::LinkOn}, {" link off", Command::LinkOff}};
+            } choices[] = {{" reset", Command::Reset},
+                           {" on", Command::On},
+                           {" off", Command::Off},
+                           {" local", Command::Local},
+                           {" lora", Command::Lora},
+                           {" help", Command::Help},
+                           {" link on", Command::LinkOn},
+                           {" link off", Command::LinkOff},
+                           {" economy on", Command::EconomyOn},
+                           {" economy off", Command::EconomyOff}};
             for (const auto &choice : choices)
                 if (!std::strcmp(word + length, choice.word))
                     return choice.command;

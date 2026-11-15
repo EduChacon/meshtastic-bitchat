@@ -258,6 +258,13 @@ do núcleo e 997 de fluxo) e por compilação.
 Antes do envio à `main`, a execução 43652380386 do ramo de trabalho compilou o Heltec V3 com a
 análise estática e o T1000-E, com e sem a ponte, sem falhas.
 
+Décimo quarto passo. O operador pediu que o modo econômico pudesse ser escolhido também nesta
+ponte, como comando. Versão `1.0.0-beta.7`: o `Battery saver`, que só existia no menu da tela,
+passa a ter os comandos `!bridge economy on` e `!bridge economy off`, aceitos do aplicativo
+Meshtastic conectado ao próprio rádio; o relatório `!bridge` mostra `Saver on` ou `Saver off`.
+O efeito do ajuste e o padrão (desligado) não mudaram. Verificado só em simulação (645
+verificações do núcleo e 1002 de fluxo) e por compilação.
+
 ## Investigação de boot — 2026-11-13
 
 As instalações foram suspensas nos dois READMEs e nas pré-releases, preservando os arquivos

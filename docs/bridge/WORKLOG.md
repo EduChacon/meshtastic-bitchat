@@ -329,6 +329,14 @@ longos; sinal de pacote repetido atribuído à outra ponte; `sos` e `recado` de 
 engolidos em vez de chegarem ao Bitchat; lista de nós sem hora válida; gravação falha no T1000-E
 mantida em memória. Verificado em simulação (982 verificações do núcleo e 1480 de fluxo).
 
+Vigésimo primeiro passo. O operador pediu verificação de segurança da informação. Duas revisões
+independentes: privacidade e publicação (completa) e ataque pelo Bluetooth e pelo LoRa (interrompida
+pelas salvaguardas do serviço antes do fim). Versão `1.0.0-beta.14`: comandos de configuração só
+com remetente 0 (o aplicativo); antes, um pacote do ar com o número do próprio rádio era aceito;
+`!ponte radios` só no aplicativo; recado só de telefone ligado diretamente; restauração de
+configuração apaga o espaço `bitchat-v1`; `DEBUG_MUTE` no T1000-E; identidade recusada se o
+gerador não entregar tudo. Verificado em simulação (982 verificações do núcleo e 1482 de fluxo).
+
 ## Investigação de boot — 2026-11-13
 
 As instalações foram suspensas nos dois READMEs e nas pré-releases, preservando os arquivos

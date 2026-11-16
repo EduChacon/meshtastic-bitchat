@@ -534,6 +534,17 @@ bool NodeDB::factoryReset(bool eraseBleBonds)
     }
 #endif
     spiLock->unlock();
+#if defined(MESHTASTIC_ENABLE_BITCHAT) && defined(ARCH_ESP32)
+    // The Bitchat bridge keeps its identity, note and options in NVS, which rmDir does not reach: a reset
+    // forgets them too, as on nRF52, where they live under /prefs.
+    {
+        Preferences bridgePrefs;
+        if (bridgePrefs.begin("bitchat-v1", false)) {
+            bridgePrefs.clear();
+            bridgePrefs.end();
+        }
+    }
+#endif
 
     // rmDir above nuked the .dat file, but TransmitHistory's in-memory
     // cache auto-flushes every 5 min and would resurrect it.

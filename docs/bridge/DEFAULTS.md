@@ -98,31 +98,31 @@ pessoa marcou de propósito.
 
 O comando é uma mensagem de texto comum; maiúsculas e minúsculas não importam.
 
-| Onde digitar                                      | Texto                           | Efeito                                                                                                                      |
-| ------------------------------------------------- | ------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
-| Aplicativo Meshtastic conectado ao rádio da ponte | `!bridge` ou `!ponte`           | Três respostas `[bridge] …` naquele aplicativo: o relatório, as conexões e o que fazer. Nada é transmitido                  |
-| Aplicativo Meshtastic conectado ao rádio da ponte | `!bridge reset`, `!ponte reset` | O mesmo que `Reconnect phones`                                                                                              |
-| Bitchat, no `#mesh`                               | `!bridge` ou `!ponte`           | Uma resposta `[bridge] …` assinada pela ponte, no máximo uma a cada 5 segundos                                              |
-| Aplicativo Meshtastic conectado ao rádio da ponte | `!bridge off`                   | Desliga a ponte (o mesmo que `Turn bridge off`)                                                                             |
-| Aplicativo Meshtastic conectado ao rádio da ponte | `!bridge on`                    | Liga a ponte de novo, no modo que estava salvo                                                                              |
-| Aplicativo Meshtastic conectado ao rádio da ponte | `!bridge local`                 | `Bitchat only`: só o relé por Bluetooth, nada vai ao LoRa                                                                   |
-| Aplicativo Meshtastic conectado ao rádio da ponte | `!bridge lora`                  | `Bitchat + LoRa` no canal em que o comando foi enviado; o canal precisa ser secundário, com nome e chave                    |
-| Aplicativo Meshtastic conectado ao rádio da ponte | `!bridge help`                  | Lista os comandos                                                                                                           |
-| Aplicativo Meshtastic conectado ao rádio da ponte | `!bridge link off`              | Deixa de levar ao LoRa o texto que pontes MeshCore trazem ao Bitchat                                                        |
-| Aplicativo Meshtastic conectado ao rádio da ponte | `!bridge link on`               | Volta a levar esse texto (é o padrão)                                                                                       |
-| Aplicativo Meshtastic conectado ao rádio da ponte | `!bridge economy on`            | Liga o `Battery saver` (anúncio Bluetooth lento e menos mensagens no LoRa)                                                  |
-| Aplicativo Meshtastic conectado ao rádio da ponte | `!bridge economy off`           | Desliga o `Battery saver` (é o padrão)                                                                                      |
-| Aplicativo Meshtastic conectado ao rádio da ponte | `!bridge guide`, `!ponte guia`  | Guia em quatro mensagens curtas, em inglês ou em português                                                                  |
-| Bitchat, no `#mesh`                               | `!bridge guide`, `!ponte guia`  | O mesmo guia, assinado pela ponte, no máximo uma vez a cada 30 segundos                                                     |
-| Aplicativo Meshtastic conectado ao rádio da ponte | `!bridge who`, `!ponte quem`    | Nomes ouvidos no canal LoRa nas últimas seis horas, do mais recente ao mais antigo                                          |
-| Bitchat, no `#mesh`                               | `!bridge who`, `!ponte quem`    | A mesma lista, assinada pela ponte; o `/who` do Bitchat só mostra a malha Bluetooth                                         |
-| Aplicativo Meshtastic conectado ao rádio da ponte | `!bridge prefix on`, `off`      | Só o texto do `#mesh` iniciado por `!lora` vai ao LoRa, ou todo ele (padrão); o mesmo que o item `LoRa: only !lora` do menu |
-| Os dois                                           | `!ponte recado <texto>`         | Recado da casa, entregue uma vez a cada 12 h a cada telefone que chega; sem texto, mostra o recado                          |
-| Os dois                                           | `!ponte recado apagar`          | Apaga o recado (`!bridge note off`)                                                                                         |
-| Os dois                                           | `!ponte bateria`                | Tensão e carga da bateria do rádio                                                                                          |
-| Os dois                                           | `!ponte radios`                 | Nós ouvidos pelo LoRa nas últimas 24 h, com saltos e, para vizinhos diretos, o sinal                                        |
-| Os dois                                           | `!ponte sos <texto>`            | Pedido de socorro ao canal, com a posição do rádio na precisão que o canal permite                                          |
-| Os dois                                           | `!ponte teste`                  | Teste de alcance: as outras pontes respondem com o sinal com que ouviram                                                    |
+| Onde digitar                                      | Texto                           | Efeito                                                                                                                                                  |
+| ------------------------------------------------- | ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Aplicativo Meshtastic conectado ao rádio da ponte | `!bridge` ou `!ponte`           | Três respostas `[bridge] …` naquele aplicativo: o relatório, as conexões e o que fazer. As respostas não vão ao ar; o comando digitado vai (ver abaixo) |
+| Aplicativo Meshtastic conectado ao rádio da ponte | `!bridge reset`, `!ponte reset` | O mesmo que `Reconnect phones`                                                                                                                          |
+| Bitchat, no `#mesh`                               | `!bridge` ou `!ponte`           | Uma resposta `[bridge] …` assinada pela ponte, no máximo uma a cada 5 segundos                                                                          |
+| Aplicativo Meshtastic conectado ao rádio da ponte | `!bridge off`                   | Desliga a ponte (o mesmo que `Turn bridge off`)                                                                                                         |
+| Aplicativo Meshtastic conectado ao rádio da ponte | `!bridge on`                    | Liga a ponte de novo, no modo que estava salvo                                                                                                          |
+| Aplicativo Meshtastic conectado ao rádio da ponte | `!bridge local`                 | `Bitchat only`: só o relé por Bluetooth, nada vai ao LoRa                                                                                               |
+| Aplicativo Meshtastic conectado ao rádio da ponte | `!bridge lora`                  | `Bitchat + LoRa` no canal em que o comando foi enviado; o canal precisa ser secundário, com nome e chave                                                |
+| Aplicativo Meshtastic conectado ao rádio da ponte | `!bridge help`                  | Lista os comandos                                                                                                                                       |
+| Aplicativo Meshtastic conectado ao rádio da ponte | `!bridge link off`              | Deixa de levar ao LoRa o texto que pontes MeshCore trazem ao Bitchat                                                                                    |
+| Aplicativo Meshtastic conectado ao rádio da ponte | `!bridge link on`               | Volta a levar esse texto (é o padrão)                                                                                                                   |
+| Aplicativo Meshtastic conectado ao rádio da ponte | `!bridge economy on`            | Liga o `Battery saver` (anúncio Bluetooth lento e menos mensagens no LoRa)                                                                              |
+| Aplicativo Meshtastic conectado ao rádio da ponte | `!bridge economy off`           | Desliga o `Battery saver` (é o padrão)                                                                                                                  |
+| Aplicativo Meshtastic conectado ao rádio da ponte | `!bridge guide`, `!ponte guia`  | Guia em quatro mensagens curtas, em inglês ou em português                                                                                              |
+| Bitchat, no `#mesh`                               | `!bridge guide`, `!ponte guia`  | O mesmo guia, assinado pela ponte, no máximo uma vez a cada 30 segundos                                                                                 |
+| Aplicativo Meshtastic conectado ao rádio da ponte | `!bridge who`, `!ponte quem`    | Nomes ouvidos no canal LoRa nas últimas seis horas, do mais recente ao mais antigo                                                                      |
+| Bitchat, no `#mesh`                               | `!bridge who`, `!ponte quem`    | A mesma lista, assinada pela ponte; o `/who` do Bitchat só mostra a malha Bluetooth                                                                     |
+| Aplicativo Meshtastic conectado ao rádio da ponte | `!bridge prefix on`, `off`      | Só o texto do `#mesh` iniciado por `!lora` vai ao LoRa, ou todo ele (padrão); o mesmo que o item `LoRa: only !lora` do menu                             |
+| Os dois                                           | `!ponte recado <texto>`         | Recado da casa, entregue uma vez a cada 12 h a cada telefone que chega; sem texto, mostra o recado                                                      |
+| Os dois                                           | `!ponte recado apagar`          | Apaga o recado (`!bridge note off`)                                                                                                                     |
+| Os dois                                           | `!ponte bateria`                | Tensão e carga da bateria do rádio                                                                                                                      |
+| Os dois                                           | `!ponte radios`                 | Nós ouvidos pelo LoRa nas últimas 24 h, com saltos e, para vizinhos diretos, o sinal                                                                    |
+| Os dois                                           | `!ponte sos <texto>`            | Pedido de socorro ao canal, com a posição do rádio na precisão que o canal permite                                                                      |
+| Os dois                                           | `!ponte teste`                  | Teste de alcance: as outras pontes respondem com o sinal com que ouviram                                                                                |
 
 Os comandos que mudam o estado (`on`, `off`, `local`, `lora`, `link`, `economy`, `prefix`, `reset`) só valem quando digitados
 no aplicativo Meshtastic conectado ao próprio rádio. Vindos de outro rádio ou do Bitchat, não
@@ -139,11 +139,13 @@ a) **Recado da casa.** Até 55 bytes, com o nome de quem o deixou (o nome do rá
 aplicativo Meshtastic; o apelido, se veio do Bitchat). Cada telefone Bitchat que se anuncia
 diretamente ao rádio recebe o recado uma vez a cada 12 horas, numa mensagem que os outros
 telefones não repassam. Fica gravado; um recado novo vai de novo a todos. No Bitchat, pode ser
-trocado no máximo uma vez a cada dez minutos, porque cada troca é gravada na memória do rádio.
+trocado só por um telefone ligado diretamente ao rádio, no máximo uma vez a cada dez minutos,
+porque cada troca é gravada na memória do rádio.
 **Qualquer pessoa perto do rádio, com o Bitchat, pode
 trocá-lo ou apagá-lo.**
 
-b) **Rádios ao alcance.** Lista os nós do banco de nós ouvidos nas últimas 24 horas, sem os que
+b) **Rádios ao alcance.** Só no aplicativo Meshtastic do próprio rádio; no Bitchat, responde que a
+lista fica no aplicativo, porque diria a estranhos quem o rádio ouve. Lista os nós do banco de nós ouvidos nas últimas 24 horas, sem os que
 chegaram pela internet (MQTT). O sinal só aparece para vizinhos diretos, porque o Meshtastic
 guarda o sinal do último pacote, que pode ter vindo por outro nó. Enquanto o rádio não tem hora,
 a lista não é dada, porque não se sabe há quanto tempo cada nó foi ouvido.

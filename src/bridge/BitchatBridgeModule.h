@@ -191,7 +191,8 @@ class BitchatBridgeModule : public MeshModule, private concurrency::OSThread
     bool sign(uint8_t type, bitchat::Bytes payload, uint8_t ttl);
     // The name a phone goes by on LoRa: its nickname, told apart by the start of its ID when shared.
     size_t peerLabel(const bitchat::Peer &peer, char *out, size_t capacity) const;
-    void answerAsked(const bitchat::BridgeRequest &asked, const bitchat::Peer &peer, uint32_t now);
+    // `direct`: the phone is connected to this radio, not relayed by others.
+    void answerAsked(const bitchat::BridgeRequest &asked, const bitchat::Peer &peer, bool direct, uint32_t now);
     bool ensureRuntime();
     void applyDefaults();
     uint8_t provisionPublicChannel();

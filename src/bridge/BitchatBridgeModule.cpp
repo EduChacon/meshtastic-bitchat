@@ -265,6 +265,11 @@ bool BitchatBridgeModule::initIdentity()
         if (!nimbleBluetooth || !nimbleBluetooth->isActive() || nimbleBluetooth->isDeInit)
             return false;
         esp_fill_random(identity.data(), identity.size());
+        // Nothing usable came from the generator: try again later rather than keep a weak key.
+        const auto zero = [](uint8_t b) { return b == 0; };
+        if (std::all_of(identity.begin(), identity.begin() + 32, zero) ||
+            std::all_of(identity.begin() + 32, identity.end(), zero))
+            return false;
         identity[32] &= 0xf8;
         identity[63] = (identity[63] & 0x7f) | 0x40;
         if (storage.putBytes("identity", identity.data(), identity.size()) != identity.size()) {
@@ -838,7 +843,7 @@ bool BitchatBridgeModule::queueText(Bytes label, Bytes body)
 
 // Anyone nearby may ask, so answers are spaced out. The settings stay with the app attached to the radio:
 // for those, Bitchat gets the state.
-void BitchatBridgeModule::answerAsked(const BridgeRequest &asked, const Peer &peer, uint32_t now)
+void BitchatBridgeModule::answerAsked(const BridgeRequest &asked, const Peer &peer, bool direct, uint32_t now)
 {
     const bool portuguese = asked.portuguese;
     char text[BITCHAT_TEXT_LIMIT + 1];
@@ -869,7 +874,11 @@ void BitchatBridgeModule::answerAsked(const BridgeRequest &asked, const Peer &pe
         size = batteryText(portuguese, text, room);
         break;
     case Command::Radios:
-        size = radiosText(portuguese, text, room);
+        // The list says who the radio hears and when: it stays with the radio's own app.
+        size = fitted(snprintf(text, room, "%s",
+                               portuguese ? "Rádios: só no aplicativo do próprio rádio, por privacidade."
+                                          : "Radios: only in the radio's own app, for privacy."),
+                      room);
         break;
     case Command::Test:
         size = startRangeTest(portuguese, false, text, room);
@@ -882,6 +891,12 @@ void BitchatBridgeModule::answerAsked(const BridgeRequest &asked, const Peer &pe
     case Command::NoteOff:
         if (asked.command == Command::Note && !noteArgument(asked)) {
             size = noteText(portuguese, text, room);
+        } else if (!direct) {
+            // Only someone next to the radio changes the note, not a phone further along the Bitchat mesh.
+            size = fitted(snprintf(text, room, "%s",
+                                   portuguese ? "Para trocar o recado, fique perto do rádio."
+                                              : "To change the note, be next to the radio."),
+                          room);
         } else if (noteChanged && Throttle::isWithinTimespanMsAt(noteAt, NOTE_CHANGE_MS, now)) {
             // Anyone nearby may change it; each change is a write to flash and goes to every phone again.
             size = fitted(snprintf(text, room, "%s",
@@ -1610,7 +1625,7 @@ bool BitchatBridgeModule::handleFrame(Bytes frame, uint16_t source, bool fromTun
     if (publicMessage && !packet.compressed())
         parseBridgeCommand(packet.payload, asked);
     if (asked.command != Command::None) {
-        answerAsked(asked, *peer, now);
+        answerAsked(asked, *peer, packet.ttl == 7 && source != NO_LINK, now);
         return true;
     }
     // Like any phone that stays in the house, the bridge keeps what it heard for whoever arrives later. The
@@ -1710,13 +1725,15 @@ ProcessMessage BitchatBridgeModule::accept(const meshtastic_MeshPacket &packet)
     Bytes payload{packet.decoded.payload.bytes, packet.decoded.payload.size};
     if (packet.decoded.portnum == meshtastic_PortNum_TEXT_MESSAGE_APP) {
         BridgeRequest request;
+        // Only the attached app's text has from 0; a packet on the air may carry this radio's own number.
+        const bool fromApp = packet.from == 0;
         // From another radio, a note or a help request is someone's text, and goes on to Bitchat as such.
         if (parseBridgeCommand(payload, request) &&
-            (isFromUs(&packet) ||
+            (fromApp ||
              (request.command != Command::Sos && request.command != Command::Note && request.command != Command::NoteOff))) {
             // Answered on the next tick, and only to the app attached to this radio;
             // never forwarded to Bitchat.
-            if (isFromUs(&packet)) {
+            if (fromApp) {
                 appCommand = request.command;
                 appChannel = packet.channel;
                 appPortuguese = request.portuguese;

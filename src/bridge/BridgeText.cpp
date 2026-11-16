@@ -314,7 +314,7 @@ const char *guideLine(bool portuguese, bool forApp, GuideMode mode, size_t index
         "Guide 1/4: right now this radio only relays Bitchat between phones; LoRa is off.",
         "2/4: text from LoRa shows as [MT name]. Private messages do not cross.",
         "3/4: LoRa is slow and public. Keep texts short; anyone with the channel can read.",
-        "4/4: here also: !bridge who, note, battery, radios, test, and sos <text> for help.",
+        "4/4: here also: !bridge who, note, battery, test, and sos <text> for help.",
         "4/4: !bridge shows the state, !bridge who the names from LoRa, !bridge help the rest."};
     static const char *const portugueseLines[] = {
         "Guia 1/4: este rádio leva o texto público do #mesh a um canal LoRa e traz o de lá.",
@@ -322,7 +322,7 @@ const char *guideLine(bool portuguese, bool forApp, GuideMode mode, size_t index
         "Guia 1/4: agora este rádio só repassa o Bitchat entre telefones, sem usar o LoRa.",
         "2/4: o que vem do LoRa aparece como [MT nome]. Mensagens privadas não atravessam.",
         "3/4: o LoRa é lento e público. Escreva pouco; quem tem o canal lê tudo.",
-        "4/4: aqui também: !ponte quem, recado, bateria, radios, teste e sos <texto> (socorro).",
+        "4/4: aqui também: !ponte quem, recado, bateria, teste e sos <texto> (socorro).",
         "4/4: !bridge mostra o estado, !ponte quem os nomes do LoRa, !bridge help o resto."};
     if (index >= GUIDE_LINES)
         return nullptr;

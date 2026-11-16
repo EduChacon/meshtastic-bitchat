@@ -165,3 +165,23 @@ Concluir software/CI não conclui o produto em campo. A menor próxima etapa é 
 identificação/configuração e baseline stock; só depois autorizar atualização do Heltec
 confirmado. Cardputer é o segundo alvo. T1000-E como ponte e T-Deck ficam para uma revisão
 posterior, sem misturar novas portas com a estabilização atual.
+
+## Roteiro de ensaio para a 1.0
+
+Ensaio mínimo combinado antes de chamar a ponte de versão 1.0, em um Heltec V3 e no T1000-E. É o
+mesmo da ponte MeshCore, com os nomes deste firmware
+([roteiro do MeshCore](https://github.com/EduChacon/Meshcore-Bitchat/blob/main/docs/bitchat/TESTING.md)).
+
+1. Gravar, ligar e esperar dois minutos. (`!bridge` no aplicativo Meshtastic responde `Ready`.)
+2. Texto nos dois sentidos entre o `#mesh` do Bitchat e o canal `Bitchat` de um rádio comum.
+3. Desligar e religar sem o aplicativo Meshtastic; só o Bitchat. (O texto volta a passar.)
+4. Telefone que chega depois recebe os textos guardados.
+5. `!ponte recado Teste` no aplicativo; um telefone que chega recebe o recado uma vez.
+6. No Bitchat: `!ponte bateria`, `!ponte radios` (responde que a lista fica no aplicativo),
+   `!ponte teste` com outra ponte ligada, `!ponte sos teste` (sem posição no canal padrão).
+7. Reinício: escolhas e recado mantidos; no T1000-E, `!bridge link off` sobrevive ao reinício.
+8. Uma noite ligado, com bateria, sem reinício espontâneo.
+9. Em outro rádio, enviar `!bridge off` no canal: a ponte não obedece.
+10. Restauração de configuração pelo aplicativo: a ponte volta sem recado e com identidade nova.
+
+Critério: todos os passos com o resultado esperado nos dois aparelhos.

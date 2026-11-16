@@ -915,9 +915,15 @@ int main()
         fakeSent.clear();
         dora.write(dora.say("!ponte radios"));
         run(1100);
-        CHECK((chat(dora.handle) ==
-               std::vector<std::string>{"[bridge] R\xc3\xa1"
-                                        "dios ouvidos: Casa Ana (direto, 5 min, 6,5 dB), Sul (2 saltos, 1 h)"}));
+        // Who the radio hears is not told to strangers in Bitchat; the Portuguese list stays with the app.
+        CHECK((chat(dora.handle) == std::vector<std::string>{"[bridge] R\xc3\xa1"
+                                                             "dios: s\xc3\xb3 no aplicativo do pr\xc3\xb3prio r\xc3\xa1"
+                                                             "dio, por privacidade."}));
+        fakeApp.clear();
+        fromLoRa(0, "!ponte radios", 1);
+        run(1100);
+        CHECK(fakeApp.size() == 1 && app(0) == "[bridge] R\xc3\xa1"
+                                               "dios ouvidos: Casa Ana (direto, 5 min, 6,5 dB), Sul (2 saltos, 1 h)");
         CHECK(radio().empty());
 
         // The house note, left in the app and given to a phone when it announces itself.
@@ -1120,6 +1126,10 @@ int main()
     fakeApp.clear();
     const size_t onAir = radio().size();
     fromLoRa(0x1234, "!bridge on", 0);
+    run(1100);
+    CHECK(fakeApp.empty() && !bridge->enabled());
+    // Nor does a packet on the air that claims this radio's own node number.
+    fromLoRa(fakeNodeDB.number, "!bridge on", 0);
     run(1100);
     CHECK(fakeApp.empty() && !bridge->enabled());
     fromLoRa(0, "!bridge on", 0);

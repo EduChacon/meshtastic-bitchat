@@ -25,6 +25,10 @@ Bitchat ([detalhes](https://github.com/EduChacon/meshtastic-bitchat/blob/v1.0.0-
 - A ponte **não** liga o GPS sozinha neste firmware; com o GPS ligado pelo operador, usa a hora
   dele, como antes.
 - `!bridge help` passa a ter duas mensagens.
+- O código novo passou por duas revisões independentes; as falhas achadas (respostas de socorro
+  sem espaçamento, recado trocável a cada minuto, resultado do teste cortado, sinal de repetidor
+  atribuído à outra ponte, `sos` de outros rádios descartado) foram corrigidas antes da publicação.
+  Testes em computador: 982 verificações do núcleo e 1480 do fluxo.
 
 **O que a `1.0.0-beta.12` mudou em relação à `1.0.0-beta.11`:**
 

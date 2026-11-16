@@ -19,6 +19,7 @@ privacidade, a partir de uma revisão do código. **Só simuladas.**
   já acontecia no T1000-E.
 - **T1000-E:** o arquivo deixa de escrever o texto das mensagens na porta USB, como os demais; e
   não cria identidade a partir de números aleatórios incompletos.
+- Ensaio no GitHub (Heltec V3 e T1000-E compilados com o firmware real) aprovado antes da publicação.
 - [Roteiro de ensaio para a 1.0](https://github.com/EduChacon/meshtastic-bitchat/blob/v1.0.0-beta.14/docs/bridge/TESTING.md#roteiro-de-ensaio-para-a-10).
 
 **O que a `1.0.0-beta.13` mudou em relação à `1.0.0-beta.12`:**

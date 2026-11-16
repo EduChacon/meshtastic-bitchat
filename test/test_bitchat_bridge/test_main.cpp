@@ -181,6 +181,60 @@ static void identitiesAndText()
           std::string(guideLine(true, true, GuideMode::AllText, 3)).find("!bridge help o resto") != std::string::npos &&
           std::string(guideLine(true, false, GuideMode::AllText, 3)).find("!ponte quem") != std::string::npos);
     {
+        // Commands with text after them keep it, in its own letter case; the language follows the words used.
+        BridgeRequest request;
+        CHECK(parseBridgeCommand(utf8("!ponte recado Jantar às 20h, chave com a Rita"), request) &&
+              request.command == Command::Note && request.portuguese &&
+              std::string(reinterpret_cast<const char *>(request.argument.data), request.argument.size) ==
+                  "Jantar \xc3\xa0s 20h, chave com a Rita");
+        CHECK(parseBridgeCommand(utf8("!Bridge Note  Back at 8 "), request) && request.command == Command::Note &&
+              !request.portuguese && request.argument.size == 9);
+        CHECK(parseBridgeCommand(utf8("!bridge note"), request) && request.command == Command::Note && !request.argument.size);
+        CHECK(parseBridgeCommand(utf8("!bridge note off"), request) && request.command == Command::NoteOff);
+        CHECK(parseBridgeCommand(utf8("!ponte recado apagar"), request) && request.command == Command::NoteOff &&
+              request.portuguese);
+        CHECK(parseBridgeCommand(utf8("!bridge note off the hook"), request) && request.command == Command::Note);
+        CHECK(!parseBridgeCommand(utf8("!bridge notes"), request) && request.command == Command::None);
+        CHECK(parseBridgeCommand(utf8("!ponte sos caí na trilha"), request) && request.command == Command::Sos &&
+              request.portuguese && request.argument.size > 5);
+        CHECK(parseBridgeCommand(utf8("!bridge socorro"), request) && request.command == Command::Sos && request.portuguese);
+        CHECK(parseBridgeCommand(utf8("!bridge SOS"), request) && request.command == Command::Sos && !request.argument.size);
+        CHECK(parseBridgeCommand(utf8("!ponte bateria"), request) && request.command == Command::Battery && request.portuguese);
+        CHECK(parseBridgeCommand(utf8("!bridge battery"), request) && request.command == Command::Battery && !request.portuguese);
+        CHECK(parseBridgeCommand(utf8("!ponte battery"), request) && request.portuguese);
+        CHECK(bridgeCommand(utf8("!bridge radios")) == Command::Radios && bridgeCommand(utf8("!ponte teste")) == Command::Test &&
+              bridgeCommand(utf8("!bridge test")) == Command::Test && bridgeCommand(utf8("!bridge prefix on")) == Command::PrefixOn &&
+              bridgeCommand(utf8("!Ponte Prefix Off")) == Command::PrefixOff && bridgeCommand(utf8("!bridge prefix")) == Command::None);
+        CHECK(parseBridgeCommand(utf8("!bridge guide"), request) && !request.portuguese &&
+              parseBridgeCommand(utf8("!ponte guide"), request) && !request.portuguese &&
+              parseBridgeCommand(utf8("!bridge guia"), request) && request.portuguese);
+        std::string longNote = "!bridge note " + std::string(COMMAND_TEXT_LIMIT, 'a');
+        CHECK(!parseBridgeCommand(utf8(longNote.c_str()), request));
+        // The text kept for a note or an SOS: no control characters, cut on a character boundary.
+        char kept[16];
+        CHECK(cleanText(utf8("linha\nnova "), kept, sizeof(kept), 15) == 9 && std::string(kept) == "linhanova");
+        CHECK(cleanText(utf8("ab\xc3\xa7\xc3\xa3o"), kept, sizeof(kept), 4) == 4 && std::string(kept) == "ab\xc3\xa7");
+        CHECK(cleanText(utf8("ab\xc3\xa7\xc3\xa3o"), kept, sizeof(kept), 3) == 2);
+        CHECK(cleanText(utf8("bad \xc3"), kept, sizeof(kept), 15) == 0 && kept[0] == 0);
+        CHECK(batteryPercent(0) == -1 && batteryPercent(5000) == -1 && batteryPercent(3000) == 0 && batteryPercent(4200) == 100 &&
+              batteryPercent(4300) == 100 && batteryPercent(3800) == 50 && batteryPercent(3700) == 30);
+        // Range test texts.
+        uint16_t id = 0;
+        bool answer = true;
+        int16_t snr = 0;
+        CHECK(parseRangeTest(utf8("#ponte-teste 1234"), id, answer, snr) && id == 1234 && !answer && snr == SNR_UNKNOWN);
+        CHECK(parseRangeTest(utf8("#ponte-teste 0042 ouvido -4.5 dB"), id, answer, snr) && id == 42 && answer && snr == -45);
+        CHECK(parseRangeTest(utf8("#ponte-teste 0042 ouvido 12.0 dB"), id, answer, snr) && snr == 120);
+        CHECK(parseRangeTest(utf8("#ponte-teste 0042 ouvido ? dB"), id, answer, snr) && answer && snr == SNR_UNKNOWN);
+        for (const char *refused : {"#ponte-teste 12", "#ponte-teste 12345", "#ponte-teste 1234 ouvido", "#ponte-teste 1234 ouvido -4 dB",
+                                    "#ponte-teste 1234 ouvido -4.5", "#ponte-teste abcd", "ponte-teste 1234", "#ponte-teste 1234 oi"})
+            CHECK(!parseRangeTest(utf8(refused), id, answer, snr));
+        char value[8];
+        CHECK(formatTenths(-45, value, sizeof(value), true) == 4 && std::string(value) == "-4,5");
+        CHECK(formatTenths(-5, value, sizeof(value), false) == 4 && std::string(value) == "-0.5");
+        CHECK(formatTenths(SNR_UNKNOWN, value, sizeof(value), false) == 1 && std::string(value) == "?");
+    }
+    {
         // Text of the other network's bridge: taken across once, with that network's letters before the name.
         char crossing[LABEL_LIMIT + 8];
         size_t crossingSize = 0;

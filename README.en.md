@@ -6,7 +6,7 @@ An embedded bridge derived from the official Meshtastic firmware. It is designed
 for the unmodified Bitchat and Meshtastic apps, with no computer, MQTT, Nostr or internet in the
 operating path. A computer is used to build, install and diagnose the firmware.
 
-**Current version (beta): [v1.0.0-beta.12](https://github.com/EduChacon/meshtastic-bitchat/releases/tag/v1.0.0-beta.12).** Drops the mandatory `!lora`, fixes
+**Current version (beta): [v1.0.0-beta.13](https://github.com/EduChacon/meshtastic-bitchat/releases/tag/v1.0.0-beta.13).** Drops the mandatory `!lora`, fixes
 message losses in group chat, recovers the clock without the Meshtastic app, simplifies the
 menu and adds eight ESP32-S3 devices. [What changed and why](docs/bridge/CHANGES.md#english).
 
@@ -23,7 +23,8 @@ advertisement; `1.0.0-beta.6` added the link with MeshCore bridges through Bitch
 `1.0.0-beta.8` added the guide inside the bridge (`!bridge guide`, `!ponte guia`);
 `1.0.0-beta.9` added one package per country; `1.0.0-beta.10` keeps the text from LoRa for
 phones that arrive later; `1.0.0-beta.11` added `!bridge who`, the names heard on LoRa;
-`1.0.0-beta.12` also keeps what phones write near the radio. These changes
+`1.0.0-beta.12` also keeps what phones write near the radio; `1.0.0-beta.13` adds a house
+note, battery, radios in range, help requests, range tests and `!bridge prefix`. These changes
 were simulated and compiled, **not tested on a device**. Back up before
 installing and read the
 [limits](docs/bridge/CHANGES.md#english) and the [bench procedure](docs/bridge/TESTING.md).
@@ -33,7 +34,7 @@ installing and read the
 | Mode                  | Behavior                                                                                       | Modified radios                              |
 | --------------------- | ---------------------------------------------------------------------------------------------- | -------------------------------------------- |
 | A — Bitchat only      | Bounded Bitchat packet relay over Bluetooth with signature checks, TTL and deduplication       | One per Bluetooth area; uses no LoRa airtime |
-| B — Bitchat + LoRa    | Public `#mesh` text ↔ native text on a dedicated Meshtastic channel                            | One; other radios keep stock firmware        |
+| B — Bitchat + LoRa    | Public `#mesh` text ↔ native text on a dedicated Meshtastic channel                           | One; other radios keep stock firmware        |
 | C — laboratory tunnel | Bitchat packets preserved on private port 256 between two bridges; separate opt-in and consent | Two                                          |
 
 On first boot the bridge enables A and B and creates the public `Bitchat` channel in an empty
@@ -70,8 +71,8 @@ compiles, but it has never run on a device and is outside the release checks.
 
 ## Install
 
-1. From [v1.0.0-beta.12](https://github.com/EduChacon/meshtastic-bitchat/releases/tag/v1.0.0-beta.12), download
-   **`meshtastic-bitchat-1.0.0-beta.12.zip`**. It is a single file for all ten devices. For a radio
+1. From [v1.0.0-beta.13](https://github.com/EduChacon/meshtastic-bitchat/releases/tag/v1.0.0-beta.13), download
+   **`meshtastic-bitchat-1.0.0-beta.13.zip`**. It is a single file for all ten devices. For a radio
    that never had a region set there is also one file per country (`…-Brasil.zip`, `…-EUA.zip`,
    `…-Europa-e-Reino-Unido.zip`), which makes the Meshtastic app unnecessary.
 2. In the [official Web Flasher](https://flasher.meshtastic.org/), select the board, load the
@@ -132,8 +133,8 @@ Base: Meshtastic **2.7.26.54e0d8d**, commit `54e0d8d0ab2ff56b3a9ce967e53f79e49af
 Bitchat reference: iOS **1.8.0**, commit `30c58eee349e172b37f69faa2113c9d5f2c76c23`.
 
 ```sh
-git fetch origin tag v1.0.0-beta.12
-git checkout --detach v1.0.0-beta.12
+git fetch origin tag v1.0.0-beta.13
+git checkout --detach v1.0.0-beta.13
 python3 -m venv .venv
 .venv/bin/python -m pip install platformio==6.2.0 intelhex==2.3.0
 git submodule update --init protobufs

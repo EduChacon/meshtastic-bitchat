@@ -1,5 +1,6 @@
 // End-to-end host test: the production bridge module and BLE adapter, three simulated phones and a simulated radio.
 #include "HeapModel.h"
+#include "PowerStatus.h"
 #include "bridge/BitchatBridgeModule.h"
 #include "bridge/BridgeDefaults.h"
 #include "gcs_reference.h"
@@ -175,11 +176,13 @@ static std::vector<Packet> written(uint16_t link, uint8_t type)
     }
     return packets;
 }
-static void fromLoRa(NodeNum from, const std::string &message, uint8_t channel = 1)
+static void fromLoRa(NodeNum from, const std::string &message, uint8_t channel = 1, float snr = 0, int32_t rssi = 0)
 {
     static uint32_t id = 5000;
     meshtastic_MeshPacket packet;
     packet.from = from;
+    packet.rx_snr = snr;
+    packet.rx_rssi = rssi;
     packet.id = ++id;
     packet.channel = channel;
     packet.decoded.payload.size = uint16_t(message.size());
@@ -536,7 +539,7 @@ int main()
         run(3000);
         auto guide = chat(bia.handle, &bridgeId);
         CHECK(guide.size() == before + GUIDE_LINES && guide[before].rfind("[bridge] Guia 1/4:", 0) == 0 &&
-              guide.back().rfind("[bridge] 4/4: aqui, !bridge", 0) == 0 && radio().empty());
+              guide.back().rfind("[bridge] 4/4: aqui também: !ponte quem", 0) == 0 && radio().empty());
         for (const auto &line : guide)
             CHECK(line.size() <= BITCHAT_TEXT_LIMIT);
         bia.write(bia.say("!bridge guide"));
@@ -874,6 +877,191 @@ int main()
     dora.write(dora.say("hora confiavel"));
     run(3000);
     CHECK(radio().size() == 2);
+    {
+        // The newer commands: battery, radios heard, the house note, the prefix, help requests and range tests.
+        const auto contains = [](const std::vector<std::string> &lines, const std::string &wanted) {
+            return std::find(lines.begin(), lines.end(), wanted) != lines.end();
+        };
+        fakeRadio.clear();
+        fakePower.battery = true;
+        fakePower.millivolts = 3920;
+        fakePower.percent = 72;
+        fakeApp.clear();
+        fromLoRa(0, "!ponte bateria", 1);
+        run(1100);
+        CHECK(fakeApp.size() == 1 && app(0) == "[bridge] Bateria: 3,92 V, cerca de 72%.");
+        const uint32_t clock = getValidTime(RTCQualityDevice);
+        auto &casa = fakeNodeDB.nodes[0x1111];
+        strcpy(casa.user.long_name, "Casa Ana");
+        casa.last_heard = clock - 300;
+        casa.has_hops_away = true;
+        casa.snr = 6.5f;
+        auto &sul = fakeNodeDB.nodes[0x2222];
+        strcpy(sul.user.long_name, "Sul");
+        sul.last_heard = clock - 4000;
+        sul.has_hops_away = true;
+        sul.hops_away = 2;
+        auto &velho = fakeNodeDB.nodes[0x3333];
+        strcpy(velho.user.long_name, "Velho");
+        velho.last_heard = clock - 90000;
+        auto &internet = fakeNodeDB.nodes[0x4444];
+        strcpy(internet.user.long_name, "Pela internet");
+        internet.last_heard = clock - 10;
+        internet.via_mqtt = true;
+        fakeApp.clear();
+        fromLoRa(0, "!bridge radios", 1);
+        run(1100);
+        CHECK(fakeApp.size() == 1 && app(0) == "[bridge] Radios heard: Casa Ana (direct, 5 min, 6.5 dB), Sul (2 hops, 1 h)");
+        fakeSent.clear();
+        dora.write(dora.say("!ponte radios"));
+        run(1100);
+        CHECK((chat(dora.handle) ==
+               std::vector<std::string>{"[bridge] R\xc3\xa1"
+                                        "dios ouvidos: Casa Ana (direto, 5 min, 6,5 dB), Sul (2 saltos, 1 h)"}));
+        CHECK(radio().empty());
+
+        // The house note, left in the app and given to a phone when it announces itself.
+        fakeApp.clear();
+        fromLoRa(0, "!ponte recado Jantar \xc3\xa0s 20h", 1);
+        run(1100);
+        CHECK(fakeApp.size() == 1 && app(0).rfind("[bridge] Recado guardado", 0) == 0);
+        fakeApp.clear();
+        fromLoRa(0, "!bridge note", 1);
+        run(1100);
+        CHECK(fakeApp.size() == 1 && app(0) == "[bridge] Note from Casa Sul: Jantar \xc3\xa0s 20h");
+        fakeSent.clear();
+        dora.write(dora.announce());
+        run(1100);
+        const std::string note = "[bridge] Recado de Casa Sul: Jantar \xc3\xa0s 20h";
+        CHECK(contains(chat(dora.handle), note));
+        for (const auto &frame : received(dora.handle)) {
+            Packet packet;
+            CHECK(decode({frame.data(), frame.size()}, packet) == Result::Ok);
+            if (packet.type == 2 && text(packet.payload) == note)
+                CHECK(packet.ttl == 1);
+        }
+        run(30000);
+        fakeSent.clear();
+        dora.write(dora.announce());
+        run(1100);
+        CHECK(!contains(chat(dora.handle), note));
+        fakeSent.clear();
+        dora.write(dora.say("!bridge note off"));
+        run(1100);
+        CHECK((chat(dora.handle) == std::vector<std::string>{"[bridge] Note cleared."}));
+        CHECK(Preferences::data.count("note") && Preferences::data["note"][1] == 0);
+
+        // Prefix: only text marked with !lora goes to LoRa.
+        fakeApp.clear();
+        fromLoRa(0, "!bridge prefix on", 1);
+        run(1100);
+        CHECK(bridge->prefixOnly() && fakeApp.size() == 1 && app(0).rfind("[bridge] Prefix on: only #mesh text", 0) == 0);
+        dora.write(dora.say("fica em casa"));
+        run(3000);
+        CHECK(radio().empty());
+        dora.write(dora.say("!lora vai longe"));
+        run(3000);
+        CHECK(radio() == std::vector<std::string>{"dora: vai longe"});
+        fromLoRa(0, "!ponte prefix off", 1);
+        run(1100);
+        CHECK(!bridge->prefixOnly() && app(1).rfind("[bridge] Prefixo desligado", 0) == 0);
+        fakeRadio.clear();
+
+        // A help request: the position only where the channel shares positions.
+        auto &self = fakeNodeDB.nodes[fakeNodeDB.number];
+        strcpy(self.user.long_name, "Casa Sul");
+        self.has_position = true;
+        self.position.latitude_i = -235505200;
+        self.position.longitude_i = -466333100;
+        run(5000);
+        fakeSent.clear();
+        dora.write(dora.say("!ponte sos ca\xc3\xad na trilha"));
+        run(3000);
+        CHECK(radio() == std::vector<std::string>{"dora: SOS: ca\xc3\xad na trilha"});
+        CHECK(chat(dora.handle).size() == 1 && chat(dora.handle)[0].rfind("[bridge] SOS enviado ao LoRa, sem posi", 0) == 0);
+        fakeRadio.clear();
+        run(6000);
+        fakeSent.clear();
+        dora.write(dora.say("!bridge sos"));
+        run(3000);
+        CHECK(radio().empty() &&
+              chat(dora.handle) == std::vector<std::string>{"[bridge] SOS sent a moment ago; it can be repeated in 5 min."});
+        run(300000);
+        channels.items[1].settings.has_module_settings = true;
+        channels.items[1].settings.module_settings.position_precision = 32;
+        fakeApp.clear();
+        fromLoRa(0, "!bridge sos", 1);
+        run(3000);
+        CHECK(radio() == std::vector<std::string>{"SOS: help needed (-23.55052, -46.63331)"});
+        CHECK(fakeApp.size() == 1 && app(0) == "[bridge] SOS sent to LoRa, with the radio's position.");
+        fakeRadio.clear();
+        // with less precision the point moves to the middle of a larger square
+        run(300000);
+        channels.items[1].settings.module_settings.position_precision = 13;
+        fromLoRa(0, "!bridge sos", 1);
+        run(3000);
+        CHECK(radio().size() == 1 && radio()[0] != "SOS: help needed (-23.55052, -46.63331)" &&
+              radio()[0].rfind("SOS: help needed (-23.", 0) == 0);
+        channels.items[1].settings.has_module_settings = false;
+        fakeRadio.clear();
+
+        // Range test: this radio's probe, and another bridge's answer with how it heard it.
+        fakeApp.clear();
+        fromLoRa(0, "!ponte teste", 1);
+        run(3000);
+        CHECK(radio() == std::vector<std::string>{"#ponte-teste 1007"});
+        CHECK(fakeApp.size() == 1 && app(0).rfind("[bridge] Teste 1007 enviado ao LoRa", 0) == 0);
+        fakeSent.clear();
+        fromLoRa(0x1111, "#ponte-teste 1007 ouvido -4.5 dB", 1, -6.0f, -100);
+        run(1100);
+        CHECK(fakeApp.size() == 2 && app(1) == "[bridge] Teste 1007: Casa Ana ouviu com -4,5 dB; a volta chegou com -6,0 dB.");
+        CHECK(chat(dora.handle).empty());
+        run(121000);
+        CHECK(fakeApp.size() == 2);
+        fakeRadio.clear();
+        fromLoRa(0x2222, "#ponte-teste 4321", 1, 5.5f, -80);
+        run(3000);
+        fromLoRa(0x2222, "#ponte-teste 4321", 1, 5.5f, -80);
+        run(3000);
+        CHECK(radio() == std::vector<std::string>{"#ponte-teste 4321 ouvido 5.5 dB"});
+        CHECK(chat(dora.handle).empty());
+        fakeRadio.clear();
+        // Asked from Bitchat, with nobody answering.
+        run(30000);
+        fakeSent.clear();
+        dora.write(dora.say("!bridge test"));
+        run(3000);
+        CHECK(radio() == std::vector<std::string>{"#ponte-teste 1007"});
+        run(121000);
+        {
+            const auto report = chat(dora.handle);
+            CHECK(report.size() == 2 && report[1] == "[bridge] Test 1007: no other bridge answered within 2 min.");
+        }
+        fakeRadio.clear();
+
+        // Low battery is told once, and again only after a charge.
+        fakeSent.clear();
+        fakePower.millivolts = 3400;
+        run(61000);
+        const std::string low = "[bridge] Bateria baixa / Battery low: 3,40 V";
+        CHECK(chat(dora.handle) == std::vector<std::string>{low});
+        run(61000);
+        CHECK(chat(dora.handle).size() == 1);
+        fakePower.millivolts = 3800;
+        run(61000);
+        fakePower.millivolts = 3400;
+        run(61000);
+        CHECK((chat(dora.handle) == std::vector<std::string>{low, low}));
+        fakePower.battery = false;
+        fakeApp.clear();
+        fromLoRa(0, "!bridge battery", 1);
+        run(1100);
+        CHECK(fakeApp.size() == 1 && app(0) == "[bridge] Battery: this radio does not report it.");
+        for (NodeNum gone : {NodeNum(0x1111), NodeNum(0x2222), NodeNum(0x3333), NodeNum(0x4444), fakeNodeDB.number})
+            fakeNodeDB.nodes.erase(gone);
+        fakeRadio.clear();
+        fakeApp.clear();
+    }
     delete bridge;
 
     // The channel list was wiped, as after a configuration reset: the default channel returns by
@@ -934,8 +1122,13 @@ int main()
     CHECK(!bridge->enabled() && app(4).rfind("[bridge] Bridge turned off.", 0) == 0);
     fromLoRa(0, "!bridge help", 1);
     run(1100);
-    CHECK(fakeApp.size() == 6 && app(5).rfind("[bridge] !bridge shows the state.", 0) == 0 && app(5).size() <= 200 &&
+    CHECK(fakeApp.size() == 7 && app(5).rfind("[bridge] !bridge shows the state.", 0) == 0 && app(5).size() <= 200 &&
           app(5).find("!ponte quem, guia") != std::string::npos && app(5).back() == '.');
+    // The newer commands follow in a second message.
+    CHECK(app(6).rfind("[bridge] Also: prefix on", 0) == 0 && app(6).size() <= 200 &&
+          app(6).find("sos <text>") != std::string::npos && app(6).find("!ponte recado") != std::string::npos &&
+          app(6).back() == '.');
+    fakeApp.pop_back();
     fromLoRa(0, "!bridge link off", 1);
     run(1100);
     CHECK(!bridge->linked() && app(6).rfind("[bridge] Link off", 0) == 0);

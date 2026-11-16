@@ -82,6 +82,30 @@ class BitchatBridgeModule : public MeshModule, private concurrency::OSThread
     bool defaultsPending = false, defaultChannelUnavailable = false, clockWindow = false;
     bool link = true;
     bool textReady = false, tunnelReady = false;
+    // The house note, given once every 12 hours to each phone that arrives. Kept in its own stored entry.
+    struct Note {
+        uint8_t portuguese = 0;
+        char author[21]{};
+        char text[56]{};
+    } note;
+    uint32_t noteAt = 0;
+    bool noteChanged = false;
+    // Low battery: told to Bitchat once, then again only after a charge.
+    uint32_t batteryAt = 0;
+    bool batteryWarned = false;
+    // Help requests are spaced out, whoever asks.
+    uint32_t sosAt = 0;
+    bool sosSent = false;
+    // Range test between bridges: the probe this radio sent, who asked for it, and the last answer it gave.
+    struct RangeTest {
+        uint16_t id = 0;
+        uint32_t at = 0;
+        bool pending = false, fromApp = false, portuguese = false;
+        uint8_t channel = 0, answers = 0;
+        uint16_t answeredId = 0;
+        uint32_t answeredAt = 0;
+        bool answered = false;
+    } rangeTest;
     bool wasActive = false;
     bool textConflict = false;
     uint32_t textGuardAt = 0, conflictAt = 0, channelsAt = 0, announcedAt = 0, defaultChannelAt = 0;
@@ -121,6 +145,13 @@ class BitchatBridgeModule : public MeshModule, private concurrency::OSThread
             bool used = false;
         };
         std::array<Heard, 12> heard{};
+        // Phones that were given the house note, and when.
+        struct Delivered {
+            bitchat::PeerId peer{};
+            uint32_t at = 0;
+            bool used = false;
+        };
+        std::array<Delivered, 8> delivered{};
         bitchat::BoundedQueue<RadioItem, RadioItem::QUEUE> radioQueue;
         bitchat::RateGate radioGate, cryptoGate;
         bitchat::BleInput input;
@@ -133,12 +164,34 @@ class BitchatBridgeModule : public MeshModule, private concurrency::OSThread
     uint8_t restart = 0;
     bitchat::Command appCommand = bitchat::Command::None;
     uint8_t appChannel = 0;
+    bool appPortuguese = false;
+    // The text after a command such as "note", copied for the next tick.
+    char appArgument[bitchat::COMMAND_TEXT_LIMIT + 1]{};
     uint32_t restartAt = 0, repliedAt = 0, guidedAt = 0;
     void answerApp();
     void answerBitchat();
     void guideBitchat(bool portuguese);
     bitchat::GuideMode guideMode() const;
     void replyToApp(const char *text);
+    // A signed public message from the bridge to every phone, "[bridge] " in front.
+    void tellBitchat(const char *text, size_t size, bool keep = false);
+    // The answers either app may ask for; `out` gets the text, without any prefix.
+    size_t batteryText(bool portuguese, char *out, size_t capacity) const;
+    size_t radiosText(bool portuguese, char *out, size_t capacity) const;
+    size_t noteText(bool portuguese, char *out, size_t capacity) const;
+    bool setNote(const bitchat::BridgeRequest &request, const char *author);
+    size_t sos(const bitchat::BridgeRequest &request, const char *who, char *out, size_t capacity);
+    size_t startRangeTest(bool portuguese, bool fromApp, char *out, size_t capacity);
+    void rangeTestHeard(bitchat::Bytes name, uint16_t id, bool answer, int16_t theirSnr, int16_t snrTenths);
+    void reportRangeTest(const char *text);
+    void deliverNote(const bitchat::Packet &packet, uint16_t source);
+    void watchBattery(uint32_t now);
+    // The bridge's own text for the LoRa channel, "label: body" or the body alone.
+    bool queueText(bitchat::Bytes label, bitchat::Bytes body);
+    bool sign(uint8_t type, bitchat::Bytes payload, uint8_t ttl);
+    // The name a phone goes by on LoRa: its nickname, told apart by the start of its ID when shared.
+    size_t peerLabel(const bitchat::Peer &peer, char *out, size_t capacity) const;
+    void answerAsked(const bitchat::BridgeRequest &asked, const bitchat::Peer &peer, uint32_t now);
     bool ensureRuntime();
     void applyDefaults();
     uint8_t provisionPublicChannel();

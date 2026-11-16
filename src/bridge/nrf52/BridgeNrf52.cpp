@@ -528,8 +528,9 @@ int ble_gap_event_listener_unregister(ble_gap_event_listener *)
 }
 } // namespace bitchat
 
-// Settings, identity and clock live in one small file. The journal of recent messages is not kept across
-// restarts here: the internal flash is small and wears with every write.
+// Settings, identity and clock live in one small file, the link choice and the house note in another,
+// written only when they change. The journal of recent messages is not kept across restarts here: the
+// internal flash is small and wears with every write.
 namespace
 {
 constexpr char STORE_PATH[] = "/prefs/bitchat.dat";
@@ -546,13 +547,68 @@ struct Store {
 bool storeLoaded = false, clockWritten = false;
 uint32_t clockWrittenAt = 0;
 
-uint8_t checksum(const Store &image)
+// Options in their own file, so the first file keeps the layout of earlier versions and the identity it holds.
+constexpr char OPTIONS_PATH[] = "/prefs/bitchat_options.dat";
+constexpr uint32_t OPTIONS_MAGIC = 0x32504342;
+constexpr const char *OPTION_KEYS[] = {"link", "note"};
+constexpr size_t OPTION_COUNT = sizeof(OPTION_KEYS) / sizeof(OPTION_KEYS[0]);
+struct Options {
+    uint32_t magic = OPTIONS_MAGIC;
+    uint8_t sizes[OPTION_COUNT] = {};
+    uint8_t link = 0;
+    uint8_t note[80] = {};
+    uint8_t check = 0;
+} options;
+
+template <typename Image> uint8_t checksum(const Image &image)
 {
     uint8_t sum = 0x5a;
     const auto *bytes = reinterpret_cast<const uint8_t *>(&image);
-    for (size_t i = 0; i < offsetof(Store, check); ++i)
+    for (size_t i = 0; i < offsetof(Image, check); ++i)
         sum = uint8_t(sum * 31 + bytes[i]);
     return sum;
+}
+
+// The place of an option, its capacity and its stored size; false for a key that is not an option.
+bool optionFor(const char *key, uint8_t *&bytes, size_t &capacity, uint8_t *&size)
+{
+    for (size_t i = 0; i < OPTION_COUNT; ++i)
+        if (!strcmp(key, OPTION_KEYS[i])) {
+            bytes = i ? options.note : &options.link;
+            capacity = i ? sizeof(options.note) : 1;
+            size = &options.sizes[i];
+            return true;
+        }
+    return false;
+}
+
+template <typename Image> bool writeImage(const char *path, Image &image)
+{
+    image.check = checksum(image);
+    {
+        concurrency::LockGuard guard(spiLock);
+        FSCom.mkdir("/prefs");
+    }
+    SafeFile file(path, true);
+    const bool whole = file.write(reinterpret_cast<const uint8_t *>(&image), sizeof(image)) == sizeof(image);
+    return file.close() && whole;
+}
+
+template <typename Image> void readImage(const char *path, Image &image, uint32_t magic)
+{
+    Image read;
+    bool whole = false;
+    {
+        concurrency::LockGuard guard(spiLock);
+        auto file = FSCom.open(path, FILE_O_READ);
+        if (file) {
+            whole = file.read(reinterpret_cast<uint8_t *>(&read), sizeof(read)) == int(sizeof(read));
+            file.close();
+        }
+    }
+    // A missing or damaged file starts from the defaults.
+    if (whole && read.magic == magic && read.check == checksum(read))
+        image = read;
 }
 
 Entry *entryFor(const char *key)
@@ -566,14 +622,7 @@ Entry *entryFor(const char *key)
 
 bool writeStore()
 {
-    store.check = checksum(store);
-    {
-        concurrency::LockGuard guard(spiLock);
-        FSCom.mkdir("/prefs");
-    }
-    SafeFile file(STORE_PATH, true);
-    const bool whole = file.write(reinterpret_cast<const uint8_t *>(&store), sizeof(store)) == sizeof(store);
-    return file.close() && whole;
+    return writeImage(STORE_PATH, store);
 }
 } // namespace
 
@@ -581,37 +630,38 @@ bool Preferences::begin(const char *, bool)
 {
     if (storeLoaded)
         return true;
-    Store image;
-    bool whole = false;
-    {
-        concurrency::LockGuard guard(spiLock);
-        auto file = FSCom.open(STORE_PATH, FILE_O_READ);
-        if (file) {
-            whole = file.read(reinterpret_cast<uint8_t *>(&image), sizeof(image)) == int(sizeof(image));
-            file.close();
-        }
-    }
-    // A missing or damaged file starts the bridge from its defaults, with a new identity.
-    if (whole && image.magic == STORE_MAGIC && image.check == checksum(image))
-        store = image;
+    // A missing or damaged first file starts the bridge from its defaults, with a new identity.
+    readImage(STORE_PATH, store, STORE_MAGIC);
+    readImage(OPTIONS_PATH, options, OPTIONS_MAGIC);
     storeLoaded = true;
     return true;
 }
 
 bool Preferences::isKey(const char *key)
 {
-    const auto *entry = entryFor(key);
-    return entry && entry->size;
+    return getBytesLength(key) != 0;
 }
 
 size_t Preferences::getBytesLength(const char *key)
 {
+    uint8_t *bytes = nullptr, *stored = nullptr;
+    size_t capacity = 0;
+    if (optionFor(key, bytes, capacity, stored))
+        return *stored <= capacity ? *stored : 0;
     const auto *entry = entryFor(key);
     return entry ? entry->size : 0;
 }
 
 size_t Preferences::getBytes(const char *key, void *out, size_t size)
 {
+    uint8_t *bytes = nullptr, *stored = nullptr;
+    size_t capacity = 0;
+    if (optionFor(key, bytes, capacity, stored)) {
+        if (!*stored || *stored > capacity || *stored > size)
+            return 0;
+        memcpy(out, bytes, *stored);
+        return *stored;
+    }
     const auto *entry = entryFor(key);
     if (!entry || !entry->size || entry->size > size)
         return 0;
@@ -621,9 +671,20 @@ size_t Preferences::getBytes(const char *key, void *out, size_t size)
 
 size_t Preferences::putBytes(const char *key, const void *in, size_t size)
 {
+    uint8_t *bytes = nullptr, *stored = nullptr;
+    size_t capacity = 0;
+    if (optionFor(key, bytes, capacity, stored)) {
+        if (!size || size > capacity)
+            return 0;
+        if (*stored == size && !memcmp(bytes, in, size))
+            return size;
+        *stored = uint8_t(size);
+        memcpy(bytes, in, size);
+        return writeImage(OPTIONS_PATH, options) ? size : 0;
+    }
     auto *entry = entryFor(key);
     if (!entry)
-        return key[0] == 'j' || !strcmp(key, "link") ? size : 0; // accepted, not kept across restarts
+        return key[0] == 'j' ? size : 0; // the journal: accepted, not kept across restarts
     if (!size || size > sizeof(entry->bytes))
         return 0;
     const bool same = entry->size == size && !memcmp(entry->bytes, in, size);

@@ -77,47 +77,221 @@ static Result splitText(Bytes body, size_t room, size_t reach, size_t parts, Tex
     return Result::Ok;
 }
 
-Command bridgeCommand(Bytes text)
+static char lower(uint8_t c)
 {
-    while (text.size && (text.data[0] == ' ' || text.data[0] == '\n'))
+    return c >= 'A' && c <= 'Z' ? char(c + 32) : char(c);
+}
+
+// Whether `text` opens with `word` in any letter case, followed by the end or a space.
+static bool opensWith(Bytes text, const char *word)
+{
+    const size_t length = std::strlen(word);
+    if (text.size < length)
+        return false;
+    for (size_t i = 0; i < length; ++i)
+        if (lower(text.data[i]) != word[i])
+            return false;
+    return text.size == length || text.data[length] == ' ';
+}
+
+static Bytes trimmed(Bytes text)
+{
+    while (text.size && (text.data[0] == ' ' || text.data[0] == '\n' || text.data[0] == '\r'))
         text = {text.data + 1, text.size - 1};
     while (text.size && (text.data[text.size - 1] == ' ' || text.data[text.size - 1] == '\n' || text.data[text.size - 1] == '\r'))
         --text.size;
+    return text;
+}
+
+bool parseBridgeCommand(Bytes text, BridgeRequest &out)
+{
+    out = {};
+    text = trimmed(text);
+    if (text.size < 6 || text.size > COMMAND_TEXT_LIMIT || text.data[0] != '!')
+        return false;
+    bool ponte = false;
+    if (opensWith(text, "!bridge"))
+        text = {text.data + 7, text.size - 7};
+    else if (opensWith(text, "!ponte")) {
+        text = {text.data + 6, text.size - 6};
+        ponte = true;
+    } else
+        return false;
+    // one space between the words, as the commands are written
+    if (text.size >= 2 && text.data[1] == ' ')
+        return false;
+    const Bytes rest = trimmed(text);
+    if (!rest.size) {
+        out.command = Command::Status;
+        out.portuguese = ponte;
+        return true;
+    }
+    // Commands that take text after them.
+    static const struct {
+        const char *word;
+        Command command;
+        bool portuguese;
+    } withText[] = {{"note", Command::Note, false},
+                    {"recado", Command::Note, true},
+                    {"sos", Command::Sos, false},
+                    {"socorro", Command::Sos, true}};
+    for (const auto &choice : withText)
+        if (opensWith(rest, choice.word)) {
+            const size_t length = std::strlen(choice.word);
+            out.argument = trimmed({rest.data + length, rest.size - length});
+            out.command = choice.command;
+            out.portuguese = ponte || choice.portuguese;
+            if (out.command == Command::Note && ((out.argument.size == 3 && opensWith(out.argument, "off")) ||
+                                                 (out.argument.size == 6 && opensWith(out.argument, "apagar")))) {
+                out.command = Command::NoteOff;
+                out.argument = {};
+            }
+            return true;
+        }
+    // The others are whole words, compared in lower case.
     char word[24];
-    if (text.size < 6 || text.size >= sizeof(word) || text.data[0] != '!')
-        return Command::None;
-    // Phone keyboards capitalise on their own.
-    for (size_t i = 0; i < text.size; ++i)
-        word[i] = text.data[i] >= 'A' && text.data[i] <= 'Z' ? char(text.data[i] + 32) : char(text.data[i]);
-    word[text.size] = 0;
-    for (const char *name : {"!bridge", "!ponte"}) {
-        const size_t length = std::strlen(name);
-        if (!std::strncmp(word, name, length)) {
-            if (!word[length])
-                return Command::Status;
-            static const struct {
-                const char *word;
-                Command command;
-            } choices[] = {{" reset", Command::Reset},
-                           {" on", Command::On},
-                           {" off", Command::Off},
-                           {" local", Command::Local},
-                           {" lora", Command::Lora},
-                           {" help", Command::Help},
-                           {" link on", Command::LinkOn},
-                           {" link off", Command::LinkOff},
-                           {" guide", Command::Guide},
-                           {" guia", Command::GuidePt},
-                           {" who", Command::Who},
-                           {" quem", Command::WhoPt},
-                           {" economy on", Command::EconomyOn},
-                           {" economy off", Command::EconomyOff}};
-            for (const auto &choice : choices)
-                if (!std::strcmp(word + length, choice.word))
-                    return choice.command;
+    if (rest.size >= sizeof(word))
+        return false;
+    for (size_t i = 0; i < rest.size; ++i)
+        word[i] = lower(rest.data[i]);
+    word[rest.size] = 0;
+    static const struct {
+        const char *word;
+        Command command;
+        bool portuguese;
+    } choices[] = {{"reset", Command::Reset, false},
+                   {"on", Command::On, false},
+                   {"off", Command::Off, false},
+                   {"local", Command::Local, false},
+                   {"lora", Command::Lora, false},
+                   {"help", Command::Help, false},
+                   {"link on", Command::LinkOn, false},
+                   {"link off", Command::LinkOff, false},
+                   {"economy on", Command::EconomyOn, false},
+                   {"economy off", Command::EconomyOff, false},
+                   {"guide", Command::Guide, false},
+                   {"guia", Command::GuidePt, true},
+                   {"who", Command::Who, false},
+                   {"quem", Command::WhoPt, true},
+                   {"prefix on", Command::PrefixOn, false},
+                   {"prefix off", Command::PrefixOff, false},
+                   {"battery", Command::Battery, false},
+                   {"bateria", Command::Battery, true},
+                   {"radios", Command::Radios, false},
+                   {"test", Command::Test, false},
+                   {"teste", Command::Test, true}};
+    for (const auto &choice : choices)
+        if (!std::strcmp(word, choice.word)) {
+            out.command = choice.command;
+            // the guide and the names keep the language of their own word
+            out.portuguese = choice.command == Command::Guide || choice.command == Command::Who ? false
+                             : choice.command == Command::GuidePt || choice.command == Command::WhoPt
+                                 ? true
+                                 : ponte || choice.portuguese;
+            return true;
+        }
+    return false;
+}
+
+Command bridgeCommand(Bytes text)
+{
+    BridgeRequest request;
+    parseBridgeCommand(text, request);
+    return request.command;
+}
+
+size_t cleanText(Bytes text, char *output, size_t capacity, size_t limit)
+{
+    size_t size = 0;
+    limit = std::min(capacity - 1, limit);
+    if (validUtf8(text)) {
+        for (size_t i = 0; i < text.size; ++i) {
+            const uint8_t c = text.data[i];
+            if (c < 0x20 || c == 0x7f)
+                continue;
+            size_t length = c < 0x80 ? 1 : c < 0xe0 ? 2 : c < 0xf0 ? 3 : 4;
+            if (length > limit - size)
+                break;
+            while (length--)
+                output[size++] = char(text.data[i++]);
+            --i;
         }
     }
-    return Command::None;
+    while (size && output[size - 1] == ' ')
+        --size;
+    output[size] = 0;
+    return size;
+}
+
+int batteryPercent(uint16_t millivolts)
+{
+    // Resting voltage of a lithium-ion cell against its charge, roughly.
+    static const struct {
+        uint16_t millivolts;
+        uint8_t percent;
+    } curve[] = {{3300, 0}, {3500, 5}, {3650, 20}, {3750, 40}, {3850, 60}, {4000, 80}, {4200, 100}};
+    if (millivolts < 2500 || millivolts > 4500)
+        return -1;
+    if (millivolts <= curve[0].millivolts)
+        return 0;
+    for (size_t i = 1; i < sizeof(curve) / sizeof(curve[0]); ++i)
+        if (millivolts <= curve[i].millivolts) {
+            const auto &a = curve[i - 1], &b = curve[i];
+            return a.percent + (millivolts - a.millivolts) * (b.percent - a.percent) / (b.millivolts - a.millivolts);
+        }
+    return 100;
+}
+
+bool parseRangeTest(Bytes body, uint16_t &id, bool &answer, int16_t &snrTenths)
+{
+    const size_t mark = sizeof(TEST_MARK) - 1;
+    if (body.size < mark + 4 || std::memcmp(body.data, TEST_MARK, mark))
+        return false;
+    size_t i = mark;
+    uint32_t value = 0;
+    for (size_t n = 0; n < 4; ++n, ++i) {
+        if (body.data[i] < '0' || body.data[i] > '9')
+            return false;
+        value = value * 10 + (body.data[i] - '0');
+    }
+    id = uint16_t(value);
+    answer = false;
+    snrTenths = SNR_UNKNOWN;
+    if (i == body.size)
+        return true;
+    static const char said[] = " ouvido ";
+    if (body.size - i < sizeof(said) - 1 || std::memcmp(body.data + i, said, sizeof(said) - 1))
+        return false;
+    i += sizeof(said) - 1;
+    answer = true;
+    if (body.size - i >= 4 && !std::memcmp(body.data + i, "? dB", 4) && i + 4 == body.size)
+        return true;
+    bool negative = false;
+    if (i < body.size && body.data[i] == '-') {
+        negative = true;
+        ++i;
+    }
+    int32_t whole = 0, digits = 0;
+    while (i < body.size && body.data[i] >= '0' && body.data[i] <= '9' && digits < 3) {
+        whole = whole * 10 + (body.data[i++] - '0');
+        ++digits;
+    }
+    if (!digits || i + 2 > body.size || body.data[i] != '.' || body.data[i + 1] < '0' || body.data[i + 1] > '9')
+        return false;
+    const int32_t tenths = whole * 10 + (body.data[i + 1] - '0');
+    i += 2;
+    if (body.size - i != 3 || std::memcmp(body.data + i, " dB", 3))
+        return false;
+    snrTenths = int16_t(negative ? -tenths : tenths);
+    return true;
+}
+
+size_t formatTenths(int16_t tenths, char *out, size_t capacity, bool comma)
+{
+    if (tenths == SNR_UNKNOWN)
+        return size_t(snprintf(out, capacity, "?"));
+    const int magnitude = tenths < 0 ? -tenths : tenths;
+    return size_t(snprintf(out, capacity, "%s%d%c%d", tenths < 0 ? "-" : "", magnitude / 10, comma ? ',' : '.', magnitude % 10));
 }
 
 const char *guideLine(bool portuguese, bool forApp, GuideMode mode, size_t index)
@@ -129,7 +303,7 @@ const char *guideLine(bool portuguese, bool forApp, GuideMode mode, size_t index
         "Guide 1/4: right now this radio only relays Bitchat between phones; LoRa is off.",
         "2/4: text from LoRa shows as [MT name]. Private messages do not cross.",
         "3/4: LoRa is slow and public. Keep texts short; anyone with the channel can read.",
-        "4/4: here, !bridge shows the state and !bridge who lists who was heard on LoRa.",
+        "4/4: here also: !bridge who, note, battery, radios, test, and sos <text> for help.",
         "4/4: !bridge shows the state, !bridge who the names from LoRa, !bridge help the rest."};
     static const char *const portugueseLines[] = {
         "Guia 1/4: este rádio leva o texto público do #mesh a um canal LoRa e traz o de lá.",
@@ -137,7 +311,7 @@ const char *guideLine(bool portuguese, bool forApp, GuideMode mode, size_t index
         "Guia 1/4: agora este rádio só repassa o Bitchat entre telefones, sem usar o LoRa.",
         "2/4: o que vem do LoRa aparece como [MT nome]. Mensagens privadas não atravessam.",
         "3/4: o LoRa é lento e público. Escreva pouco; quem tem o canal lê tudo.",
-        "4/4: aqui, !bridge mostra o estado e !ponte quem lista quem foi ouvido no LoRa.",
+        "4/4: aqui também: !ponte quem, recado, bateria, radios, teste e sos <texto> (socorro).",
         "4/4: !bridge mostra o estado, !ponte quem os nomes do LoRa, !bridge help o resto."};
     if (index >= GUIDE_LINES)
         return nullptr;

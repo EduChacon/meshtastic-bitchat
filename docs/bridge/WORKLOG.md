@@ -316,6 +316,15 @@ indicado ali para mensagens privadas, a ensaiar antes de qualquer porte. Verific
 Antes do envio à `main`, a execução 43777403585 do ramo de trabalho compilou o Heltec V3, com a
 análise estática, e o T1000-E, sem falhas.
 
+Vigésimo passo. O operador pediu as sete sugestões, sem intervenção. Versão `1.0.0-beta.13`:
+recado da casa, bateria com aviso, nós ouvidos, socorro com posição na precisão do canal, teste
+de alcance entre pontes e `!bridge prefix` por texto. O leitor de comandos passou a aceitar texto
+depois da palavra (`recado`, `sos`). No T1000-E, a escolha `!bridge link` e o recado passam a ficar
+num segundo arquivo; o primeiro mantém o formato, e a identidade da ponte é preservada. A ponte
+não liga o GPS sozinha: no Meshtastic o GPS decide também o comportamento de posição, e mexer nele
+por fora não foi considerado seguro sem ensaio. Verificado em simulação (981 verificações do
+núcleo e 1475 de fluxo).
+
 ## Investigação de boot — 2026-11-13
 
 As instalações foram suspensas nos dois READMEs e nas pré-releases, preservando os arquivos

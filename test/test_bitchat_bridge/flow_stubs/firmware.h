@@ -31,6 +31,8 @@ struct meshtastic_MeshPacket {
     } decoded;
     uint32_t id = 0;
     bool want_ack = false, via_mqtt = false;
+    float rx_snr = 0;
+    int32_t rx_rssi = 0;
     meshtastic_MeshPacket_Priority priority = meshtastic_MeshPacket_Priority_DEFAULT;
 };
 enum class ProcessMessage { CONTINUE, STOP };
@@ -91,16 +93,33 @@ struct Channels {
 inline Channels channels;
 constexpr int SEGMENT_CHANNELS = 8;
 struct meshtastic_NodeInfoLite {
+    NodeNum num = 0;
     bool has_user = true;
     struct {
         char long_name[40]{};
     } user;
+    float snr = 0;
+    uint32_t last_heard = 0;
+    bool via_mqtt = false, has_hops_away = false;
+    uint8_t hops_away = 0;
+    bool has_position = false;
+    struct {
+        int32_t latitude_i = 0, longitude_i = 0;
+    } position;
 };
 struct NodeDB {
     NodeNum number = 0x00c0ffee;
     std::map<NodeNum, meshtastic_NodeInfoLite> nodes;
     NodeNum getNodeNum() { return number; }
     meshtastic_NodeInfoLite *getMeshNode(NodeNum n) { return nodes.count(n) ? &nodes[n] : nullptr; }
+    size_t getNumMeshNodes() { return nodes.size(); }
+    meshtastic_NodeInfoLite *getMeshNodeByIndex(size_t x)
+    {
+        auto it = nodes.begin();
+        std::advance(it, x);
+        it->second.num = it->first;
+        return &it->second;
+    }
     bool saveToDisk(int) { return true; }
 };
 inline NodeDB fakeNodeDB;
@@ -111,6 +130,7 @@ inline NodeNum getFrom(const meshtastic_MeshPacket *p)
 }
 struct Owner {
     bool is_licensed = false;
+    char long_name[40] = "Casa Sul";
 };
 inline Owner owner;
 struct Config {
@@ -133,6 +153,11 @@ inline RTCQuality getRTCQuality()
 inline uint32_t getValidTime(RTCQuality)
 {
     return fakeEpoch + millis() / 1000;
+}
+inline uint32_t sinceLastSeen(const meshtastic_NodeInfoLite *n)
+{
+    const int delta = int(getValidTime(RTCQualityDevice) - n->last_heard);
+    return delta < 0 ? 0 : uint32_t(delta);
 }
 
 enum RxSource { RX_SRC_LOCAL };

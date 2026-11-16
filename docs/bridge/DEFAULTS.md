@@ -139,12 +139,14 @@ a) **Recado da casa.** Até 55 bytes, com o nome de quem o deixou (o nome do rá
 aplicativo Meshtastic; o apelido, se veio do Bitchat). Cada telefone Bitchat que se anuncia
 diretamente ao rádio recebe o recado uma vez a cada 12 horas, numa mensagem que os outros
 telefones não repassam. Fica gravado; um recado novo vai de novo a todos. No Bitchat, pode ser
-trocado no máximo uma vez por minuto. **Qualquer pessoa perto do rádio, com o Bitchat, pode
+trocado no máximo uma vez a cada dez minutos, porque cada troca é gravada na memória do rádio.
+**Qualquer pessoa perto do rádio, com o Bitchat, pode
 trocá-lo ou apagá-lo.**
 
 b) **Rádios ao alcance.** Lista os nós do banco de nós ouvidos nas últimas 24 horas, sem os que
 chegaram pela internet (MQTT). O sinal só aparece para vizinhos diretos, porque o Meshtastic
-guarda o sinal do último pacote, que pode ter vindo por outro nó.
+guarda o sinal do último pacote, que pode ter vindo por outro nó. Enquanto o rádio não tem hora,
+a lista não é dada, porque não se sabe há quanto tempo cada nó foi ouvido.
 
 c) **Bateria.** Usa a tensão e a carga que o próprio Meshtastic calcula. Abaixo de 3,45 V, sem
 carregador, a ponte avisa no `#mesh` uma vez; o aviso volta a valer depois de 3,6 V.
@@ -155,8 +157,10 @@ do canal: canal que não compartilha posição (o padrão de um canal secundári
 sem posição. Um pedido a cada cinco minutos.
 
 e) **Teste de alcance.** `#ponte-teste 1234` vai ao canal; cada ponte que ouvir responde uma vez
-(`#ponte-teste 1234 ouvido -4.5 dB`), e quem pediu recebe o resultado em até dois minutos. Funciona
-entre pontes Meshtastic; uma ponte MeshCore está em outra rede.
+(`#ponte-teste 1234 ouvido -4.5 dB`; `? dB` quando a mensagem chegou por outro nó, porque o sinal
+medido é o dele), e quem pediu recebe o resultado em até dois minutos. Funciona entre pontes
+Meshtastic; uma ponte MeshCore está em outra rede. Um `!ponte sos` ou `!ponte recado` digitado em
+**outro** rádio chega aos telefones como texto comum dessa pessoa.
 
 f) **Hora pelo GPS.** Neste firmware, a ponte **não** liga o GPS por conta própria. Com o GPS
 ligado pelo operador, o Meshtastic acerta o relógio e a ponte usa essa hora, como já fazia.

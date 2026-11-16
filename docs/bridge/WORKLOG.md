@@ -322,8 +322,12 @@ de alcance entre pontes e `!bridge prefix` por texto. O leitor de comandos passo
 depois da palavra (`recado`, `sos`). No T1000-E, a escolha `!bridge link` e o recado passam a ficar
 num segundo arquivo; o primeiro mantém o formato, e a identidade da ponte é preservada. A ponte
 não liga o GPS sozinha: no Meshtastic o GPS decide também o comportamento de posição, e mexer nele
-por fora não foi considerado seguro sem ensaio. Verificado em simulação (981 verificações do
-núcleo e 1475 de fluxo).
+por fora não foi considerado seguro sem ensaio. Uma revisão independente do código achou e
+levou a corrigir: respostas de socorro recusado sem espaçamento; recado trocável pelo Bitchat a
+cada minuto (agora dez, por desgaste da memória); resultado do teste de alcance cortado com nomes
+longos; sinal de pacote repetido atribuído à outra ponte; `sos` e `recado` de outros rádios
+engolidos em vez de chegarem ao Bitchat; lista de nós sem hora válida; gravação falha no T1000-E
+mantida em memória. Verificado em simulação (982 verificações do núcleo e 1480 de fluxo).
 
 ## Investigação de boot — 2026-11-13
 

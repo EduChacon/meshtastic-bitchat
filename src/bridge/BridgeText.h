@@ -36,8 +36,8 @@ struct TextPlan {
     std::array<uint16_t, BITCHAT_PARTS + 1> offsets{};
 };
 
-// Status, the guide and the list of names may be asked from either app; the others are accepted only from
-// the app attached to the radio.
+// The settings (on, off, local, lora, link, economy, prefix, reset) are accepted only from the app attached
+// to the radio; the rest may also be asked from Bitchat, the note changed by anyone nearby.
 enum class Command : uint8_t {
     None,
     Status,

@@ -1026,6 +1026,31 @@ int main()
         CHECK(radio() == std::vector<std::string>{"#ponte-teste 4321 ouvido 5.5 dB"});
         CHECK(chat(dora.handle).empty());
         fakeRadio.clear();
+        // A relayed probe: the signal is of the last hop, so it is not reported.
+        run(21000);
+        {
+            meshtastic_MeshPacket relayed;
+            relayed.from = 0x2222;
+            relayed.id = 77001;
+            relayed.channel = 1;
+            relayed.rx_snr = 9.0f;
+            relayed.rx_rssi = -70;
+            relayed.hop_start = 3;
+            relayed.hop_limit = 2;
+            const std::string probe = "#ponte-teste 4322";
+            relayed.decoded.payload.size = uint16_t(probe.size());
+            memcpy(relayed.decoded.payload.bytes, probe.data(), probe.size());
+            bridge->handleReceived(relayed);
+        }
+        run(3000);
+        CHECK(radio() == std::vector<std::string>{"#ponte-teste 4322 ouvido ? dB"});
+        fakeRadio.clear();
+        // A help request typed on another radio is that person's text, and reaches Bitchat.
+        fakeSent.clear();
+        fromLoRa(0x2222, "!ponte sos preciso de ajuda", 1);
+        run(1100);
+        CHECK(contains(chat(dora.handle), "[MT Sul] !ponte sos preciso de ajuda") && radio().empty());
+        fakeApp.clear();
         // Asked from Bitchat, with nobody answering.
         run(30000);
         fakeSent.clear();

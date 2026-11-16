@@ -27,6 +27,14 @@ static constexpr uint32_t RADIO_DEADLINE_MS = 120000;
 static constexpr uint32_t BUDGET_MS = 12000;
 static constexpr uint32_t NOTE_EVERY_MS = 12UL * 3600 * 1000;
 static constexpr uint32_t SOS_EVERY_MS = 300000;
+static constexpr uint32_t NOTE_CHANGE_MS = 600000;
+
+// Whether a note command carries text that is left after cleaning.
+static bool noteArgument(const BridgeRequest &request)
+{
+    char probe[56];
+    return request.command == Command::Note && cleanText(request.argument, probe, sizeof(probe), sizeof(probe) - 1);
+}
 static constexpr uint32_t TEST_WAIT_MS = 120000;
 static constexpr uint16_t BATTERY_LOW_MV = 3450;
 static constexpr uint16_t BATTERY_RECOVERED_MV = 3600;
@@ -637,7 +645,7 @@ void BitchatBridgeModule::answerApp()
     }
     case Command::Note:
     case Command::NoteOff:
-        if (command == Command::Note && !request.argument.size)
+        if (command == Command::Note && !noteArgument(request))
             noteText(portuguese, body, room);
         else if (!setNote(request, owner.long_name))
             snprintf(body, room, "%s", portuguese ? "Não mudou: erro de memória" : "Not changed: Storage error");
@@ -844,7 +852,9 @@ void BitchatBridgeModule::answerAsked(const BridgeRequest &asked, const Peer &pe
         return;
     }
     // A help request is not held back by someone else's question; it has its own spacing.
-    const bool urgent = asked.command == Command::Sos && !(sosSent && Throttle::isWithinTimespanMsAt(sosAt, SOS_EVERY_MS, now));
+    // Only a request that can go out now; refusals wait like any other answer.
+    const bool urgent = asked.command == Command::Sos && textReady && !textConflict && !textGuard() &&
+                        !(sosSent && Throttle::isWithinTimespanMsAt(sosAt, SOS_EVERY_MS, now));
     if (!urgent && Throttle::isWithinTimespanMsAt(repliedAt, 5000, now))
         return;
     repliedAt = now;
@@ -869,12 +879,13 @@ void BitchatBridgeModule::answerAsked(const BridgeRequest &asked, const Peer &pe
         break;
     case Command::Note:
     case Command::NoteOff:
-        if (asked.command == Command::Note && !asked.argument.size) {
+        if (asked.command == Command::Note && !noteArgument(asked)) {
             size = noteText(portuguese, text, room);
-        } else if (noteChanged && Throttle::isWithinTimespanMsAt(noteAt, 60000, now)) {
+        } else if (noteChanged && Throttle::isWithinTimespanMsAt(noteAt, NOTE_CHANGE_MS, now)) {
+            // Anyone nearby may change it; each change is a write to flash and goes to every phone again.
             size = fitted(snprintf(text, room, "%s",
-                                   portuguese ? "O recado mudou há pouco; tente de novo em 1 min."
-                                              : "The note changed a moment ago; try again in 1 min."),
+                                   portuguese ? "O recado mudou há pouco; pode ser trocado de novo em 10 min."
+                                              : "The note changed a moment ago; it can change again in 10 min."),
                           room);
         } else {
             peerLabel(peer, label, sizeof(label));
@@ -927,6 +938,12 @@ static size_t ageText(uint32_t seconds, bool portuguese, char *out, size_t capac
 size_t BitchatBridgeModule::radiosText(bool portuguese, char *out, size_t capacity) const
 {
     static constexpr uint32_t DAY = 86400;
+    // Without the time, a node heard days ago would look heard now.
+    if (!getValidTime(RTCQualityDevice))
+        return fitted(snprintf(out, capacity, "%s",
+                               portuguese ? "Rádios: o relógio deste rádio ainda não tem hora; tente depois."
+                                          : "Radios: this radio's clock has no time yet; try later."),
+                      capacity);
     struct Item {
         const meshtastic_NodeInfoLite *node;
         uint32_t ago;
@@ -989,14 +1006,14 @@ size_t BitchatBridgeModule::radiosText(bool portuguese, char *out, size_t capaci
         const size_t length =
             fitted(snprintf(item, sizeof(item), "%s%s (%s%s%s)", size > head ? ", " : "", name, hops, age, snr), sizeof(item));
         // room for this one and, if others stay out, for how many they are
-        if (size + length + (left > 1 ? 4 : 0) >= capacity)
+        if (size + length + (left > 1 ? 5 : 0) >= capacity)
             break;
         memcpy(out + size, item, length);
         size += length;
         out[size] = 0;
         --left;
     }
-    if (left && size + 4 < capacity)
+    if (left && size + 5 < capacity)
         size += fitted(snprintf(out + size, capacity - size, " +%u", unsigned(left)), capacity - size);
     return size;
 }
@@ -1193,13 +1210,17 @@ void BitchatBridgeModule::rangeTestHeard(Bytes name, uint16_t id, bool answer, i
     if (!rangeTest.pending || id != rangeTest.id)
         return;
     ++rangeTest.answers;
+    // a shorter name keeps the whole result in one Bitchat message
+    char shortName[21];
+    if (!cleanLabel(name, shortName, sizeof(shortName)))
+        snprintf(shortName, sizeof(shortName), "%s", "mesh");
     formatTenths(theirSnr, heard, sizeof(heard), rangeTest.portuguese);
     formatTenths(snrTenths, back, sizeof(back), rangeTest.portuguese);
     char text[BITCHAT_TEXT_LIMIT];
     snprintf(text, sizeof(text),
              rangeTest.portuguese ? "Teste %04u: %s ouviu com %s dB; a volta chegou com %s dB."
                                   : "Test %04u: %s heard it at %s dB; the answer came at %s dB.",
-             unsigned(id), label, heard, back);
+             unsigned(id), shortName, heard, back);
     reportRangeTest(text);
 }
 
@@ -1208,8 +1229,10 @@ void BitchatBridgeModule::reportRangeTest(const char *text)
     if (rangeTest.fromApp) {
         char line[LORA_TEXT_LIMIT + 1];
         snprintf(line, sizeof(line), "%s%s", REPLY_PREFIX, text);
+        const uint8_t asked = appChannel;
         appChannel = rangeTest.channel;
         replyToApp(line);
+        appChannel = asked;
     } else {
         tellBitchat(text, strlen(text));
     }
@@ -1228,7 +1251,8 @@ void BitchatBridgeModule::watchBattery(uint32_t now)
         batteryWarned = false;
         return;
     }
-    if (batteryWarned || millivolts < 2500 || millivolts >= BATTERY_LOW_MV || !bleListeners())
+    // without a clock the warning could not be signed; it waits for one
+    if (batteryWarned || millivolts < 2500 || millivolts >= BATTERY_LOW_MV || !bleListeners() || !utc())
         return;
     char text[BITCHAT_TEXT_LIMIT];
     const size_t size = fitted(snprintf(text, sizeof(text), "Bateria baixa / Battery low: %u,%02u V", unsigned(millivolts / 1000),
@@ -1685,7 +1709,9 @@ ProcessMessage BitchatBridgeModule::accept(const meshtastic_MeshPacket &packet)
     Bytes payload{packet.decoded.payload.bytes, packet.decoded.payload.size};
     if (packet.decoded.portnum == meshtastic_PortNum_TEXT_MESSAGE_APP) {
         BridgeRequest request;
-        if (parseBridgeCommand(payload, request)) {
+        // From another radio, a note or a help request is someone's text, and goes on to Bitchat as such.
+        if (parseBridgeCommand(payload, request) &&
+            (isFromUs(&packet) || (request.command != Command::Sos && request.command != Command::Note))) {
             // Answered on the next tick, and only to the app attached to this radio;
             // never forwarded to Bitchat.
             if (isFromUs(&packet)) {
@@ -1721,8 +1747,11 @@ ProcessMessage BitchatBridgeModule::accept(const meshtastic_MeshPacket &packet)
             if (!nameSize)
                 nameSize = snprintf(name, sizeof(name), "!%08lx", static_cast<unsigned long>(from));
             const float snr = packet.rx_snr;
-            const int16_t tenths =
-                packet.rx_snr == 0 && packet.rx_rssi == 0 ? SNR_UNKNOWN : int16_t(snr * 10.0f + (snr < 0 ? -0.5f : 0.5f));
+            // The signal is of the last hop: for a relayed packet it says nothing about the other bridge.
+            const bool relayed = packet.hop_start > packet.hop_limit;
+            const int16_t tenths = relayed || (packet.rx_snr == 0 && packet.rx_rssi == 0)
+                                       ? SNR_UNKNOWN
+                                       : int16_t(snr * 10.0f + (snr < 0 ? -0.5f : 0.5f));
             rangeTestHeard({reinterpret_cast<const uint8_t *>(name), nameSize}, testId, testAnswer, theirSnr, tenths);
             return ProcessMessage::CONTINUE;
         }

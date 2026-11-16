@@ -33,6 +33,7 @@ struct meshtastic_MeshPacket {
     bool want_ack = false, via_mqtt = false;
     float rx_snr = 0;
     int32_t rx_rssi = 0;
+    uint8_t hop_limit = 3, hop_start = 3;
     meshtastic_MeshPacket_Priority priority = meshtastic_MeshPacket_Priority_DEFAULT;
 };
 enum class ProcessMessage { CONTINUE, STOP };

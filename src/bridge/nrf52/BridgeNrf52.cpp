@@ -678,9 +678,14 @@ size_t Preferences::putBytes(const char *key, const void *in, size_t size)
             return 0;
         if (*stored == size && !memcmp(bytes, in, size))
             return size;
+        // A failed write leaves the option as it was, so a later write cannot save it by accident.
+        const Options before = options;
         *stored = uint8_t(size);
         memcpy(bytes, in, size);
-        return writeImage(OPTIONS_PATH, options) ? size : 0;
+        if (writeImage(OPTIONS_PATH, options))
+            return size;
+        options = before;
+        return 0;
     }
     auto *entry = entryFor(key);
     if (!entry)

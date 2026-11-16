@@ -94,11 +94,16 @@ static bool opensWith(Bytes text, const char *word)
     return text.size == length || text.data[length] == ' ';
 }
 
+static bool blank(uint8_t c)
+{
+    return c == ' ' || c == '\n' || c == '\r' || c == '\t';
+}
+
 static Bytes trimmed(Bytes text)
 {
-    while (text.size && (text.data[0] == ' ' || text.data[0] == '\n' || text.data[0] == '\r'))
+    while (text.size && blank(text.data[0]))
         text = {text.data + 1, text.size - 1};
-    while (text.size && (text.data[text.size - 1] == ' ' || text.data[text.size - 1] == '\n' || text.data[text.size - 1] == '\r'))
+    while (text.size && blank(text.data[text.size - 1]))
         --text.size;
     return text;
 }
@@ -207,6 +212,12 @@ size_t cleanText(Bytes text, char *output, size_t capacity, size_t limit)
     if (validUtf8(text)) {
         for (size_t i = 0; i < text.size; ++i) {
             const uint8_t c = text.data[i];
+            // a line break or a tab separates words; other control characters are dropped
+            if (c == '\n' || c == '\r' || c == '\t') {
+                if (size && output[size - 1] != ' ' && size < limit)
+                    output[size++] = ' ';
+                continue;
+            }
             if (c < 0x20 || c == 0x7f)
                 continue;
             size_t length = c < 0x80 ? 1 : c < 0xe0 ? 2 : c < 0xf0 ? 3 : 4;

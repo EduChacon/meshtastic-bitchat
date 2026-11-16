@@ -313,6 +313,8 @@ já conheceu. O estudo de privacidade, de pagamento e da "ponte mesh" nativa fic
 MeshCore (`docs/bitchat/PRIVACY.md`); o túnel de laboratório deste repositório é o caminho
 indicado ali para mensagens privadas, a ensaiar antes de qualquer porte. Verificado em simulação
 (945 verificações do núcleo e 1254 de fluxo).
+Antes do envio à `main`, a execução 43777403585 do ramo de trabalho compilou o Heltec V3, com a
+análise estática, e o T1000-E, sem falhas.
 
 ## Investigação de boot — 2026-11-13
 

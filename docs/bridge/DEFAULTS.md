@@ -156,7 +156,9 @@ carregador, a ponte avisa no `#mesh` uma vez; o aviso volta a valer depois de 3,
 d) **Socorro.** O texto vai ao canal da ponte como `SOS: texto (latitude, longitude)`; vindo do
 Bitchat, com o apelido na frente. A posição é a do próprio rádio e segue a precisão de posição
 do canal: canal que não compartilha posição (o padrão de um canal secundário novo) leva o pedido
-sem posição. Um pedido a cada cinco minutos.
+sem posição. Um pedido a cada cinco minutos. Para trilha ou grupo em movimento, em que se quer a
+posição no socorro, basta ajustar a precisão de posição do canal da ponte no aplicativo
+Meshtastic; o mesmo ajuste vale para as posições que o rádio envia nesse canal.
 
 e) **Teste de alcance.** `#ponte-teste 1234` vai ao canal; cada ponte que ouvir responde uma vez
 (`#ponte-teste 1234 ouvido -4.5 dB`; `? dB` quando a mensagem chegou por outro nó, porque o sinal

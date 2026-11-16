@@ -854,6 +854,7 @@ void BitchatBridgeModule::answerAsked(const BridgeRequest &asked, const Peer &pe
     // A help request is not held back by someone else's question; it has its own spacing.
     // Only a request that can go out now; refusals wait like any other answer.
     const bool urgent = asked.command == Command::Sos && textReady && !textConflict && !textGuard() &&
+                        runtime->radioQueue.size() < RadioItem::QUEUE &&
                         !(sosSent && Throttle::isWithinTimespanMsAt(sosAt, SOS_EVERY_MS, now));
     if (!urgent && Throttle::isWithinTimespanMsAt(repliedAt, 5000, now))
         return;
@@ -1711,7 +1712,8 @@ ProcessMessage BitchatBridgeModule::accept(const meshtastic_MeshPacket &packet)
         BridgeRequest request;
         // From another radio, a note or a help request is someone's text, and goes on to Bitchat as such.
         if (parseBridgeCommand(payload, request) &&
-            (isFromUs(&packet) || (request.command != Command::Sos && request.command != Command::Note))) {
+            (isFromUs(&packet) ||
+             (request.command != Command::Sos && request.command != Command::Note && request.command != Command::NoteOff))) {
             // Answered on the next tick, and only to the app attached to this radio;
             // never forwarded to Bitchat.
             if (isFromUs(&packet)) {

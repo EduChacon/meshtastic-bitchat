@@ -337,6 +337,14 @@ com remetente 0 (o aplicativo); antes, um pacote do ar com o número do próprio
 configuração apaga o espaço `bitchat-v1`; `DEBUG_MUTE` no T1000-E; identidade recusada se o
 gerador não entregar tudo. Verificado em simulação (982 verificações do núcleo e 1482 de fluxo).
 
+Vigésimo segundo passo. Na ponte MeshCore para o T1000-E, que usa a mesma camada `nrf52`, o operador
+relatou a ponte pronta, o aplicativo pareado e nenhum telefone Bitchat conectado, nem com o Bitchat
+sozinho. A revisão do código contra a biblioteca Bluefruit achou a causa: `BLEUuid` guarda só o
+ponteiro dos 16 bytes de um UUID de 128 bits e o lê de novo ao montar o anúncio
+(`BLEAdvertisingData::addUuid`); `uuidFromText` devolvia um `BLEUuid` apontando para um vetor local.
+O anúncio levava bytes sem sentido no lugar do serviço do Bitchat. Versão `1.0.0-beta.15`: os bytes
+dos dois UUIDs ficam em vetores estáticos. Compilado no MeshCore localmente; aqui, no ensaio do GitHub.
+
 ## Investigação de boot — 2026-11-13
 
 As instalações foram suspensas nos dois READMEs e nas pré-releases, preservando os arquivos

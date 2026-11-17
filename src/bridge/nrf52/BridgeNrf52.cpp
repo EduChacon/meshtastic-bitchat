@@ -54,10 +54,14 @@ Slot *find(uint16_t handle)
     return nullptr;
 }
 
-// Least significant byte first, as the SoftDevice keeps 128-bit UUIDs.
-BLEUuid uuidFromText(const char *text)
+// Least significant byte first, as the SoftDevice keeps 128-bit UUIDs. The library keeps only a pointer
+// to these bytes and reads them again later (the advertisement copies them when it is built), so they
+// must outlive the call: each UUID has its own static array.
+uint8_t serviceUuidBytes[16];
+uint8_t valueUuidBytes[16];
+BLEUuid uuidFromText(const char *text, uint8_t (&bytes)[16])
 {
-    uint8_t bytes[16] = {};
+    std::fill(std::begin(bytes), std::end(bytes), uint8_t(0));
     size_t index = sizeof(bytes);
     const auto digit = [](char h) { return uint8_t(h <= '9' ? h - '0' : (h | 0x20) - 'a' + 10); };
     for (const char *c = text; c[0] && c[1] && index; ++c) {
@@ -298,7 +302,7 @@ void bitchat::platformAttach()
 
 NimBLEService *NimBLEServer::createService(const char *uuid)
 {
-    bridgeService.setUuid(uuidFromText(uuid));
+    bridgeService.setUuid(uuidFromText(uuid, serviceUuidBytes));
     bridgeService.begin();
     return &shimService;
 }
@@ -317,7 +321,7 @@ void NimBLEServer::disconnect(uint16_t handle)
 NimBLECharacteristic *NimBLEService::createCharacteristic(const char *uuid, unsigned, size_t)
 {
     // Open to unpaired phones, like the Bitchat app's own service.
-    bridgeValue.setUuid(uuidFromText(uuid));
+    bridgeValue.setUuid(uuidFromText(uuid, valueUuidBytes));
     bridgeValue.setProperties(CHR_PROPS_READ | CHR_PROPS_WRITE | CHR_PROPS_WRITE_WO_RESP | CHR_PROPS_NOTIFY);
     bridgeValue.setPermission(SECMODE_OPEN, SECMODE_OPEN);
     bridgeValue.setFixedLen(0);

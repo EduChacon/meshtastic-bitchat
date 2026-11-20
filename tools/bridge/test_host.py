@@ -6,6 +6,7 @@ import json
 import os
 import platform
 import subprocess
+import sys
 import tempfile
 from pathlib import Path
 
@@ -92,6 +93,30 @@ def main():
     )
     subprocess.run(command, check=True)
     subprocess.run([str(binary)], check=True)
+    # Cashu payments: inflater, token reader and the tunnel's parts, the same tests as the MeshCore bridge's.
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    import cashu_vectors
+
+    cashu_vectors.header(build / "cashu_vectors.h")
+    cashu = [
+        c for c in command if not c.endswith(".cpp") and c not in ("-o", str(binary))
+    ]
+    cashu += [
+        str(root / "src/bridge" / f)
+        for f in (
+            "BridgeCashu.cpp",
+            "BridgeCodec.cpp",
+            "BridgeInflate.cpp",
+            "BridgePayTunnel.cpp",
+        )
+    ]
+    cashu += [
+        str(root / "test/test_bitchat_bridge/test_cashu.cpp"),
+        "-o",
+        str(build / "cashu-tests"),
+    ]
+    subprocess.run(cashu, check=True)
+    subprocess.run([str(build / "cashu-tests")], check=True)
 
 
 if __name__ == "__main__":

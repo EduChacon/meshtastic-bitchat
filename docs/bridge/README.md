@@ -25,6 +25,7 @@ em uma sessão; os documentos dizem, em cada ponto, o que foi apenas simulado ou
 - [Arquitetura e decisões](ARCHITECTURE.md)
 - [Segurança e limites de confiança](SECURITY.md)
 - [Testes e protocolo de bancada](TESTING.md)
+- [Pagamentos Cashu pelo LoRa, experimental](CASHU.md)
 - [Fontes, proveniência e licenças](SOURCES.md)
 - [Comparação com outras pontes](COMPARISON.md)
 - [Registro do trabalho](WORKLOG.md)

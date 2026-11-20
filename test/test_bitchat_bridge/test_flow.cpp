@@ -3,6 +3,7 @@
 #include "PowerStatus.h"
 #include "bridge/BitchatBridgeModule.h"
 #include "bridge/BridgeDefaults.h"
+#include "cashu_vectors.h"
 #include "gcs_reference.h"
 #include <Curve25519.h>
 #include <HKDF.h>
@@ -91,6 +92,29 @@ struct Phone {
     Frame say(const std::string &message) const
     {
         return packet(2, {reinterpret_cast<const uint8_t *>(message.data()), message.size()});
+    }
+    // A long message as the app sends it, compressed (here as stored DEFLATE blocks, which any inflater reads).
+    Frame sayCompressed(const std::string &message) const
+    {
+        std::vector<uint8_t> payload{uint8_t(message.size() >> 8), uint8_t(message.size())};
+        for (size_t at = 0; at < message.size();) {
+            const size_t n = std::min<size_t>(message.size() - at, 1000);
+            const bool last = at + n == message.size();
+            payload.insert(payload.end(), {uint8_t(last), uint8_t(n), uint8_t(n >> 8), uint8_t(~n), uint8_t(~n >> 8)});
+            payload.insert(payload.end(), message.begin() + at, message.begin() + at + n);
+            at += n;
+        }
+        Frame unsignedFrame, canonical, frame;
+        stamp = std::max(stamp + 1, nowUtc());
+        CHECK(encode(2, id, nullptr, stamp, 7, {payload.data(), payload.size()}, {}, unsignedFrame) == Result::Ok);
+        unsignedFrame.data[11] |= 4;
+        CHECK(signingBytes(unsignedFrame.bytes(), canonical) == Result::Ok);
+        std::array<uint8_t, 64> signature;
+        Ed25519::sign(signature.data(), signingKey.data(), signingPublic.data(), canonical.data.data(), canonical.size);
+        CHECK(encode(2, id, nullptr, stamp, 7, {payload.data(), payload.size()}, {signature.data(), signature.size()}, frame) ==
+              Result::Ok);
+        frame.data[11] |= 4;
+        return frame;
     }
     // One write per frame, split at the link MTU as the app does for a stream.
     void write(const Frame &frame, uint16_t link = NO_LINK) const
@@ -188,6 +212,177 @@ static void fromLoRa(NodeNum from, const std::string &message, uint8_t channel =
     packet.decoded.payload.size = uint16_t(message.size());
     memcpy(packet.decoded.payload.bytes, message.data(), message.size());
     bridge->handleReceived(packet);
+}
+
+static std::string token(const char *name)
+{
+    for (const auto &c : TOKENS)
+        if (std::string(c.name) == name)
+            return c.text;
+    CHECK(false);
+    return {};
+}
+// Payment datagrams the bridge sent on the air.
+static std::vector<meshtastic_MeshPacket> payPackets()
+{
+    std::vector<meshtastic_MeshPacket> out;
+    for (const auto &p : fakeRadio)
+        if (p.decoded.portnum == meshtastic_PortNum_PRIVATE_APP && payDatagram({p.decoded.payload.bytes, p.decoded.payload.size}))
+            out.push_back(p);
+    return out;
+}
+static void payFrom(NodeNum from, const PayDatagram &d, NodeNum to = NODENUM_BROADCAST, bool pki = false, uint8_t channel = 1)
+{
+    static uint32_t id = 90000;
+    meshtastic_MeshPacket packet;
+    packet.from = from;
+    packet.to = to;
+    packet.id = ++id;
+    packet.channel = channel;
+    packet.pki_encrypted = pki;
+    packet.decoded.portnum = meshtastic_PortNum_PRIVATE_APP;
+    packet.decoded.payload.size = uint16_t(d.size);
+    memcpy(packet.decoded.payload.bytes, d.data.data(), d.size);
+    bridge->handleReceived(packet);
+}
+
+// Cashu over LoRa: the payer's frames go whole to the other bridges, and come out whole there.
+static void cashuTunnel(const Phone &ana, const Phone &bia, const PeerId &bridgeId)
+{
+    const auto lastSaid = [&]() {
+        const auto lines = chat(bia.handle, &bridgeId);
+        return lines.empty() ? std::string() : lines.back();
+    };
+    const std::string locked = token("B p2pk"), open = token("B plain");
+    fakeRadio.clear();
+    fakeSent.clear();
+    run(30000);
+    const Frame announce = ana.announce();
+    ana.write(announce);
+    run(200);
+    const Frame payment = ana.sayCompressed(locked);
+    ana.write(payment);
+    run(30000);
+    CHECK(radio().empty());
+    CHECK(lastSaid().rfind("[bridge] Levando 10 sat de ana pela LoRa (", 0) == 0);
+    auto parts = payPackets();
+    CHECK(parts.size() == payParts(4 + announce.size + payment.size) && parts.size() > 1);
+    PayReceiver far;
+    PayHeard heard;
+    unsigned complete = 0;
+    for (const auto &p : parts) {
+        CHECK(p.to == NODENUM_BROADCAST && p.channel == 1 && p.decoded.payload.size <= PAY_DATAGRAM);
+        if (far.accept({p.decoded.payload.bytes, p.decoded.payload.size}, 0, heard) && heard.complete) {
+            ++complete;
+            CHECK(heard.announce.size == announce.size && !memcmp(heard.announce.data, announce.data.data(), announce.size));
+            CHECK(heard.message.size == payment.size && !memcmp(heard.message.data, payment.data.data(), payment.size));
+        }
+    }
+    CHECK(complete == 1);
+    // A broadcast answer proves nothing: told as unchecked, after the wait for a better one.
+    PayDatagram ack;
+    uint8_t key[8]{};
+    write32(key, 0x0000beef);
+    makePayAck(heard.id, PayOutcome::Delivered, 2, key, nullptr, ack);
+    payFrom(0x0000beef, ack);
+    run(5000);
+    CHECK(lastSaid().rfind("[bridge] Levando", 0) == 0);
+    // A direct message Meshtastic decrypted with the sender's key names that node at once.
+    strcpy(fakeNodeDB.nodes[0x00005ead].user.long_name, "Casa do Pai");
+    write32(key, 0x00005ead);
+    makePayAck(heard.id, PayOutcome::Delivered, 2, key, nullptr, ack);
+    payFrom(0x00005ead, ack, fakeNodeDB.number, true);
+    run(300);
+    CHECK(lastSaid() == "[bridge] ✓ 10 sat entregue à ponte Casa do Pai (2 cel.). Confirme com quem recebe.");
+
+    // A token anyone may spend stays here: the channel's key is public.
+    fakeRadio.clear();
+    run(4000);
+    ana.write(ana.announce());
+    run(200);
+    ana.write(ana.sayCompressed(open));
+    run(5000);
+    CHECK(payPackets().empty() && radio().empty());
+    CHECK(lastSaid() == "[bridge] Token sem trava P2PK: num canal aberto outros poderiam gastá-lo. Não foi pela LoRa.");
+
+    // Only an unchecked answer: told so after the wait.
+    fakeRadio.clear();
+    run(30000);
+    ana.write(ana.announce());
+    run(200);
+    ana.write(ana.sayCompressed(token("B usd")));
+    run(30000);
+    parts = payPackets();
+    CHECK(!parts.empty());
+    write32(key, 0x0000beef);
+    makePayAck(read32(parts[0].decoded.payload.bytes + 3), PayOutcome::Delivered, 1, key, nullptr, ack);
+    payFrom(0x0000beef, ack);
+    run(16000);
+    CHECK(lastSaid() == "[bridge] ✓? 150 usd entregue, diz a ponte !beef (não conferida). Confirme com quem recebe.");
+
+    // The other end: a payer this radio never met, heard only through LoRa from node 0x4444.
+    Phone rui("rui", 9);
+    fakeSent.clear();
+    fakeRadio.clear();
+    fakeNodeDB.nodes[0x4444].user.public_key.size = 32;
+    const Frame ruiAnnounce = rui.announce(), ruiPayment = rui.sayCompressed(locked);
+    PaySender sender;
+    CHECK(sender.start(0x55667788, ruiAnnounce.bytes(), ruiPayment.bytes(), 0));
+    std::vector<PayDatagram> ruiParts;
+    PayDatagram d;
+    while (sender.next(d))
+        ruiParts.push_back(d);
+    for (size_t i = 1; i < ruiParts.size(); ++i)
+        payFrom(0x4444, ruiParts[i]);
+    run(1000);
+    for (const auto &frame : received(bia.handle)) {
+        Packet p;
+        CHECK(decode({frame.data(), frame.size()}, p) == Result::Ok && p.sender != rui.id);
+    }
+    // Quiet for a while, the bridge asks for what it lacks, on the channel.
+    run(PAY_QUIET_MS + 3000);
+    parts = payPackets();
+    CHECK(parts.size() == 1);
+    PayHeard want;
+    CHECK(readPayAnswer({parts[0].decoded.payload.bytes, parts[0].decoded.payload.size}, want) && want.kind == PayKind::Want &&
+          want.missing == 1 && parts[0].to == NODENUM_BROADCAST);
+    fakeRadio.clear();
+    payFrom(0x4444, ruiParts[0]);
+    run(3000);
+    std::vector<Packet> shown;
+    for (const auto &frame : received(bia.handle)) {
+        Packet p;
+        CHECK(decode({frame.data(), frame.size()}, p) == Result::Ok);
+        if (p.sender == rui.id)
+            shown.push_back(p);
+    }
+    CHECK(shown.size() == 2 && shown[0].type == 1 && shown[1].type == 2 && shown[1].compressed() && shown[1].ttl == 6);
+    CHECK(lastSaid() == "[bridge] 10 sat de rui chegaram pela LoRa. Toque no token para resgatar.");
+    // The answer goes to the payer's bridge as a direct message, which Meshtastic encrypts with PKI.
+    parts = payPackets();
+    CHECK(parts.size() == 1 && parts[0].to == 0x4444);
+    PayHeard told;
+    CHECK(readPayAnswer({parts[0].decoded.payload.bytes, parts[0].decoded.payload.size}, told) && told.kind == PayKind::Ack &&
+          told.id == 0x55667788 && told.outcome == PayOutcome::Delivered && told.node == fakeNodeDB.number);
+    // Without the payer's key, a broadcast.
+    Phone eva("eva", 10);
+    const Frame evaAnnounce = eva.announce(), evaPayment = eva.sayCompressed(locked);
+    PaySender other;
+    CHECK(other.start(0x99, evaAnnounce.bytes(), evaPayment.bytes(), 0));
+    fakeRadio.clear();
+    while (other.next(d))
+        payFrom(0x7777, d);
+    run(3000);
+    parts = payPackets();
+    CHECK(parts.size() == 1 && parts[0].to == NODENUM_BROADCAST);
+    // A token piece without its name, from LoRa text, does not reach Bitchat.
+    fakeSent.clear();
+    fromLoRa(0x1234, open.substr(40, 120));
+    fromLoRa(0x1234, "pague com " + open.substr(0, 100));
+    run(1000);
+    CHECK(chat(bia.handle, &bridgeId).empty());
+    fakeRadio.clear();
+    fakeSent.clear();
 }
 
 int main()
@@ -552,6 +747,12 @@ int main()
         CHECK(guide.size() == before + 2 * GUIDE_LINES && guide[before + GUIDE_LINES].rfind("[bridge] Guide 1/4:", 0) == 0 &&
               radio().empty());
     }
+    // Payments, after the counts above: they bring people from afar.
+    cashuTunnel(ana, bia, bridgeId);
+    // The three-line self-test again, which the next check counts on.
+    fakeApp.clear();
+    fromLoRa(0, "!bridge");
+    run(100);
     // Reset from the owner's app: phones are told to read the services again,
     // then every link is dropped.
     const size_t dropsBefore = server.disconnected.size();

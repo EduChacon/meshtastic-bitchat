@@ -30,7 +30,7 @@ struct meshtastic_MeshPacket {
         } payload;
     } decoded;
     uint32_t id = 0;
-    bool want_ack = false, via_mqtt = false;
+    bool want_ack = false, via_mqtt = false, pki_encrypted = false;
     float rx_snr = 0;
     int32_t rx_rssi = 0;
     uint8_t hop_limit = 3, hop_start = 3;
@@ -98,6 +98,10 @@ struct meshtastic_NodeInfoLite {
     bool has_user = true;
     struct {
         char long_name[40]{};
+        struct {
+            uint16_t size = 0;
+            uint8_t bytes[32]{};
+        } public_key;
     } user;
     float snr = 0;
     uint32_t last_heard = 0;
@@ -141,6 +145,12 @@ struct Config {
     struct {
         bool is_power_saving = false;
     } power;
+    struct {
+        struct {
+            uint16_t size = 32;
+            uint8_t bytes[32]{};
+        } private_key;
+    } security;
 };
 inline Config config;
 

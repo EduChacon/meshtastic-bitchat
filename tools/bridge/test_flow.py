@@ -5,6 +5,7 @@ import argparse
 import json
 import os
 import subprocess
+import sys
 import tempfile
 from pathlib import Path
 
@@ -18,6 +19,11 @@ if json.loads((crypto / "library.json").read_text()).get("version") != "0.4.0":
 
 with tempfile.TemporaryDirectory(prefix="bridge-flow-") as directory:
     binary = Path(directory) / "flow-tests"
+    # Cashu tokens and DEFLATE streams for the payment tests, made by the same script as the MeshCore bridge's.
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    import cashu_vectors
+
+    cashu_vectors.header(Path(directory) / "cashu_vectors.h")
     subprocess.run(
         [
             os.environ.get("CXX", "clang++"),
@@ -33,6 +39,7 @@ with tempfile.TemporaryDirectory(prefix="bridge-flow-") as directory:
             "-Wextra",
             "-Wno-unused-parameter",
             "-DMESHTASTIC_ENABLE_BITCHAT=1",
+            "-I" + str(directory),
             "-I" + str(tests / "flow_stubs"),
             "-I" + str(tests / "stubs"),
             "-I" + str(root / "src"),
@@ -43,9 +50,13 @@ with tempfile.TemporaryDirectory(prefix="bridge-flow-") as directory:
                 for name in (
                     "BitchatBridgeModule.cpp",
                     "BridgeBle.cpp",
+                    "BridgeCashu.cpp",
                     "BridgeCodec.cpp",
                     "BridgeDiagnostics.cpp",
                     "BridgeHistory.cpp",
+                    "BridgeInflate.cpp",
+                    "BridgePayTunnel.cpp",
+                    "BridgePayments.cpp",
                     "BridgeState.cpp",
                     "BridgeText.cpp",
                     "BridgeTunnel.cpp",

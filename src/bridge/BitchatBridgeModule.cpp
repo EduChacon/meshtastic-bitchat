@@ -1617,6 +1617,8 @@ bool BitchatBridgeModule::handleFrame(Bytes frame, uint16_t source, bool fromTun
     }
     if (fromTunnel)
         return true;
+    if (packet.type == 1 && !peer->announcement.gateway)
+        rememberAnnounce(packet, frame);
     // A phone that arrives, announcing itself directly to this radio, is given the house note.
     if (packet.type == 1 && packet.ttl == 7 && note.text[0] && !peer->announcement.gateway)
         deliverNote(packet, source);
@@ -1628,6 +1630,9 @@ bool BitchatBridgeModule::handleFrame(Bytes frame, uint16_t source, bool fromTun
         answerAsked(asked, *peer, packet.ttl == 7 && source != NO_LINK, now);
         return true;
     }
+    // A Cashu token travels whole by its own way, or not at all: never as text, never in pieces.
+    if (publicMessage && !peer->announcement.gateway && carryCashu(packet, frame, *peer, id))
+        return true;
     // Like any phone that stays in the house, the bridge keeps what it heard for whoever arrives later. The
     // newcomer shows a message only if it has met the author before: the app accepts a peer's announce for
     // fifteen minutes and then relies on the identities it remembers.
@@ -1667,6 +1672,9 @@ void BitchatBridgeModule::exportText(const Packet &packet, Peer &peer, const Dig
         result = publicTextForLoRa(packet, body);
     }
     if (result == Result::Ok && textConflict)
+        result = Result::Policy;
+    // A token never goes to LoRa as text, whoever brought it: only whole, by the payment tunnel.
+    if (result == Result::Ok && mentionsCashu(packet.payload))
         result = Result::Policy;
     if (result == Result::Ok && seen(id))
         result = Result::Duplicate;
@@ -1719,10 +1727,21 @@ ProcessMessage BitchatBridgeModule::handleReceived(const meshtastic_MeshPacket &
 
 ProcessMessage BitchatBridgeModule::accept(const meshtastic_MeshPacket &packet)
 {
-    if (!wantPacket(&packet) || packet.to != NODENUM_BROADCAST || packet.via_mqtt ||
-        packet.which_payload_variant != meshtastic_MeshPacket_decoded_tag)
+    if (!wantPacket(&packet) || packet.via_mqtt || packet.which_payload_variant != meshtastic_MeshPacket_decoded_tag)
         return ProcessMessage::CONTINUE;
     Bytes payload{packet.decoded.payload.bytes, packet.decoded.payload.size};
+    // Cashu payments between bridges: parts and wants on the text channel, answers also as direct messages.
+    if (packet.decoded.portnum == meshtastic_PortNum_PRIVATE_APP && payDatagram(payload) && !isFromUs(&packet)) {
+        const bool direct = packet.to == nodeDB->getNodeNum();
+        if (settings.enabled && runtime && wasActive && identityReady && utc() && (direct || packet.to == NODENUM_BROADCAST)) {
+            refreshChannels();
+            if (textReady && !textConflict && (direct || packet.channel == settings.textChannel))
+                payData(getFrom(&packet), direct, packet.pki_encrypted, payload);
+        }
+        return ProcessMessage::CONTINUE;
+    }
+    if (packet.to != NODENUM_BROADCAST)
+        return ProcessMessage::CONTINUE;
     if (packet.decoded.portnum == meshtastic_PortNum_TEXT_MESSAGE_APP) {
         BridgeRequest request;
         // Only the attached app's text has from 0; a packet on the air may carry this radio's own number.
@@ -1777,6 +1796,12 @@ ProcessMessage BitchatBridgeModule::accept(const meshtastic_MeshPacket &packet)
         // With no phone connected the text is still signed and kept, for whoever arrives in the next hours.
         if (!blePhones() && !BITCHAT_HISTORY_ENTRIES)
             return ProcessMessage::CONTINUE;
+        // A token cut to fit LoRa text is useless and looks like money, and its later pieces no longer
+        // carry its name: tokens cross only whole, by the payment tunnel.
+        if (tokenLike(payload)) {
+            reject(Result::Policy);
+            return ProcessMessage::CONTINUE;
+        }
         std::array<uint8_t, 42> material{};
         material[0] = 'M';
         material[1] = 'T';
@@ -1858,6 +1883,13 @@ ProcessMessage BitchatBridgeModule::accept(const meshtastic_MeshPacket &packet)
 void BitchatBridgeModule::sendRadio()
 {
     auto *item = runtime->radioQueue.front();
+    // A payment's answer goes first, and its parts when no text waits: the payer's two minutes are running.
+    if ((!item || (runtime->pay && runtime->pay->control.size())) && payDue()) {
+        if (airTime && airTime->isTxAllowedAirUtil() && airTime->isTxAllowedChannelUtil(true) &&
+            runtime->radioGate.admit(millis(), 1500))
+            sendPay();
+        return;
+    }
     if (!item)
         return;
     if (!Throttle::isWithinTimespanMsAt(item->queuedAt, RADIO_DEADLINE_MS, millis()) ||
@@ -2013,6 +2045,7 @@ int32_t BitchatBridgeModule::work()
         if (!tunnelReady || runtime->tunnelFragments->empty())
             runtime->tunnelFragments.reset();
     }
+    watchPayment(now);
     sendRadio();
     return 20;
 }

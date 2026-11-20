@@ -4,6 +4,7 @@
 #include "bridge/BridgeHistory.h"
 #include "bridge/BridgeState.h"
 #include "bridge/BridgeText.h"
+#include "bridge/BridgePayTunnel.h"
 #include "bridge/BridgeTunnel.h"
 #include <NimBLEDevice.h>
 #include <cstdio>

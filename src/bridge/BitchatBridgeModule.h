@@ -1,8 +1,10 @@
 #pragma once
 #ifdef MESHTASTIC_ENABLE_BITCHAT
 #include "BridgeBle.h"
+#include "BridgeCashu.h"
 #include "BridgeCrypto.h"
 #include "BridgeHistory.h"
+#include "BridgePayTunnel.h"
 #include "BridgeState.h"
 #include "BridgeText.h"
 #include "BridgeTunnel.h"
@@ -106,6 +108,22 @@ class BitchatBridgeModule : public MeshModule, private concurrency::OSThread
         uint32_t answeredAt = 0;
         bool answered = false;
     } rangeTest;
+    // The payment this radio is taking over LoRa, for telling the payer how it went.
+    struct Payment {
+        uint32_t id = 0, at = 0, answeredAt = 0, signedAt = 0, heldAt = 0;
+        uint64_t amount = 0;
+        char unit[13]{};
+        char payer[bitchat::LABEL_LIMIT + 1]{};
+        bool waiting = false, answered = false, holding = false, trusted = false;
+        // The best answer so far: a delivery a known node sent by direct message ends the wait at once.
+        bitchat::PayOutcome outcome = bitchat::PayOutcome::Delivered;
+        uint8_t phones = 0, rank = 0;
+        uint32_t node = 0;
+        char bridge[15]{};
+        bitchat::PeerId sender{};
+        bitchat::Digest messageId{};
+    } payment;
+    bitchat::RateGate paymentReplies;
     bool wasActive = false;
     bool textConflict = false;
     uint32_t textGuardAt = 0, conflictAt = 0, channelsAt = 0, announcedAt = 0, defaultChannelAt = 0;
@@ -153,6 +171,30 @@ class BitchatBridgeModule : public MeshModule, private concurrency::OSThread
         };
         std::array<Delivered, 8> delivered{};
         bitchat::BoundedQueue<RadioItem, RadioItem::QUEUE> radioQueue;
+        // Payments: allocated when the first phone announces, so a bridge without phones does not pay for it.
+        struct Announced {
+            bitchat::PeerId peer{};
+            uint16_t size = 0;
+            uint32_t at = 0;
+            std::array<uint8_t, 320> frame{};
+        };
+        struct PayItem {
+            bitchat::PayDatagram datagram;
+            uint32_t to = 0xffffffff;
+        };
+        struct PayState {
+            // The latest announce of a few phones, as they sent it: a payment carries its payer's along.
+            std::array<Announced, 3> announced{};
+            // Confirmations and requests for missing parts, sent before anything else; `to` is a node for
+            // an ack sent as a direct message.
+            bitchat::BoundedQueue<PayItem, 3> control;
+        };
+        std::unique_ptr<PayState> pay;
+        std::unique_ptr<bitchat::PaySender> payOut;
+        std::unique_ptr<bitchat::PayReceiver> payIn;
+        // A payment waiting for its payer's next announce.
+        std::unique_ptr<bitchat::Frame> held;
+
         bitchat::RateGate radioGate, cryptoGate;
         bitchat::BleInput input;
         bitchat::Frame assembled, working, canonical;
@@ -206,6 +248,21 @@ class BitchatBridgeModule : public MeshModule, private concurrency::OSThread
     void refreshChannels();
     bool handleFrame(bitchat::Bytes frame, uint16_t source, bool fromTunnel);
     void exportText(const bitchat::Packet &packet, bitchat::Peer &peer, const bitchat::Digest &id);
+    // Cashu payments over LoRa, in BridgePayments.cpp.
+    void rememberAnnounce(const bitchat::Packet &packet, bitchat::Bytes frame);
+    bool carryCashu(const bitchat::Packet &packet, bitchat::Bytes frame, const bitchat::Peer &peer, const bitchat::Digest &id);
+    bool channelPrivate() const;
+    void payData(uint32_t from, bool direct, bool pki, bitchat::Bytes data);
+    void deliverPayment(const bitchat::PayHeard &heard, uint32_t from);
+    bitchat::PayOutcome checkPayment(const bitchat::PayHeard &heard, uint64_t &amount, char *unit, size_t unitSize, char *payer,
+                                     size_t payerSize);
+    void startPayment(bitchat::Bytes announce, bitchat::Bytes message);
+    void paymentAnswered(const bitchat::PayHeard &heard, uint32_t from, bool pki, uint32_t now);
+    void watchPayment(uint32_t now);
+    void reportPayment();
+    bool sendPay();
+    bool payDue() const;
+    void say(const char *text);
     bool textGuard() const;
     void originate(uint8_t type, bitchat::Bytes payload, bool keep = false);
     void answerSync(const bitchat::Packet &packet, uint16_t source);

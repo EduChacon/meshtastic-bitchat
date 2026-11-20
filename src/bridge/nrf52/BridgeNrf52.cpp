@@ -37,7 +37,8 @@ struct Slot {
 Slot slots[3];
 BLEService bridgeService;
 BLECharacteristic bridgeValue;
-uint8_t valueBytes[244];
+// One whole padded private packet (256 bytes) per write: ATT MTU 260 less the 3-byte header.
+uint8_t valueBytes[257];
 NimBLEServer shimServer;
 NimBLEService shimService;
 NimBLECharacteristic shimValue;

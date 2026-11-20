@@ -363,6 +363,13 @@ do núcleo, 8109 dos pagamentos, 223 do Noise e 2850 de fluxo; memória inicial 
 bytes (29 368 com as conversas privadas); ensaio do GitHub aprovado (T1000-E com e sem ponte e
 ESP32). Não ligado em aparelho.
 
+Vigésimo quinto passo. Na ponte MeshCore, a conversa privada com um T1000-E não abriu em aparelho
+(cadeado vermelho no Bitchat), enquanto a de um ESP32 abriu. Pelo código do Bitchat para iPhone, um
+pacote privado (completado até 256 bytes) maior que o envio do link é dividido em pedaços 1 byte
+maiores que o limite, que não chegam. ATT MTU do T1000-E de 247 para 260; o buffer de eventos do
+Bluefruit, dimensionado para o pior evento com MTU 247, comporta uma escrita de 257 bytes. Versão
+`1.0.0-beta.18`. Não ligado em aparelho.
+
 ## Investigação de boot — 2026-11-13
 
 As instalações foram suspensas nos dois READMEs e nas pré-releases, preservando os arquivos

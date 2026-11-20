@@ -300,7 +300,11 @@ void NRF52Bluetooth::setup()
 #ifdef MESHTASTIC_ENABLE_BITCHAT
     // A second link lets a Bitchat phone find and reach the bridge while the Meshtastic app holds the first.
     // Two links share the radio, so each reserves 7.5 ms per event and extends it when the radio is free.
-    Bluefruit.configPrphConn(247, 6, 3, 3);
+    // ATT MTU 260: the Bitchat apps pad every private packet to 256 bytes, and an iPhone cuts a packet larger than
+    // a write into fragments one byte too large for the link (its overhead counts a 13-byte header; the header
+    // has 14), which never arrive. With 257 bytes per write those packets go whole. Bluefruit sizes its event
+    // buffer for the worst event at MTU 247 (about 500 bytes), which a 257-byte write still fits.
+    Bluefruit.configPrphConn(260, 6, 3, 3);
     Bluefruit.configAttrTableSize(0x1400);
     Bluefruit.begin(2, 0);
 #else

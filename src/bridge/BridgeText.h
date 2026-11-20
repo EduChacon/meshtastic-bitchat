@@ -62,7 +62,9 @@ enum class Command : uint8_t {
     Battery,
     Radios,
     Sos,
-    Test
+    Test,
+    DirectOn,
+    DirectOff
 };
 // A command and what follows it. Portuguese when "!ponte" or a Portuguese word was used; for "note" and
 // "sos" the argument is the rest of the text, in its own letter case.

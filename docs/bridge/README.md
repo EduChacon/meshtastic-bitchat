@@ -13,6 +13,8 @@ em uma sessão; os documentos dizem, em cada ponto, o que foi apenas simulado ou
   sem ensaio em aparelho.
 - [O que mudou na 1.0](CHANGES.md): mudanças desde a `experimental.5`, motivos, limites e
   custos assumidos.
+- [Conversa privada com a ponte e mensagens privadas pelo LoRa](PRIVATE.md), experimental, a partir
+  da `1.0.0-beta.17`.
 
 ## Para instalar
 

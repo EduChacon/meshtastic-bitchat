@@ -184,7 +184,11 @@ bool parseBridgeCommand(Bytes text, BridgeRequest &out)
                    {"bateria", Command::Battery, true},
                    {"radios", Command::Radios, false},
                    {"test", Command::Test, false},
-                   {"teste", Command::Test, true}};
+                   {"teste", Command::Test, true},
+                   {"dm on", Command::DirectOn, false},
+                   {"dm off", Command::DirectOff, false},
+                   {"privado on", Command::DirectOn, true},
+                   {"privado off", Command::DirectOff, true}};
     for (const auto &choice : choices)
         if (!std::strcmp(word, choice.word)) {
             out.command = choice.command;

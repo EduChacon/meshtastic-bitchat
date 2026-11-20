@@ -117,6 +117,77 @@ def main():
     ]
     subprocess.run(cashu, check=True)
     subprocess.run([str(build / "cashu-tests")], check=True)
+    # Private chats: the bridge's Noise against an independent implementation's transcripts, the same tests as
+    # the MeshCore bridge's (tools/bridge/noise_vectors.py made test/test_bitchat_bridge/noise_vectors.json).
+    noise_header(root, build)
+    noise = [
+        c for c in command if not c.endswith(".cpp") and c not in ("-o", str(binary))
+    ]
+    noise += [
+        str(root / "src/bridge" / f) for f in ("BridgeCodec.cpp", "BridgeNoise.cpp")
+    ]
+    noise += [
+        str(crypto / (name + ".cpp"))
+        for name in (
+            "Crypto",
+            "Hash",
+            "SHA256",
+            "BigNumberUtil",
+            "Curve25519",
+            "Cipher",
+            "AuthenticatedCipher",
+            "ChaCha",
+            "ChaChaPoly",
+            "Poly1305",
+        )
+    ]
+    noise += [
+        str(root / "test/test_bitchat_bridge/test_noise.cpp"),
+        "-o",
+        str(build / "noise-tests"),
+    ]
+    subprocess.run(noise, check=True)
+    subprocess.run([str(build / "noise-tests")], check=True)
+
+
+def noise_header(root, build):
+    """The reference transcripts as a C++ table."""
+    cases = json.loads(
+        (root / "test/test_bitchat_bridge/noise_vectors.json").read_text()
+    )["cases"]
+    lines = [
+        "#pragma once",
+        "#include <cstddef>",
+        "struct NoiseStep { const char *from; const char *plain; const char *wire; };",
+        "struct NoiseVector { const char *name; const char *initiatorStatic; const char *initiatorEphemeral;",
+        "    const char *responderStatic; const char *responderEphemeral; const char *initiatorPublic;",
+        "    const char *responderPublic; const char *message1; const char *message2; const char *message3;",
+        "    const NoiseStep *transport; size_t transportCount; };",
+    ]
+    for index, case in enumerate(cases):
+        steps = ",".join(
+            "{" + ",".join(json.dumps(step[k]) for k in ("from", "plain", "wire")) + "}"
+            for step in case["transport"]
+        )
+        lines.append(f"static const NoiseStep NOISE_STEPS_{index}[] = {{{steps}}};")
+    lines.append("static const NoiseVector NOISE_VECTORS[] = {")
+    keys = (
+        "name",
+        "initiator_static",
+        "initiator_ephemeral",
+        "responder_static",
+        "responder_ephemeral",
+        "initiator_public",
+        "responder_public",
+        "message1",
+        "message2",
+        "message3",
+    )
+    for index, case in enumerate(cases):
+        fields = ",".join(json.dumps(case[k]) for k in keys)
+        lines.append(f"{{{fields},NOISE_STEPS_{index},{len(case['transport'])}}},")
+    lines.append("};")
+    (build / "noise_vectors.h").write_text("\n".join(lines) + "\n")
 
 
 if __name__ == "__main__":

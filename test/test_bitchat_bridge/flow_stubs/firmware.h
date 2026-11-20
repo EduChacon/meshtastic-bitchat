@@ -98,6 +98,7 @@ struct meshtastic_NodeInfoLite {
     bool has_user = true;
     struct {
         char long_name[40]{};
+        char short_name[5]{};
         struct {
             uint16_t size = 0;
             uint8_t bytes[32]{};

@@ -1,14 +1,28 @@
-# Meshtastic ↔ Bitchat 1.0.0-beta.16
+# Meshtastic ↔ Bitchat 1.0.0-beta.17
 
 **Versão beta, com um aparelho relatado em funcionamento na versão anterior.** Em um Heltec V3
 com Bitchat iOS 1.8.0, a `1.0.0-beta.4` teve o telefone reconhecido (`Phones 1/1`, `People 2`)
 e texto nos dois sentidos (`LoRa out 2 in 1`); o relatório `!bridge` dessa sessão mostrou o
 caminho novo em uso: `path 9`, `in 230 out 59`, `wr 0`. É uma sessão em um aparelho, sem ensaio
-de duração. **As mudanças da `1.0.0-beta.5` à `1.0.0-beta.16` foram simuladas e compiladas, sem ensaio
+de duração. **As mudanças da `1.0.0-beta.5` à `1.0.0-beta.17` foram simuladas e compiladas, sem ensaio
 em aparelho.** Os outros nove alvos foram apenas compilados. Fazer backup privado antes de
 instalar. Não há garantia de risco zero.
 
-**O que a `1.0.0-beta.16` muda em relação à `1.0.0-beta.15`:** pagamentos Cashu pelo LoRa,
+**O que a `1.0.0-beta.17` muda em relação à `1.0.0-beta.16`:** conversas privadas, experimentais.
+
+- **Conversa privada com a ponte.** No Bitchat, a ponte aparece na lista de pessoas; numa conversa
+  privada com ela basta a palavra (`bateria`, `quem`, `guia`, `teste`, `recado`, `sos`, ou `ponte` para
+  o estado), e a resposta sai só ali. As regras são as do chat público. Criptografia Noise, a mesma das
+  conversas entre telefones, conferida byte a byte com uma implementação independente.
+- **Mensagens privadas pelo LoRa.** Na conversa com a ponte, `@nome texto` vai como mensagem direta
+  cifrada (PKI) ao nó Meshtastic desse nome, como `[Bitchat apelido] texto`, e a resposta do nó volta
+  à conversa como `[MT nome] texto`; se o telefone estiver longe, a ponte guarda a resposta por até
+  24 horas e a entrega quando ele voltar. A ponte lê o texto (não é ponta a ponta), e o aplicativo
+  Meshtastic do dono continua vendo todas as mensagens diretas do rádio. O dono desliga com
+  `!bridge dm off`. [Guia](https://github.com/EduChacon/meshtastic-bitchat/blob/v1.0.0-beta.17/docs/bridge/PRIVATE.md).
+- **Só simulado e compilado:** 223 verificações da criptografia e 2612 do fluxo completo.
+
+**O que a `1.0.0-beta.16` mudou em relação à `1.0.0-beta.15`:** pagamentos Cashu pelo LoRa,
 experimentais.
 
 - **Um token Cashu colado no chat público do Bitchat vai, inteiro, até as outras pontes do mesmo

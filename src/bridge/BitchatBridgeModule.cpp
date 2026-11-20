@@ -383,6 +383,26 @@ bool BitchatBridgeModule::setLink(bool value)
     link = value;
     return true;
 }
+bool BitchatBridgeModule::directMessages()
+{
+    if (directSetting < 0) {
+        uint8_t stored = 1;
+        if (storageReady && storage.isKey("dm") && storage.getBytesLength("dm") == 1)
+            storage.getBytes("dm", &stored, 1);
+        directSetting = stored != 0;
+    }
+    return directSetting != 0;
+}
+
+bool BitchatBridgeModule::setDirectMessages(bool value)
+{
+    const uint8_t stored = value;
+    if (!storageReady || storage.putBytes("dm", &stored, 1) != 1)
+        return false;
+    directSetting = value;
+    return true;
+}
+
 bool BitchatBridgeModule::setPrefixOnly(bool value)
 {
     settings.reserved[1] = value;
@@ -608,6 +628,8 @@ void BitchatBridgeModule::answerApp()
                    "link on, link off, economy on, economy off, reset, who, guide. Portuguese: !ponte quem, guia.");
         replyToApp("[bridge] Also: prefix on, prefix off (only text starting with !lora goes to LoRa), note <text>, note off, "
                    "battery, radios, sos <text>, test. Portuguese: !ponte recado, bateria, radios, sos, teste.");
+        replyToApp("[bridge] dm on, dm off (!ponte privado on/off): Bitchat private chat with the bridge, @name text to a "
+                   "node and its answer back.");
         return;
     }
     if (command == Command::Guide || command == Command::GuidePt) {
@@ -695,6 +717,20 @@ void BitchatBridgeModule::answerApp()
                              : "[bridge] Battery saver off.");
         return;
     }
+    if (command == Command::DirectOn || command == Command::DirectOff) {
+        const bool value = command == Command::DirectOn;
+        if (!setDirectMessages(value))
+            replyToApp(appPortuguese ? "[bridge] Não mudou: erro de memória." : "[bridge] Not changed: Storage error");
+        else if (appPortuguese)
+            replyToApp(value ? "[bridge] Mensagens privadas pelo LoRa ligadas: no chat privado com a ponte, @nome texto "
+                               "vai a esse nó, e a resposta volta ao telefone."
+                             : "[bridge] Mensagens privadas pelo LoRa desligadas.");
+        else
+            replyToApp(value ? "[bridge] Direct messages on: in the private chat with the bridge, @name text goes to "
+                               "that node, and the answer comes back to the phone."
+                             : "[bridge] Direct messages off.");
+        return;
+    }
     if (command == Command::LinkOn || command == Command::LinkOff) {
         const bool value = command == Command::LinkOn;
         if (!setLink(value))
@@ -779,6 +815,10 @@ void BitchatBridgeModule::answerBitchat()
     displayCount(drops(), missed);
     const int size = snprintf(text, sizeof(text), "%s%s. Phones %u, people %u. LoRa out %s, in %s, lost %s", REPLY_PREFIX,
                               status(), unsigned(blePhones()), unsigned(runtime->peers->size()), tx, rx, missed);
+    if (privateReply) {
+        replyPrivately(text, std::min<size_t>(size, BITCHAT_TEXT_LIMIT));
+        return;
+    }
     if (!Throttle::isWithinTimespanMsAt(announcedAt, 5000, millis()))
         announce();
     originate(2, {reinterpret_cast<const uint8_t *>(text), std::min<size_t>(size, BITCHAT_TEXT_LIMIT)});
@@ -792,12 +832,15 @@ GuideMode BitchatBridgeModule::guideMode() const
 // The guide asked from Bitchat, for people who never see the radio's own app.
 void BitchatBridgeModule::guideBitchat(bool portuguese)
 {
-    if (!Throttle::isWithinTimespanMsAt(announcedAt, 5000, millis()))
+    if (!privateReply && !Throttle::isWithinTimespanMsAt(announcedAt, 5000, millis()))
         announce();
     for (size_t line = 0; line < GUIDE_LINES; ++line) {
         char text[BITCHAT_TEXT_LIMIT + 1];
         const int size = snprintf(text, sizeof(text), "%s%s", REPLY_PREFIX, guideLine(portuguese, false, guideMode(), line));
-        originate(2, {reinterpret_cast<const uint8_t *>(text), std::min<size_t>(size, BITCHAT_TEXT_LIMIT)});
+        if (privateReply)
+            replyPrivately(text, std::min<size_t>(size, BITCHAT_TEXT_LIMIT));
+        else
+            originate(2, {reinterpret_cast<const uint8_t *>(text), std::min<size_t>(size, BITCHAT_TEXT_LIMIT)});
     }
 }
 
@@ -811,6 +854,10 @@ void BitchatBridgeModule::tellBitchat(const char *text, size_t size, bool keep)
 {
     if (!runtime || !identityReady)
         return;
+    if (privateReply) {
+        replyPrivately(text, size);
+        return;
+    }
     char line[BITCHAT_TEXT_LIMIT + 1];
     const size_t length = fitted(snprintf(line, sizeof(line), "%s%.*s", REPLY_PREFIX, int(size), text), sizeof(line));
     if (!Throttle::isWithinTimespanMsAt(announcedAt, 5000, millis()))
@@ -852,8 +899,10 @@ void BitchatBridgeModule::answerAsked(const BridgeRequest &asked, const Peer &pe
     const size_t room = sizeof(text) - (sizeof(REPLY_PREFIX) - 1);
     size_t size = 0;
     if (asked.command == Command::Guide || asked.command == Command::GuidePt) {
-        if (!Throttle::isWithinTimespanMsAt(guidedAt, 30000, now)) {
-            guidedAt = now;
+        // In a private chat the guide goes to the one who asked, every time.
+        if (privateReply || !Throttle::isWithinTimespanMsAt(guidedAt, 30000, now)) {
+            if (!privateReply)
+                guidedAt = now;
             guideBitchat(asked.command == Command::GuidePt);
         }
         return;
@@ -863,9 +912,11 @@ void BitchatBridgeModule::answerAsked(const BridgeRequest &asked, const Peer &pe
     const bool urgent = asked.command == Command::Sos && textReady && !textConflict && !textGuard() &&
                         runtime->radioQueue.size() < RadioItem::QUEUE &&
                         !(sosSent && Throttle::isWithinTimespanMsAt(sosAt, SOS_EVERY_MS, now));
-    if (!urgent && Throttle::isWithinTimespanMsAt(repliedAt, 5000, now))
+    // A private chat has its own spacing (BridgePrivate.cpp).
+    if (!urgent && !privateReply && Throttle::isWithinTimespanMsAt(repliedAt, 5000, now))
         return;
-    repliedAt = now;
+    if (!privateReply)
+        repliedAt = now;
     char label[LABEL_LIMIT + 8];
     switch (asked.command) {
     case Command::Who:
@@ -1186,6 +1237,9 @@ size_t BitchatBridgeModule::startRangeTest(bool portuguese, bool fromApp, char *
     rangeTest.at = now;
     rangeTest.pending = true;
     rangeTest.fromApp = fromApp;
+    rangeTest.privately = !fromApp && privateReply;
+    if (privateReply)
+        rangeTest.asker = privateReply->peer;
     rangeTest.portuguese = portuguese;
     rangeTest.channel = appChannel;
     rangeTest.answers = 0;
@@ -1251,6 +1305,14 @@ void BitchatBridgeModule::reportRangeTest(const char *text)
         appChannel = rangeTest.channel;
         replyToApp(line);
         appChannel = asked;
+    } else if (rangeTest.privately) {
+        // Back to the private chat it was asked in; never to the public one.
+        PrivateSession *session = runtime ? privateSession(rangeTest.asker, millis(), false) : nullptr;
+        if (session && session->ready) {
+            privateReply = session;
+            tellBitchat(text, strlen(text));
+            privateReply = nullptr;
+        }
     } else {
         tellBitchat(text, strlen(text));
     }
@@ -1326,17 +1388,23 @@ bool BitchatBridgeModule::record(const Digest &id, bool persist)
     return false;
 }
 
+// Two messages in the same instant still need distinct timestamps; a corrected clock must not keep an old lead.
+uint64_t BitchatBridgeModule::nextTimestamp()
+{
+    uint64_t timestamp = utc();
+    if (lastOriginTimestamp >= timestamp && lastOriginTimestamp - timestamp < 1000)
+        timestamp = lastOriginTimestamp + 1;
+    lastOriginTimestamp = timestamp;
+    return timestamp;
+}
+
 bool BitchatBridgeModule::sign(uint8_t type, Bytes payload, uint8_t ttl)
 {
     if (!identityReady || !utc()) {
         reject(Result::NoClock);
         return false;
     }
-    // Two messages in the same instant still need distinct timestamps; a corrected clock must not keep an old lead.
-    uint64_t timestamp = utc();
-    if (lastOriginTimestamp >= timestamp && lastOriginTimestamp - timestamp < 1000)
-        timestamp = lastOriginTimestamp + 1;
-    lastOriginTimestamp = timestamp;
+    const uint64_t timestamp = nextTimestamp();
     if (encode(type, ownId, nullptr, timestamp, ttl, payload, {}, runtime->working) != Result::Ok ||
         signingBytes(runtime->working.bytes(), runtime->canonical) != Result::Ok)
         return false;
@@ -1609,6 +1677,12 @@ bool BitchatBridgeModule::handleFrame(Bytes frame, uint16_t source, bool fromTun
         ++lost;
         return true;
     }
+    // Addressed to this bridge: a private chat, from a phone nearby only. Never passed on, never tunneled.
+    if (packet.directed() && packet.recipient == ownId) {
+        if (!fromTunnel && (packet.type == 0x10 || packet.type == 0x11))
+            privateFrame(packet, *peer, source, now);
+        return true;
+    }
     if (fromTunnel && packet.type != 1 && !record(id)) {
         reject(Result::Duplicate);
         return true;
@@ -1619,8 +1693,11 @@ bool BitchatBridgeModule::handleFrame(Bytes frame, uint16_t source, bool fromTun
     }
     if (fromTunnel)
         return true;
-    if (packet.type == 1 && !peer->announcement.gateway)
+    if (packet.type == 1 && !peer->announcement.gateway) {
         rememberAnnounce(packet, frame);
+        // A phone with LoRa mail waiting: the bridge opens the private chat to deliver it.
+        phoneArrived(packet.sender, now);
+    }
     // A phone that arrives, announcing itself directly to this radio, is given the house note.
     if (packet.type == 1 && packet.ttl == 7 && note.text[0] && !peer->announcement.gateway)
         deliverNote(packet, source);
@@ -1740,6 +1817,14 @@ ProcessMessage BitchatBridgeModule::accept(const meshtastic_MeshPacket &packet)
             if (textReady && !textConflict && (direct || packet.channel == settings.textChannel))
                 payData(getFrom(&packet), direct, packet.pki_encrypted, payload);
         }
+        return ProcessMessage::CONTINUE;
+    }
+    // A direct message to this node: perhaps an answer for a Bitchat phone (stage 2). The owner's app gets it as
+    // always.
+    if (packet.to == nodeDB->getNodeNum() && packet.from != 0 && !isFromUs(&packet) &&
+        packet.decoded.portnum == meshtastic_PortNum_TEXT_MESSAGE_APP) {
+        if (settings.enabled && runtime && wasActive && identityReady && utc())
+            directFromLoRa(getFrom(&packet), payload);
         return ProcessMessage::CONTINUE;
     }
     if (packet.to != NODENUM_BROADCAST)

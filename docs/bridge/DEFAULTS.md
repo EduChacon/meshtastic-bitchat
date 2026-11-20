@@ -55,9 +55,18 @@ automaticamente: corrigir essas opções pelo aplicativo Meshtastic.
    - texto no `#mesh` aparece no canal como `apelido: texto`.
 
 No sentido do LoRa, texto com mais de 200 bytes é dividido em até três partes; no sentido do
-Bitchat, texto com 100 bytes ou mais chega em até cinco partes curtas. DMs, grupos privados, posição,
-credenciais, telemetria, arquivos e voz não são traduzidos. O túnel de laboratório exige
-ativação separada e não é necessário para a conversa entre Bitchat e Meshtastic.
+Bitchat, texto com 100 bytes ou mais chega em até cinco partes curtas. Mensagens privadas entre
+telefones, grupos privados, posição, credenciais, telemetria, arquivos e voz não são traduzidos. A
+partir da `1.0.0-beta.17`, a conversa privada com a própria ponte e o `@nome texto` dentro dela levam
+mensagens diretas a nós Meshtastic e trazem as respostas ([guia](PRIVATE.md)). O túnel de laboratório
+exige ativação separada e não é necessário para a conversa entre Bitchat e Meshtastic.
+
+## Mensagens privadas pelo LoRa
+
+Ligadas por padrão. No aplicativo Meshtastic do rádio da ponte: `!bridge dm off` (ou
+`!ponte privado off`) desliga, `!bridge dm on` religa; a escolha fica gravada. Desligadas, a conversa
+privada com a ponte continua respondendo aos comandos, mas `@nome texto` é recusado e as mensagens
+diretas recebidas ficam só com o dono do rádio. Detalhes em [PRIVATE.md](PRIVATE.md).
 
 ## Canal comum e canal próprio
 

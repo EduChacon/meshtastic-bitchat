@@ -133,6 +133,8 @@ class PeerTable
     Peer *find(const PeerId &id);
     size_t size() const;
     bool nicknameShared(const Peer &peer) const;
+    // The peer kept in slot `index` (0 to CAPACITY - 1), if any.
+    Peer *slot(size_t index) { return index < entries.size() && entries[index].used ? &entries[index] : nullptr; }
 
   private:
     std::array<Peer, CAPACITY> entries{};

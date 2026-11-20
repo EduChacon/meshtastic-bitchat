@@ -2,6 +2,7 @@
 #include "HeapModel.h"
 #include "PowerStatus.h"
 #include "bridge/BitchatBridgeModule.h"
+#include "bridge/BridgeNoise.h"
 #include "bridge/BridgeDefaults.h"
 #include "cashu_vectors.h"
 #include "gcs_reference.h"
@@ -407,6 +408,410 @@ static void cashuTunnel(const Phone &ana, const Phone &bia, const PeerId &bridge
     fakeSent.clear();
 }
 
+
+// A private chat as the apps hold one: Noise XX, the phone's side done with the same Noise code (checked against an
+// independent implementation in test_noise.cpp), unsigned packets addressed to the other side.
+struct PrivatePhone {
+    const Phone &phone;
+    PeerId bridge;
+    NoiseHandshake handshake;
+    NoiseSender send;
+    NoiseReceiver receive;
+    Frame directed(uint8_t type, Bytes payload, bool signedFrame = false) const
+    {
+        Frame unsignedFrame, canonical, frame;
+        stamp = std::max(stamp + 1, nowUtc());
+        CHECK(encode(type, phone.id, &bridge, stamp, 7, payload, {}, unsignedFrame, true) == Result::Ok);
+        if (!signedFrame)
+            return unsignedFrame;
+        // As Android sends them: signed.
+        CHECK(encode(type, phone.id, &bridge, stamp, 7, payload, {}, unsignedFrame) == Result::Ok);
+        CHECK(signingBytes(unsignedFrame.bytes(), canonical) == Result::Ok);
+        std::array<uint8_t, 64> signature;
+        Ed25519::sign(signature.data(), phone.signingKey.data(), phone.signingPublic.data(), canonical.data.data(),
+                      canonical.size);
+        CHECK(encode(type, phone.id, &bridge, stamp, 7, payload, {signature.data(), signature.size()}, frame, true) ==
+              Result::Ok);
+        return frame;
+    }
+    // The packets the bridge addressed to this phone, of one type, since the last clear.
+    std::vector<std::vector<uint8_t>> fromBridge(uint8_t type) const
+    {
+        std::vector<std::vector<uint8_t>> out;
+        for (const auto &frame : received(phone.handle)) {
+            Packet p;
+            CHECK(decode({frame.data(), frame.size()}, p) == Result::Ok);
+            if (p.type == type && p.sender == bridge && p.directed() && p.recipient == phone.id) {
+                CHECK(!p.signedPacket() && p.ttl == 7);
+                out.emplace_back(p.payload.data, p.payload.data + p.payload.size);
+            }
+        }
+        return out;
+    }
+    void open(uint8_t seed, bool signedFrames = false)
+    {
+        uint8_t e[32];
+        for (int i = 0; i < 32; ++i)
+            e[i] = uint8_t(seed + 5 * i);
+        handshake.start(true, e);
+        uint8_t m1[NOISE_MESSAGE1];
+        CHECK(handshake.writeMessage1(m1));
+        fakeSent.clear();
+        phone.write(directed(0x10, {m1, sizeof(m1)}, signedFrames));
+        run(100);
+        const auto answers = fromBridge(0x10);
+        CHECK(answers.size() == 1 && answers[0].size() == NOISE_MESSAGE2);
+        CHECK(handshake.readMessage2({answers[0].data(), answers[0].size()}));
+        PeerId proved;
+        noisePeerId(handshake.remoteStatic(), proved);
+        CHECK(proved == bridge);
+        uint8_t m3[NOISE_MESSAGE3];
+        CHECK(handshake.writeMessage3(phone.noiseKey.data(), phone.noisePublic.data(), m3));
+        phone.write(directed(0x10, {m3, sizeof(m3)}, signedFrames));
+        handshake.split(send, receive);
+        run(100);
+    }
+    // The phone answers a handshake the bridge started.
+    void answer(const std::vector<uint8_t> &m1, uint8_t seed)
+    {
+        uint8_t e[32];
+        for (int i = 0; i < 32; ++i)
+            e[i] = uint8_t(seed + i);
+        handshake.start(false, e);
+        CHECK(handshake.readMessage1({m1.data(), m1.size()}));
+        uint8_t m2[NOISE_MESSAGE2];
+        CHECK(handshake.writeMessage2(phone.noiseKey.data(), phone.noisePublic.data(), m2));
+        fakeSent.clear();
+        phone.write(directed(0x10, {m2, sizeof(m2)}));
+        run(100);
+        const auto third = fromBridge(0x10);
+        CHECK(third.size() == 1 && third[0].size() == NOISE_MESSAGE3);
+        CHECK(handshake.readMessage3({third[0].data(), third[0].size()}));
+        handshake.split(send, receive);
+    }
+    void message(const std::string &id, const std::string &content)
+    {
+        std::vector<uint8_t> plain{1, 0, uint8_t(id.size())};
+        plain.insert(plain.end(), id.begin(), id.end());
+        plain.insert(plain.end(), {1, uint8_t(content.size())});
+        plain.insert(plain.end(), content.begin(), content.end());
+        std::vector<uint8_t> sealed(plain.size() + NOISE_TRANSPORT_OVERHEAD);
+        CHECK(noiseEncrypt(send, {plain.data(), plain.size()}, sealed.data()));
+        phone.write(directed(0x11, {sealed.data(), sealed.size()}));
+    }
+    // What the bridge said in this chat since the last clear: delivered IDs, and the texts it sent.
+    void read(std::vector<std::string> &delivered, std::vector<std::string> &said)
+    {
+        for (const auto &wire : fromBridge(0x11)) {
+            std::vector<uint8_t> plain(wire.size());
+            CHECK(noiseDecrypt(receive, {wire.data(), wire.size()}, plain.data()));
+            const size_t size = wire.size() - NOISE_TRANSPORT_OVERHEAD;
+            if (plain[0] == 3) {
+                delivered.emplace_back(plain.begin() + 1, plain.begin() + size);
+                continue;
+            }
+            CHECK(plain[0] == 1 && size > 41 && plain[1] == 0 && plain[2] == 36 && plain[3 + 36] == 1);
+            const size_t length = plain[3 + 37];
+            CHECK(3 + 38 + length == size && length <= 255);
+            said.emplace_back(plain.begin() + 41, plain.begin() + 41 + length);
+        }
+    }
+};
+
+static void directFromLoRa(NodeNum from, const std::string &message)
+{
+    static uint32_t id = 9000;
+    meshtastic_MeshPacket packet;
+    packet.from = from;
+    packet.to = fakeNodeDB.number;
+    packet.id = ++id;
+    packet.channel = 0;
+    packet.pki_encrypted = true;
+    packet.decoded.payload.size = uint16_t(message.size());
+    memcpy(packet.decoded.payload.bytes, message.data(), message.size());
+    bridge->handleReceived(packet);
+}
+
+static void privateChat(const Phone &ana, const Phone &bia, const Phone &caio, const PeerId &bridgeId)
+{
+    fakePower.battery = true;
+    fakePower.millivolts = 3920;
+    fakePower.percent = 72;
+    const auto publicBefore = chat(bia.handle, &bridgeId).size();
+    const auto radioBefore = fakeRadio.size();
+    PrivatePhone chatAna{ana, bridgeId};
+    chatAna.open(40);
+    std::vector<std::string> delivered, said;
+    const auto clear = [&]() {
+        delivered.clear();
+        said.clear();
+        fakeSent.clear();
+    };
+    // The command word alone is enough; the answer comes in the chat, delivered first.
+    clear();
+    chatAna.message("ID-1", "bateria");
+    run(200);
+    chatAna.read(delivered, said);
+    CHECK(delivered == std::vector<std::string>{"ID-1"});
+    CHECK(said == std::vector<std::string>{"Bateria: 3,92 V, cerca de 72%."});
+    // Nothing of it in public, nothing on LoRa, and the private packets were not passed on to other phones.
+    CHECK(chat(bia.handle, &bridgeId).size() == publicBefore && fakeRadio.size() == radioBefore);
+    for (const auto &frame : received(bia.handle)) {
+        Packet p;
+        CHECK(decode({frame.data(), frame.size()}, p) == Result::Ok);
+        CHECK(p.sender != ana.id || (p.type != 0x10 && p.type != 0x11));
+    }
+    // The app sends a message again until it is told it was delivered: delivered again, answered once.
+    clear();
+    run(1100);
+    chatAna.message("ID-1", "bateria");
+    run(200);
+    chatAna.read(delivered, said);
+    CHECK(delivered == std::vector<std::string>{"ID-1"} && said.empty());
+    // The written command, the status, the help for anything else, and the guide in four messages.
+    clear();
+    run(10000);
+    chatAna.message("ID-2", "!bridge battery");
+    run(1100);
+    chatAna.message("ID-3", "ponte");
+    run(1100);
+    chatAna.message("ID-4", "oi, tudo bem?");
+    run(5000);
+    chatAna.message("ID-5", "guia");
+    run(200);
+    chatAna.read(delivered, said);
+    CHECK((delivered == std::vector<std::string>{"ID-2", "ID-3", "ID-4", "ID-5"}));
+    CHECK(said.size() == 3 + GUIDE_LINES);
+    CHECK(said[0] == "Battery: 3.92 V, about 72%.");
+    CHECK(said[1].rfind("Ready: Bitchat + LoRa. Phones ", 0) == 0);
+    CHECK(said[2].rfind("Ponte LoRa. Escreva: ponte (estado), bateria", 0) == 0 && said[2].find("@contato") != std::string::npos);
+    for (size_t i = 0; i < GUIDE_LINES; ++i)
+        CHECK(said[3 + i] == guideLine(true, false, GuideMode::AllText, i));
+    // The public chat's spacing is not touched: someone asking there right after is answered.
+    clear();
+    bia.write(bia.say("!ponte bateria"));
+    run(200);
+    CHECK(chat(bia.handle, &bridgeId).back() == "[bridge] Bateria: 3,92 V, cerca de 72%.");
+
+    // Junk under Ana's ID while she is talking changes nothing.
+    const auto junk = [&](int count) {
+        for (int i = 0; i < count; ++i) {
+            uint8_t bytes[40];
+            for (int j = 0; j < 40; ++j)
+                bytes[j] = uint8_t(i * 50 + j + count);
+            ana.write(chatAna.directed(0x11, {bytes, sizeof(bytes)}));
+            run(100);
+        }
+    };
+    clear();
+    run(5000);
+    chatAna.message("ID-J", "bateria");
+    run(200);
+    junk(4);
+    CHECK(chatAna.fromBridge(0x10).empty());
+    chatAna.read(delivered, said);
+    CHECK(delivered == std::vector<std::string>{"ID-J"} && said.size() == 1);
+    // Three forged messages with nothing genuine for ten seconds: the bridge starts a new handshake, which the
+    // phone answers; the new session replaces the old one.
+    clear();
+    run(11000);
+    junk(3);
+    {
+        const auto restart = chatAna.fromBridge(0x10);
+        CHECK(restart.size() == 1 && restart[0].size() == NOISE_MESSAGE1);
+        PrivatePhone again{ana, bridgeId};
+        again.answer(restart[0], 90);
+        clear();
+        run(1100);
+        again.message("ID-8", "bateria");
+        run(200);
+        again.read(delivered, said);
+        CHECK(delivered == std::vector<std::string>{"ID-8"} && said.size() == 1);
+        chatAna.send = again.send;
+        chatAna.receive = again.receive;
+    }
+
+    // A handshake whose static key is not the one the sender's ID stands for: no session; the bridge keeps waiting
+    // for a genuine third message, then starts again.
+    {
+        PrivatePhone impostor{caio, bridgeId};
+        uint8_t e[32];
+        for (int i = 0; i < 32; ++i)
+            e[i] = uint8_t(7 * i + 1);
+        impostor.handshake.start(true, e);
+        uint8_t m1[NOISE_MESSAGE1];
+        CHECK(impostor.handshake.writeMessage1(m1));
+        clear();
+        caio.write(impostor.directed(0x10, {m1, sizeof(m1)}, true));
+        run(100);
+        const auto answers = impostor.fromBridge(0x10);
+        CHECK(answers.size() == 1 && impostor.handshake.readMessage2({answers[0].data(), answers[0].size()}));
+        uint8_t m3[NOISE_MESSAGE3];
+        CHECK(impostor.handshake.writeMessage3(ana.noiseKey.data(), ana.noisePublic.data(), m3));
+        caio.write(impostor.directed(0x10, {m3, sizeof(m3)}, true));
+        impostor.handshake.split(impostor.send, impostor.receive);
+        run(100);
+        clear();
+        impostor.message("ID-X", "bateria");
+        run(200);
+        CHECK(impostor.fromBridge(0x11).empty() && impostor.fromBridge(0x10).empty());
+        run(21000);
+        impostor.message("ID-X2", "bateria");
+        run(200);
+        CHECK(impostor.fromBridge(0x11).empty() && impostor.fromBridge(0x10).size() == 1);
+    }
+
+    // Signed packets, as Android sends them; bytes under Bia's ID between the bridge's second message and her
+    // third do not end the handshake.
+    PrivatePhone chatBia{bia, bridgeId};
+    {
+        run(11000);
+        uint8_t e[32];
+        for (int i = 0; i < 32; ++i)
+            e[i] = uint8_t(77 + 5 * i);
+        chatBia.handshake.start(true, e);
+        uint8_t m1[NOISE_MESSAGE1];
+        CHECK(chatBia.handshake.writeMessage1(m1));
+        clear();
+        bia.write(chatBia.directed(0x10, {m1, sizeof(m1)}, true));
+        run(100);
+        const auto answers = chatBia.fromBridge(0x10);
+        CHECK(answers.size() == 1 && chatBia.handshake.readMessage2({answers[0].data(), answers[0].size()}));
+        uint8_t m3[NOISE_MESSAGE3], forged[NOISE_MESSAGE3];
+        CHECK(chatBia.handshake.writeMessage3(bia.noiseKey.data(), bia.noisePublic.data(), m3));
+        for (size_t i = 0; i < sizeof(forged); ++i)
+            forged[i] = uint8_t(i * 3);
+        bia.write(chatBia.directed(0x10, {forged, sizeof(forged)}));
+        run(100);
+        bia.write(chatBia.directed(0x10, {m3, sizeof(m3)}, true));
+        chatBia.handshake.split(chatBia.send, chatBia.receive);
+        run(100);
+        clear();
+        chatBia.message("B-1", "teste");
+        run(200);
+        chatBia.read(delivered, said);
+        CHECK(delivered == std::vector<std::string>{"B-1"} && said.size() == 1 && said[0].rfind("Teste ", 0) == 0);
+        // The range test asked in private reports there, not in the public chat.
+        clear();
+        run(130000);
+        chatBia.read(delivered, said);
+        CHECK(said.size() == 1 && said[0].find("nenhuma outra ponte respondeu") != std::string::npos);
+        for (const auto &line : chat(bia.handle, &bridgeId))
+            CHECK(line.find("nenhuma outra ponte respondeu") == std::string::npos);
+    }
+
+    // Stage 2: "@name text" to a Meshtastic node, and its answer back to the phone.
+    auto &norte = fakeNodeDB.nodes[0x7777];
+    strcpy(norte.user.long_name, "Casa Norte");
+    strcpy(norte.user.short_name, "CN");
+    norte.user.public_key.size = 32;
+    auto &semChave = fakeNodeDB.nodes[0x7778];
+    strcpy(semChave.user.long_name, "Sem Chave");
+    for (NodeNum twin : {0x7781u, 0x7782u}) {
+        strcpy(fakeNodeDB.nodes[twin].user.long_name, "Gemeo");
+        fakeNodeDB.nodes[twin].user.public_key.size = 32;
+    }
+    const auto lastDirect = [&]() -> const meshtastic_MeshPacket * {
+        for (auto it = fakeRadio.rbegin(); it != fakeRadio.rend(); ++it)
+            if (it->to != NODENUM_BROADCAST)
+                return &*it;
+        return nullptr;
+    };
+    const auto sentText = [](const meshtastic_MeshPacket *p) {
+        return p ? text({p->decoded.payload.bytes, p->decoded.payload.size}) : std::string();
+    };
+    const size_t radioNow = fakeRadio.size();
+    clear();
+    run(25000);
+    chatAna.message("D-1", "@Casa Norte oi do bitchat");
+    run(200);
+    chatAna.read(delivered, said);
+    CHECK(fakeRadio.size() == radioNow + 1 && lastDirect() && lastDirect()->to == 0x7777 && lastDirect()->channel == 0 &&
+          lastDirect()->want_ack && sentText(lastDirect()) == "[Bitchat ana] oi do bitchat");
+    CHECK(said == std::vector<std::string>{"Enviado a Casa Norte pelo LoRa."});
+    // The short name, with a colon; the second within 20 s is still allowed, the third is not.
+    clear();
+    chatAna.message("D-2", "@cn: tudo bem?");
+    run(200);
+    chatAna.message("D-3", "@Casa Norte de novo");
+    run(200);
+    chatAna.read(delivered, said);
+    CHECK(sentText(lastDirect()) == "[Bitchat ana] tudo bem?" && fakeRadio.size() == radioNow + 2);
+    CHECK((said == std::vector<std::string>{"Enviado a Casa Norte pelo LoRa.", "Aguarde um pouco: limite de mensagens pelo LoRa."}));
+    // Refusals, none of them on the air.
+    clear();
+    run(25000);
+    for (const char *line : {"@Ninguem oi", "@Gemeo oi", "@Sem Chave oi", "@Casa Norte"}) {
+        chatAna.message(std::string("R-") + line, line);
+        run(100);
+    }
+    const std::string longText(190, 'x');
+    chatAna.message("R-long", "@Casa Norte " + longText);
+    run(200);
+    chatAna.read(delivered, said);
+    CHECK(fakeRadio.size() == radioNow + 2 && said.size() == 5);
+    CHECK(said[0] == "Não conheço \"Ninguem\" entre os contatos deste rádio.");
+    CHECK(said[1] == "Há mais de um contato \"Gemeo\"; mensagem não enviada.");
+    CHECK(said[2] == "Sem Chave ainda não tem chave pública; mensagem não enviada.");
+    CHECK(said[3] == "Escreva o texto depois do nome: @contato texto.");
+    CHECK(said[4].rfind("Mensagem longa demais: até ", 0) == 0);
+    // The node answers by direct message: it comes to Ana's chat. The owner's app is not deprived of it.
+    clear();
+    run(15000);
+    directFromLoRa(0x7777, "tudo certo por aqui");
+    run(200);
+    chatAna.read(delivered, said);
+    CHECK(said == std::vector<std::string>{"[MT Casa Norte] tudo certo por aqui"});
+    // "@bia" from the node: Bia has no chat with the bridge yet, so it waits; when Bia announces herself, the
+    // bridge opens the chat and delivers it.
+    PrivatePhone mailBia{bia, bridgeId};
+    {
+        // Bia's earlier chat is forgotten by the bridge: a new identity of the chat, as after a long pause.
+        clear();
+        run(31 * 60 * 1000);
+        directFromLoRa(0x7777, "@bia passa aqui depois");
+        run(200);
+        CHECK(mailBia.fromBridge(0x11).empty());
+        clear();
+        run(61000);
+        bia.write(bia.announce());
+        run(300);
+        const auto opening = mailBia.fromBridge(0x10);
+        CHECK(opening.size() == 1 && opening[0].size() == NOISE_MESSAGE1);
+        mailBia.answer(opening[0], 120);
+        run(200);
+        mailBia.read(delivered, said);
+        CHECK(said == std::vector<std::string>{"[MT Casa Norte] passa aqui depois"});
+    }
+    // The owner's own mail stays the owner's: no conversation, no "@".
+    clear();
+    fakeNodeDB.nodes[0x7779].user.public_key.size = 32;
+    strcpy(fakeNodeDB.nodes[0x7779].user.long_name, "Amigo");
+    directFromLoRa(0x7779, "oi, dono do radio");
+    run(200);
+    CHECK(mailBia.fromBridge(0x11).empty() && chatAna.fromBridge(0x11).empty());
+    // The owner turns it off: nothing goes, nothing comes; then on again.
+    fakeApp.clear();
+    fromLoRa(0, "!ponte privado off", 1);
+    run(1100);
+    CHECK(fakeApp.size() == 1 && app(0) == "[bridge] Mensagens privadas pelo LoRa desligadas.");
+    clear();
+    mailBia.message("M-1", "@Casa Norte oi");
+    run(200);
+    directFromLoRa(0x7777, "@bia ainda?");
+    run(200);
+    mailBia.read(delivered, said);
+    CHECK(said == std::vector<std::string>{"Mensagens privadas pelo LoRa estão desligadas neste rádio."});
+    CHECK(fakeRadio.size() == radioNow + 2);
+    fromLoRa(0, "!bridge dm on", 1);
+    run(1100);
+    CHECK(fakeApp.size() == 2 && app(1).rfind("[bridge] Direct messages on", 0) == 0);
+    // Nothing of stage 2 reached the public chat.
+    for (const auto &line : chat(ana.handle, &bridgeId))
+        CHECK(line.find("Casa Norte") == std::string::npos && line.find("Bitchat ana") == std::string::npos);
+    fakePower.battery = false;
+}
+
 int main()
 {
     fakeFree = 200 * 1024;
@@ -771,6 +1176,16 @@ int main()
     }
     // Payments, after the counts above: they bring people from afar.
     cashuTunnel(ana, bia, bridgeId);
+    {
+        const auto radioKept = fakeRadio;
+        privateChat(ana, bia, caio, bridgeId);
+        fakeRadio = radioKept;
+        for (const auto *phone : {&ana, &bia, &caio}) {
+            phone->connect();
+            phone->write(phone->announce());
+        }
+        run(1000);
+    }
     // The three-line self-test again, which the next check counts on.
     fakeApp.clear();
     fromLoRa(0, "!bridge");
@@ -1380,12 +1795,15 @@ int main()
     CHECK(!bridge->enabled() && app(4).rfind("[bridge] Bridge turned off.", 0) == 0);
     fromLoRa(0, "!bridge help", 1);
     run(1100);
-    CHECK(fakeApp.size() == 7 && app(5).rfind("[bridge] !bridge shows the state.", 0) == 0 && app(5).size() <= 200 &&
+    CHECK(fakeApp.size() == 8 && app(5).rfind("[bridge] !bridge shows the state.", 0) == 0 && app(5).size() <= 200 &&
           app(5).find("!ponte quem, guia") != std::string::npos && app(5).back() == '.');
     // The newer commands follow in a second message.
     CHECK(app(6).rfind("[bridge] Also: prefix on", 0) == 0 && app(6).size() <= 200 &&
           app(6).find("sos <text>") != std::string::npos && app(6).find("!ponte recado") != std::string::npos &&
           app(6).back() == '.');
+    // And the private messages in a third.
+    CHECK(app(7).rfind("[bridge] dm on, dm off", 0) == 0 && app(7).size() <= 200 && app(7).back() == '.');
+    fakeApp.pop_back();
     fakeApp.pop_back();
     fromLoRa(0, "!bridge link off", 1);
     run(1100);

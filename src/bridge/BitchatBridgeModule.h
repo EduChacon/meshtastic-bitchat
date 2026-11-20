@@ -5,6 +5,7 @@
 #include "BridgeCrypto.h"
 #include "BridgeHistory.h"
 #include "BridgePayTunnel.h"
+#include "BridgePrivate.h"
 #include "BridgeState.h"
 #include "BridgeText.h"
 #include "BridgeTunnel.h"
@@ -30,6 +31,10 @@ class BitchatBridgeModule : public MeshModule, private concurrency::OSThread
     bool setChannel(bool tunnel, uint8_t index);
     bool setPrivateTunnel(bool value);
     bool setPrefixOnly(bool value);
+    // Private messages between Bitchat phones and LoRa nodes through this radio (stage 2): the owner's choice,
+    // on unless turned off. Kept in its own stored entry.
+    bool directMessages();
+    bool setDirectMessages(bool value);
     // Text a MeshCore bridge brought to Bitchat is taken to this network. Kept in its own stored entry.
     bool linked() const { return link; }
     bool setLink(bool value);
@@ -107,6 +112,9 @@ class BitchatBridgeModule : public MeshModule, private concurrency::OSThread
         uint16_t answeredId = 0;
         uint32_t answeredAt = 0;
         bool answered = false;
+        // Asked in a private chat: the result goes back there, never to the public chat.
+        bool privately = false;
+        bitchat::PeerId asker{};
     } rangeTest;
     // The payment this radio is taking over LoRa, for telling the payer how it went.
     struct Payment {
@@ -198,6 +206,9 @@ class BitchatBridgeModule : public MeshModule, private concurrency::OSThread
         std::unique_ptr<bitchat::Frame> held;
 
         bitchat::RateGate radioGate, cryptoGate;
+        // Private chats with phones and their mailbox, made when the first one starts.
+        std::unique_ptr<bitchat::PrivateSessions> privates;
+        bitchat::RateBucket handshakes;
         bitchat::BleInput input;
         bitchat::Frame assembled, working, canonical;
     };
@@ -212,6 +223,10 @@ class BitchatBridgeModule : public MeshModule, private concurrency::OSThread
     // The text after a command such as "note", copied for the next tick.
     char appArgument[bitchat::COMMAND_TEXT_LIMIT + 1]{};
     uint32_t restartAt = 0, repliedAt = 0, guidedAt = 0;
+    // While a private request is answered, the answers go to that chat instead of the public one.
+    bitchat::PrivateSession *privateReply = nullptr;
+    // -1 until read from storage.
+    int8_t directSetting = -1;
     void answerApp();
     void answerBitchat();
     void guideBitchat(bool portuguese);
@@ -284,6 +299,30 @@ class BitchatBridgeModule : public MeshModule, private concurrency::OSThread
     uint64_t trustedUtc() const;
     void adoptPeerClock(bitchat::Bytes frame, const bitchat::Packet &packet);
     void keepClock(uint32_t now);
+    // The time for a packet this bridge sends: never the same twice.
+    uint64_t nextTimestamp();
+    // Private chats (BridgePrivate.cpp): a Noise packet addressed to this bridge.
+    void privateFrame(const bitchat::Packet &packet, const bitchat::Peer &peer, uint16_t source, uint32_t now);
+    bitchat::PrivateSession *privateSession(const bitchat::PeerId &peer, uint32_t now, bool create);
+    void expireHandshake(bitchat::PrivateSession &session, uint32_t now);
+    void privateHandshake(bitchat::PrivateSession &session, const bitchat::Packet &packet, uint32_t now);
+    void privateTransport(bitchat::PrivateSession &session, const bitchat::Packet &packet, const bitchat::Peer &peer,
+                          bool direct, uint32_t now);
+    void privateRequest(bitchat::PrivateSession &session, const bitchat::Peer &peer, bitchat::Bytes text, bool direct,
+                        uint32_t now);
+    bool initiatePrivate(bitchat::PrivateSession &session, uint32_t now);
+    bool sendPrivate(bitchat::PrivateSession &session, uint8_t kind, bitchat::Bytes body);
+    // Text to the chat being answered; a leading "[bridge] " is left out there.
+    bool replyPrivately(const char *text, size_t size);
+    bool sendNoise(uint8_t type, const bitchat::PeerId &to, bitchat::Bytes payload, uint16_t link);
+    // Stage 2: "@name text" from a chat to a LoRa node, and a node's direct message back to a phone.
+    void directToLoRa(bitchat::PrivateSession &session, const bitchat::Peer &peer, bitchat::Bytes text, uint32_t now);
+    void directFromLoRa(uint32_t from, bitchat::Bytes text);
+    // A text for a phone: in its chat now, or kept until it comes back.
+    void deliverToPhone(const bitchat::PeerId &peer, const char *text, size_t size, uint32_t now);
+    void flushMailbox(bitchat::PrivateSession &session, uint32_t now);
+    // A phone with mail announced itself: the bridge opens the chat.
+    void phoneArrived(const bitchat::PeerId &peer, uint32_t now);
 };
 extern BitchatBridgeModule *bitchatBridge;
 static_assert(sizeof(BitchatBridgeModule) <= 4096, "Keep bridge buffers out of module construction");

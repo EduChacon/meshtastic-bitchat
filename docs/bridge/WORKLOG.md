@@ -354,6 +354,15 @@ pagamentos alocado só quando o primeiro telefone se anuncia (memória inicial m
 `1.0.0-beta.16`: 8109 verificações dos pagamentos, 982 do núcleo e 1804 de fluxo; ensaio do GitHub
 aprovado (T1000-E com e sem ponte e ESP32). Não ligado em aparelho.
 
+Vigésimo quarto passo. Conversas privadas, levadas da ponte MeshCore (`bitchat0.24`): conversa
+privada com a ponte pelo Noise (`Noise_XX_25519_ChaChaPoly_SHA256`, conferido byte a byte com uma
+implementação independente) e mensagens diretas PKI aos nós favoritos do rádio, com respostas
+encaminhadas por `@apelido` ou em até 30 minutos e caixa de mensagens até a confirmação do telefone.
+Revisão independente do código; o que achou foi corrigido. Versão `1.0.0-beta.17`: 982 verificações
+do núcleo, 8109 dos pagamentos, 223 do Noise e 2850 de fluxo; memória inicial modelada de 25 312
+bytes (29 368 com as conversas privadas); ensaio do GitHub aprovado (T1000-E com e sem ponte e
+ESP32). Não ligado em aparelho.
+
 ## Investigação de boot — 2026-11-13
 
 As instalações foram suspensas nos dois READMEs e nas pré-releases, preservando os arquivos

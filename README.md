@@ -6,9 +6,9 @@ Ponte embarcada derivada do firmware oficial Meshtastic. O objetivo é usar
 os aplicativos originais Bitchat e Meshtastic, sem computador, MQTT, Nostr ou internet na
 operação. Computador continua necessário para compilar, instalar e diagnosticar.
 
-**Versão atual (beta): [v1.0.0-beta.16](https://github.com/EduChacon/meshtastic-bitchat/releases/tag/v1.0.0-beta.16).** Dispensa o `!lora`, corrige perdas
-de mensagem em conversa de grupo, recupera a hora sem o aplicativo Meshtastic, simplifica o
-menu e acrescenta oito aparelhos ESP32-S3. [O que mudou e por quê](docs/bridge/CHANGES.md).
+**Versão atual (beta): [v1.0.0-beta.17](https://github.com/EduChacon/meshtastic-bitchat/releases/tag/v1.0.0-beta.17).** Acrescenta
+conversas privadas, experimentais: com a própria ponte e, por ela, com os nós favoritos do rádio
+([guia](docs/bridge/PRIVATE.md)). [O que mudou e por quê](docs/bridge/CHANGES.md).
 
 **Estado: beta, com um aparelho relatado em funcionamento.** Em um Heltec V3 com Bitchat
 iOS 1.8.0, as versões até a `1.0.0-beta.3` não trocavam mensagens com o aplicativo: o telefone
@@ -81,8 +81,8 @@ nunca foi ligado em aparelho e está fora das verificações da versão.
 
 ## Instalar
 
-1. Em [v1.0.0-beta.16](https://github.com/EduChacon/meshtastic-bitchat/releases/tag/v1.0.0-beta.16), baixar
-   **`meshtastic-bitchat-1.0.0-beta.16.zip`**. É um arquivo só, para os dez aparelhos. Para um rádio
+1. Em [v1.0.0-beta.17](https://github.com/EduChacon/meshtastic-bitchat/releases/tag/v1.0.0-beta.17), baixar
+   **`meshtastic-bitchat-1.0.0-beta.17.zip`**. É um arquivo só, para os dez aparelhos. Para um rádio
    que nunca teve região definida, há também um arquivo por país (`…-Brasil.zip`, `…-EUA.zip`,
    `…-Europa-e-Reino-Unido.zip`), que dispensa o aplicativo Meshtastic.
 2. No [Web Flasher oficial](https://flasher.meshtastic.org/), escolher a placa, carregar o ZIP
@@ -141,8 +141,8 @@ Base: Meshtastic **2.7.26.54e0d8d**, commit `54e0d8d0ab2ff56b3a9ce967e53f79e49af
 Bitchat de referência: iOS **1.8.0**, commit `30c58eee349e172b37f69faa2113c9d5f2c76c23`.
 
 ```sh
-git fetch origin tag v1.0.0-beta.16
-git checkout --detach v1.0.0-beta.16
+git fetch origin tag v1.0.0-beta.17
+git checkout --detach v1.0.0-beta.17
 python3 -m venv .venv
 .venv/bin/python -m pip install platformio==6.2.0 intelhex==2.3.0
 git submodule update --init protobufs

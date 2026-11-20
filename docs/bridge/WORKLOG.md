@@ -345,6 +345,15 @@ ponteiro dos 16 bytes de um UUID de 128 bits e o lê de novo ao montar o anúnci
 O anúncio levava bytes sem sentido no lugar do serviço do Bitchat. Versão `1.0.0-beta.15`: os bytes
 dos dois UUIDs ficam em vetores estáticos. Compilado no MeshCore localmente; aqui, no ensaio do GitHub.
 
+Vigésimo terceiro passo. Pagamentos Cashu pelo LoRa, levados da ponte MeshCore (`bitchat0.20` e
+`0.21`): descompressão DEFLATE, leitura de tokens NUT-00 com a trava NUT-11, partes `PRIVATE_APP`
+de até 200 bytes no canal de texto, remontagem tudo ou nada e confirmação por mensagem direta, que
+o Meshtastic cifra com PKI quando conhece a chave do outro nó, mais uma cópia geral. Estado dos
+pagamentos alocado só quando o primeiro telefone se anuncia (memória inicial modelada inalterada,
+25 200 bytes). Duas revisões independentes do código; o que acharam foi corrigido. Versão
+`1.0.0-beta.16`: 8109 verificações dos pagamentos, 982 do núcleo e 1804 de fluxo; ensaio do GitHub
+aprovado (T1000-E com e sem ponte e ESP32). Não ligado em aparelho.
+
 ## Investigação de boot — 2026-11-13
 
 As instalações foram suspensas nos dois READMEs e nas pré-releases, preservando os arquivos

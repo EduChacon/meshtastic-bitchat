@@ -227,6 +227,7 @@ class BitchatBridgeModule : public MeshModule, private concurrency::OSThread
     bitchat::PrivateSession *privateReply = nullptr;
     // -1 until read from storage.
     int8_t directSetting = -1;
+    int8_t readDirectSetting();
     void answerApp();
     void answerBitchat();
     void guideBitchat(bool portuguese);
@@ -305,21 +306,27 @@ class BitchatBridgeModule : public MeshModule, private concurrency::OSThread
     void privateFrame(const bitchat::Packet &packet, const bitchat::Peer &peer, uint16_t source, uint32_t now);
     bitchat::PrivateSession *privateSession(const bitchat::PeerId &peer, uint32_t now, bool create);
     void expireHandshake(bitchat::PrivateSession &session, uint32_t now);
-    void privateHandshake(bitchat::PrivateSession &session, const bitchat::Packet &packet, uint32_t now);
+    // `link`: the Bluetooth link the frame came on when the phone talks to this radio directly, else NO_LINK.
+    void privateHandshake(bitchat::PrivateSession &session, const bitchat::Packet &packet, uint16_t link, uint32_t now);
     void privateTransport(bitchat::PrivateSession &session, const bitchat::Packet &packet, const bitchat::Peer &peer,
-                          bool direct, uint32_t now);
+                          uint16_t link, uint32_t now);
     void privateRequest(bitchat::PrivateSession &session, const bitchat::Peer &peer, bitchat::Bytes text, bool direct,
                         uint32_t now);
     bool initiatePrivate(bitchat::PrivateSession &session, uint32_t now);
     bool sendPrivate(bitchat::PrivateSession &session, uint8_t kind, bitchat::Bytes body);
     // Text to the chat being answered; a leading "[bridge] " is left out there.
     bool replyPrivately(const char *text, size_t size);
+    // A private message under a given ID (37 bytes with the end).
+    bool sendPrivateMessage(bitchat::PrivateSession &session, const char *id, const char *text, size_t size);
     bool sendNoise(uint8_t type, const bitchat::PeerId &to, bitchat::Bytes payload, uint16_t link);
     // Stage 2: "@name text" from a chat to a LoRa node, and a node's direct message back to a phone.
     void directToLoRa(bitchat::PrivateSession &session, const bitchat::Peer &peer, bitchat::Bytes text, uint32_t now);
-    void directFromLoRa(uint32_t from, bitchat::Bytes text);
-    // A text for a phone: in its chat now, or kept until it comes back.
-    void deliverToPhone(const bitchat::PeerId &peer, const char *text, size_t size, uint32_t now);
+    void directFromLoRa(uint32_t from, bitchat::Bytes text, bool pkiEncrypted, bool tapback);
+    // A text for a phone: kept until the phone says it was delivered, and sent now when the phone is here.
+    void deliverToPhone(const bitchat::PeerId &peer, uint32_t from, const char *text, size_t size, uint32_t now);
+    // The phone is here: heard in its chat or announcing itself on this radio within the last 30 s.
+    bool phonePresent(const bitchat::PeerId &peer, uint32_t now);
+    void forgetDirect();
     void flushMailbox(bitchat::PrivateSession &session, uint32_t now);
     // A phone with mail announced itself: the bridge opens the chat.
     void phoneArrived(const bitchat::PeerId &peer, uint32_t now);

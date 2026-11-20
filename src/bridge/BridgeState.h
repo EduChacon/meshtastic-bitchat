@@ -118,6 +118,8 @@ struct Peer {
     Announcement announcement{};
     uint32_t seenAt = 0;
     bool used = false;
+    // When it last announced itself on this radio's Bluetooth side (not through the tunnel); 0 never.
+    uint32_t localAt = 0;
     RateGate traffic;
     RateBucket lora;
     RateGate presence;

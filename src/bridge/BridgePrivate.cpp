@@ -33,8 +33,17 @@ static constexpr uint32_t HANDSHAKE_WAIT_MS = 20000;
 static constexpr uint32_t INITIATE_EVERY_MS = 60000;
 // Messages that do not open count against a session only when none has opened for this long.
 static constexpr uint32_t QUIET_BEFORE_RESET_MS = 10000;
-// Mail and conversations are kept a day.
+// Mail is kept a day; a node's answers go back to the phone that wrote to it for half an hour.
 static constexpr uint32_t KEEP_DAY_MS = 24UL * 3600 * 1000;
+static constexpr uint32_t CONVERSATION_MS = 30UL * 60 * 1000;
+// A phone is here when it was heard, or announced itself on this radio, within this.
+static constexpr uint32_t PRESENT_MS = 30000;
+// Mail not yet confirmed is sent again after this.
+static constexpr uint32_t RESEND_MS = 30000;
+// The same direct message from LoRa within this is a retry.
+static constexpr uint32_t RETRY_MS = 120000;
+// A handshake the bridge is answering gives way to a newcomer after this.
+static constexpr uint32_t PENDING_MS = 3000;
 static constexpr char DIRECT_PREFIX[] = "[Bitchat ";
 
 static uint32_t idHash(Bytes id)
@@ -124,6 +133,14 @@ static size_t utf8Fit(const char *text, size_t size, size_t capacity)
     return cut;
 }
 
+// Control characters and line breaks as spaces, so a label stays in front of the text, in both directions.
+static void plainLine(char *text, size_t size)
+{
+    for (size_t i = 0; i < size; ++i)
+        if (uint8_t(text[i]) < 0x20 || uint8_t(text[i]) == 0x7f)
+            text[i] = ' ';
+}
+
 static void clearSession(PrivateSession &session)
 {
     session.handshake.wipe();
@@ -144,26 +161,31 @@ PrivateSession *BitchatBridgeModule::privateSession(const PeerId &peer, uint32_t
 {
     if (!runtime->privates && (!create || !allocateBuffer(runtime->privates)))
         return nullptr;
-    PrivateSession *found = nullptr, *free = nullptr, *oldest = nullptr;
+    PrivateSession *found = nullptr, *free = nullptr, *pending = nullptr, *idle = nullptr;
     for (auto &session : runtime->privates->slots) {
         if (session.used) {
             expireHandshake(session, now);
             if (!session.handshaking && !Throttle::isWithinTimespanMsAt(session.usedAt, SESSION_IDLE_MS, now))
                 clearSession(session);
         }
-        if (session.used && session.peer == peer)
+        if (session.used && session.peer == peer) {
             found = &session;
-        else if (!session.used) {
+        } else if (!session.used) {
             if (!free)
                 free = &session;
+        } else if (!session.ready) {
+            // Not a chat yet: it gives way first, once its handshake had a moment to complete.
+            if ((!session.handshaking || !Throttle::isWithinTimespanMsAt(session.handshakeAt, PENDING_MS, now)) &&
+                (!pending || int32_t(session.usedAt - pending->usedAt) < 0))
+                pending = &session;
         } else if (!session.handshaking && !Throttle::isWithinTimespanMsAt(session.usedAt, SESSION_KEEP_MS, now) &&
-                   (!oldest || int32_t(session.usedAt - oldest->usedAt) < 0)) {
-            oldest = &session;
+                   (!idle || int32_t(session.usedAt - idle->usedAt) < 0)) {
+            idle = &session;
         }
     }
     if (found || !create)
         return found;
-    PrivateSession *slot = free ? free : oldest;
+    PrivateSession *slot = free ? free : pending ? pending : idle;
     if (!slot)
         return nullptr;
     clearSession(*slot);
@@ -178,22 +200,28 @@ void BitchatBridgeModule::privateFrame(const Packet &packet, const Peer &peer, u
     // Bitchat never compresses ciphertext in practice; a compressed one is not read.
     if (packet.compressed() || !utc())
         return;
-    // Only a first handshake message, or ciphertext from a phone this bridge lost track of, may take a slot.
-    const bool opener =
-        packet.type == TYPE_HANDSHAKE ? packet.payload.size == NOISE_MESSAGE1 : packet.payload.size > NOISE_TRANSPORT_OVERHEAD;
-    PrivateSession *session = privateSession(packet.sender, now, opener);
-    if (!session)
-        return;
+    PrivateSession *session = privateSession(packet.sender, now, false);
+    if (!session) {
+        // Only a first handshake message, or ciphertext from a phone this bridge lost track of, may take a slot,
+        // and only a few a minute: anyone can claim an ID.
+        const bool opener = packet.type == TYPE_HANDSHAKE ? packet.payload.size == NOISE_MESSAGE1
+                                                          : packet.payload.size > NOISE_TRANSPORT_OVERHEAD;
+        if (!opener || !allocateBuffer(runtime->privates) || !runtime->privates->openers.admit(now, 6, 5000))
+            return;
+        session = privateSession(packet.sender, now, true);
+        if (!session)
+            return;
+    }
     expireHandshake(*session, now);
-    // Answers go straight to the phone when it is connected to this radio, and through the others when not.
-    session->link = source != NO_LINK && packet.ttl == 7 ? source : NO_LINK;
+    // The link is only a hint here: it is kept for the session when the frame authenticates.
+    const uint16_t link = source != NO_LINK && packet.ttl == 7 ? source : NO_LINK;
     if (packet.type == TYPE_HANDSHAKE)
-        privateHandshake(*session, packet, now);
+        privateHandshake(*session, packet, link, now);
     else if (packet.type == TYPE_ENCRYPTED)
-        privateTransport(*session, packet, peer, session->link != NO_LINK, now);
+        privateTransport(*session, packet, peer, link, now);
 }
 
-static void established(PrivateSession &session, NoiseHandshake &trial, uint32_t now)
+static void established(PrivateSession &session, NoiseHandshake &trial, uint16_t link, uint32_t now)
 {
     trial.split(session.send, session.receive);
     trial.wipe();
@@ -201,11 +229,13 @@ static void established(PrivateSession &session, NoiseHandshake &trial, uint32_t
     session.handshaking = false;
     session.ready = true;
     session.failures = 0;
+    session.link = link;
     session.usedAt = now;
+    session.heardAt = now ? now : 1;
     session.openedAt = now ? now : 1;
 }
 
-void BitchatBridgeModule::privateHandshake(PrivateSession &session, const Packet &packet, uint32_t now)
+void BitchatBridgeModule::privateHandshake(PrivateSession &session, const Packet &packet, uint16_t link, uint32_t now)
 {
     const Bytes in = packet.payload;
     auto &handshake = session.handshake;
@@ -221,10 +251,10 @@ void BitchatBridgeModule::privateHandshake(PrivateSession &session, const Packet
             if (ok) {
                 noisePeerId(trial.remoteStatic(), proved);
                 ok = proved == packet.sender && trial.writeMessage3(staticPrivate, noisePublic.data(), out) &&
-                     sendNoise(TYPE_HANDSHAKE, packet.sender, {out, sizeof(out)}, session.link);
+                     sendNoise(TYPE_HANDSHAKE, packet.sender, {out, sizeof(out)}, link);
             }
             if (ok) {
-                established(session, trial, now);
+                established(session, trial, link, now);
                 flushMailbox(session, now);
             } else {
                 trial.wipe();
@@ -244,7 +274,7 @@ void BitchatBridgeModule::privateHandshake(PrivateSession &session, const Packet
         }
         // The new session replaces the old one only now; anything else keeps waiting.
         if (ok) {
-            established(session, trial, now);
+            established(session, trial, link, now);
             flushMailbox(session, now);
         } else {
             trial.wipe();
@@ -266,8 +296,9 @@ void BitchatBridgeModule::privateHandshake(PrivateSession &session, const Packet
     fresh.start(false, ephemeral);
     noiseWipe(ephemeral, sizeof(ephemeral));
     uint8_t out[NOISE_MESSAGE2];
+    // Answered on the link it came on, which is not kept: the frame proved nothing yet.
     if (!fresh.readMessage1(in) || !fresh.writeMessage2(staticPrivate, noisePublic.data(), out) ||
-        !sendNoise(TYPE_HANDSHAKE, packet.sender, {out, sizeof(out)}, session.link)) {
+        !sendNoise(TYPE_HANDSHAKE, packet.sender, {out, sizeof(out)}, link)) {
         fresh.wipe();
         return;
     }
@@ -301,7 +332,7 @@ bool BitchatBridgeModule::initiatePrivate(PrivateSession &session, uint32_t now)
     return true;
 }
 
-void BitchatBridgeModule::privateTransport(PrivateSession &session, const Packet &packet, const Peer &peer, bool direct,
+void BitchatBridgeModule::privateTransport(PrivateSession &session, const Packet &packet, const Peer &peer, uint16_t link,
                                            uint32_t now)
 {
     const Bytes in = packet.payload;
@@ -323,9 +354,23 @@ void BitchatBridgeModule::privateTransport(PrivateSession &session, const Packet
         return;
     }
     const size_t size = in.size - NOISE_TRANSPORT_OVERHEAD;
+    // Authentic: the phone is here, on this link.
     session.failures = 0;
     session.usedAt = now;
-    // Delivery and read receipts, verification, files: nothing for the bridge to do.
+    session.heardAt = now ? now : 1;
+    session.link = link;
+    if (plain[0] == KIND_DELIVERED) {
+        // The phone has a message the bridge kept for it: that one is done.
+        if (runtime->privates)
+            for (auto &entry : runtime->privates->mailbox)
+                if (entry.used && entry.peer == session.peer && size - 1 == strnlen(entry.id.data(), entry.id.size()) &&
+                    std::memcmp(entry.id.data(), plain + 1, size - 1) == 0)
+                    noiseWipe(&entry, sizeof(entry));
+        noiseWipe(plain, size);
+        flushMailbox(session, now);
+        return;
+    }
+    // Read receipts, verification, files: nothing for the bridge to do.
     if (plain[0] != KIND_MESSAGE) {
         noiseWipe(plain, size);
         return;
@@ -359,7 +404,7 @@ void BitchatBridgeModule::privateTransport(PrivateSession &session, const Packet
                 // Favourite marks are the app's own control messages, not chat.
                 if (content.size && validUtf8(content) && !startsWith(content, "[FAVORITED]") &&
                     !startsWith(content, "[UNFAVORITED]"))
-                    privateRequest(session, peer, content, direct, now);
+                    privateRequest(session, peer, content, link != NO_LINK, now);
             }
         }
     }
@@ -400,8 +445,8 @@ void BitchatBridgeModule::privateRequest(PrivateSession &session, const Peer &pe
     if (asked.command == Command::None || asked.command == Command::Help) {
         static constexpr char HELP[] =
             "Ponte LoRa. Escreva: ponte (estado), bateria, quem, guia, teste, recado <texto>, sos <texto>, "
-            "@contato texto (mensagem privada pelo LoRa). In English: bridge, battery, who, guide, test, note, sos, "
-            "@node text.";
+            "@contato texto (mensagem privada pelo LoRa a um favorito do rádio). In English: bridge, battery, who, "
+            "guide, test, note, sos, @node text (to one of the radio's favourites).";
         replyPrivately(HELP, sizeof(HELP) - 1);
     } else {
         answerAsked(asked, peer, direct, now);
@@ -411,28 +456,36 @@ void BitchatBridgeModule::privateRequest(PrivateSession &session, const Peer &pe
 
 bool BitchatBridgeModule::replyPrivately(const char *text, size_t size)
 {
-    if (!privateReply || !privateReply->ready)
+    if (!privateReply)
         return false;
     const size_t prefix = sizeof(REPLY_PREFIX) - 1;
     if (size >= prefix && std::memcmp(text, REPLY_PREFIX, prefix) == 0) {
         text += prefix;
         size -= prefix;
     }
-    size = utf8Fit(text, size, 255);
     char id[37];
     if (!newMessageId(id))
         return false;
+    return sendPrivateMessage(*privateReply, id, text, size);
+}
+
+bool BitchatBridgeModule::sendPrivateMessage(PrivateSession &session, const char *id, const char *text, size_t size)
+{
+    if (!session.ready)
+        return false;
+    const size_t idSize = strnlen(id, 36);
+    size = utf8Fit(text, size, 255);
     uint8_t body[2 + 36 + 2 + 255];
     size_t offset = 0;
     body[offset++] = 0;
-    body[offset++] = 36;
-    std::memcpy(body + offset, id, 36);
-    offset += 36;
+    body[offset++] = uint8_t(idSize);
+    std::memcpy(body + offset, id, idSize);
+    offset += idSize;
     body[offset++] = 1;
     body[offset++] = uint8_t(size);
     std::memcpy(body + offset, text, size);
     offset += size;
-    const bool sent = sendPrivate(*privateReply, KIND_MESSAGE, {body, offset});
+    const bool sent = sendPrivate(session, KIND_MESSAGE, {body, offset});
     noiseWipe(body, offset);
     return sent;
 }
@@ -471,13 +524,39 @@ bool BitchatBridgeModule::sendNoise(uint8_t type, const PeerId &to, Bytes payloa
     return true;
 }
 
+// The name a node goes by in the chat: its long name, with the end of its number when another node has the same.
+static size_t nodeLabel(const meshtastic_NodeInfoLite *node, uint32_t num, char *out, size_t capacity)
+{
+    size_t size = 0;
+    if (node && node->has_user)
+        size = cleanLabel({reinterpret_cast<const uint8_t *>(node->user.long_name),
+                           strnlen(node->user.long_name, sizeof(node->user.long_name))},
+                          out, capacity);
+    if (!size)
+        return size_t(std::max(0, snprintf(out, capacity, "!%08lx", static_cast<unsigned long>(num))));
+    bool shared = false;
+    for (size_t i = 0; i < nodeDB->getNumMeshNodes() && !shared; ++i) {
+        const meshtastic_NodeInfoLite *other = nodeDB->getMeshNodeByIndex(i);
+        shared = other && other->num != num && other->has_user &&
+                 !strncmp(other->user.long_name, node->user.long_name, sizeof(node->user.long_name));
+    }
+    if (shared && size + 6 < capacity)
+        size += size_t(std::max(0, snprintf(out + size, capacity - size, "#%04lx", static_cast<unsigned long>(num & 0xffff))));
+    return std::min(size, capacity - 1);
+}
+
 // Stage 2, from Bitchat: "@name text" in the private chat, to the Meshtastic node of that name (long name, then
-// short name; the longest that matches).
+// short name; the longest that matches), among the nodes the owner marked as favourites.
 void BitchatBridgeModule::directToLoRa(PrivateSession &session, const Peer &peer, Bytes text, uint32_t now)
 {
     const auto say = [this](const char *line) { replyPrivately(line, std::strlen(line)); };
     if (!directMessages()) {
-        say("Mensagens privadas pelo LoRa estão desligadas neste rádio.");
+        say("Mensagens privadas pelo LoRa estão desligadas neste rádio. / Direct messages over LoRa are off here.");
+        return;
+    }
+    // A licensed (ham) node may not encrypt: its direct messages would go in the clear.
+    if (owner.is_licensed) {
+        say("Rádio em modo radioamador: sem mensagens privadas pelo LoRa. / Ham mode: no direct messages over LoRa.");
         return;
     }
     const Bytes rest{text.data + 1, text.size - 1};
@@ -486,7 +565,7 @@ void BitchatBridgeModule::directToLoRa(PrivateSession &session, const Peer &peer
     bool twin = false;
     for (size_t i = 0; i < nodeDB->getNumMeshNodes(); ++i) {
         const meshtastic_NodeInfoLite *node = nodeDB->getMeshNodeByIndex(i);
-        if (!node || !node->has_user || node->num == nodeDB->getNodeNum())
+        if (!node || !node->has_user || !node->is_favorite || node->num == nodeDB->getNodeNum())
             continue;
         for (const auto *name : {node->user.long_name, node->user.short_name}) {
             const size_t size =
@@ -503,71 +582,84 @@ void BitchatBridgeModule::directToLoRa(PrivateSession &session, const Peer &peer
             break;
         }
     }
-    char line[LORA_TEXT_LIMIT + 64];
+    char line[LORA_TEXT_LIMIT + 96];
     if (!best) {
+        // One answer for any name that is not a favourite: the chat does not tell which nodes the radio knows.
         size_t word = 0;
         while (word < rest.size && rest.data[word] != ' ' && rest.data[word] != ':')
             ++word;
         word = utf8Fit(reinterpret_cast<const char *>(rest.data), word, 30);
-        snprintf(line, sizeof(line), "Não conheço \"%.*s\" entre os contatos deste rádio.", int(word), rest.data);
+        snprintf(line, sizeof(line),
+                 "Não é possível mandar a \"%.*s\": só aos favoritos do rádio. / Only the radio's favourites.", int(word),
+                 rest.data);
         say(line);
         return;
     }
-    char name[LABEL_LIMIT + 1];
-    size_t nameSize = cleanLabel(
-        {reinterpret_cast<const uint8_t *>(best->user.long_name), strnlen(best->user.long_name, sizeof(best->user.long_name))},
-        name, sizeof(name));
-    if (!nameSize)
-        nameSize = snprintf(name, sizeof(name), "!%08lx", static_cast<unsigned long>(best->num));
+    char name[LABEL_LIMIT + 8];
+    const size_t nameSize = nodeLabel(best, best->num, name, sizeof(name));
     if (twin) {
-        snprintf(line, sizeof(line), "Há mais de um contato \"%.*s\"; mensagem não enviada.", int(bestSize), rest.data);
+        snprintf(line, sizeof(line), "Há mais de um favorito \"%.*s\"; mensagem não enviada. / Two favourites have that name.",
+                 int(bestSize), rest.data);
         say(line);
         return;
     }
     const Bytes body = afterName(rest, bestSize);
     if (!body.size) {
-        say("Escreva o texto depois do nome: @contato texto.");
+        say("Escreva o texto depois do nome: @contato texto. / Write the text after the name.");
         return;
     }
     char label[LABEL_LIMIT + 8];
     const size_t labelSize = peerLabel(peer, label, sizeof(label));
     const int head = snprintf(line, sizeof(line), "%s%.*s] ", DIRECT_PREFIX, int(labelSize), label);
     if (head < 0 || size_t(head) + body.size > LORA_TEXT_LIMIT) {
-        snprintf(line, sizeof(line), "Mensagem longa demais: até %u caracteres.",
+        snprintf(line, sizeof(line), "Mensagem longa demais: até %u bytes. / Too long.",
                  unsigned(head < 0 ? 0 : LORA_TEXT_LIMIT - std::min<size_t>(LORA_TEXT_LIMIT, size_t(head))));
         say(line);
         return;
     }
     // Without the node's key the firmware refuses a direct message (no legacy direct messages).
     if (best->user.public_key.size != 32) {
-        snprintf(line, sizeof(line), "%.*s ainda não tem chave pública; mensagem não enviada.", int(nameSize), name);
+        snprintf(line, sizeof(line), "%.*s ainda não tem chave pública; mensagem não enviada. / No public key yet.",
+                 int(nameSize), name);
         say(line);
-        return;
-    }
-    if (!session.direct.admit(now, 2, 20000) || !runtime->privates->directOverall.admit(now, 5, 180000)) {
-        say("Aguarde um pouco: limite de mensagens pelo LoRa.");
         return;
     }
     std::memcpy(line + head, body.data, body.size);
     const size_t size = size_t(head) + body.size;
+    plainLine(line + head, body.size);
     auto *packet =
         (airTime && airTime->isTxAllowedAirUtil() && airTime->isTxAllowedChannelUtil(true) && router->getQueueStatus().free >= 2)
             ? router->allocForSending()
             : nullptr;
+    if (packet) {
+        packet->to = best->num;
+        packet->channel = 0;
+        packet->decoded.portnum = meshtastic_PortNum_TEXT_MESSAGE_APP;
+        packet->decoded.payload.size = size;
+        std::copy_n(reinterpret_cast<const uint8_t *>(line), size, packet->decoded.payload.bytes);
+        // Encrypted to the node's key, never on the channel's.
+        packet->pki_encrypted = true;
+        packet->want_ack = !settings.economy;
+        packet->priority = meshtastic_MeshPacket_Priority_DEFAULT;
+        // The bridge's airtime budget, as for its other LoRa text.
+        if (router->bridgeAirtime(packet) > tokens) {
+            packetPool.release(packet);
+            packet = nullptr;
+        }
+    }
     if (!packet) {
-        say("LoRa ocupado; tente de novo em instantes.");
+        say("LoRa ocupado; tente de novo em instantes. / LoRa busy; try again shortly.");
         return;
     }
-    packet->to = best->num;
-    packet->channel = 0;
-    packet->decoded.portnum = meshtastic_PortNum_TEXT_MESSAGE_APP;
-    packet->decoded.payload.size = size;
-    std::copy_n(reinterpret_cast<const uint8_t *>(line), size, packet->decoded.payload.bytes);
-    packet->want_ack = true;
-    packet->priority = meshtastic_MeshPacket_Priority_DEFAULT;
+    if (!session.direct.admit(now, 2, 20000) || !runtime->privates->directOverall.admit(now, 5, 180000)) {
+        packetPool.release(packet);
+        say("Aguarde um pouco: limite de mensagens pelo LoRa. / Please wait: LoRa message limit.");
+        return;
+    }
+    tokens -= router->bridgeAirtime(packet);
     service->sendToMesh(packet, RX_SRC_LOCAL, true);
     ++submittedRadio;
-    // The node's answers go back to this phone for a day.
+    // The node's answers go back to this phone for half an hour.
     auto &conversations = runtime->privates->conversations;
     Conversation *slot = nullptr;
     for (auto &entry : conversations)
@@ -584,115 +676,185 @@ void BitchatBridgeModule::directToLoRa(PrivateSession &session, const Peer &peer
     say(line);
 }
 
-// Stage 2, from LoRa: a direct message to this node. "@nickname text" goes to that Bitchat phone; otherwise to the
-// phone that last wrote to this node through the bridge, for a day. The rest is the owner's own mail.
-void BitchatBridgeModule::directFromLoRa(uint32_t from, Bytes text)
+// Stage 2, from LoRa: a direct message to this node, from a favourite, encrypted to this node's key. "@nickname
+// text" goes to that Bitchat phone on this radio; otherwise to the phone that wrote to this node through the bridge
+// in the last half hour. The rest is the owner's own mail.
+void BitchatBridgeModule::directFromLoRa(uint32_t from, Bytes text, bool pkiEncrypted, bool tapback)
 {
-    if (!directMessages() || !text.size || !validUtf8(text))
+    if (!directMessages() || !pkiEncrypted || tapback || !text.size || !validUtf8(text))
+        return;
+    const auto *node = nodeDB->getMeshNode(from);
+    if (!node || !node->is_favorite)
         return;
     const uint32_t now = millis();
     PeerId target{};
     bool found = false;
     if (text.data[0] == '@') {
+        // Phones on this radio's Bluetooth side only. The longest name wins; two phones it could be, none.
         const Bytes rest{text.data + 1, text.size - 1};
         size_t bestSize = 0;
+        bool tie = false;
         for (size_t i = 0; i < PeerTable::CAPACITY; ++i) {
             const Peer *peer = runtime->peers->slot(i);
-            if (!peer || peer->announcement.gateway)
+            if (!peer || peer->announcement.gateway || !peer->localAt)
                 continue;
             char label[LABEL_LIMIT + 8];
             const size_t labelSize = peerLabel(*peer, label, sizeof(label));
             const size_t nickSize = strnlen(peer->announcement.nickname.data(), peer->announcement.nickname.size());
-            for (const auto &name : {std::make_pair(static_cast<const char *>(label), labelSize),
-                                     std::make_pair(static_cast<const char *>(peer->announcement.nickname.data()), nickSize)})
-                if (name.second > bestSize && startsWithName(rest, name.first, name.second)) {
-                    bestSize = name.second;
-                    target = peer->id;
-                    found = true;
-                }
+            const bool shared = runtime->peers->nicknameShared(*peer);
+            size_t size = 0;
+            if (startsWithName(rest, label, labelSize))
+                size = labelSize;
+            else if (startsWithName(rest, peer->announcement.nickname.data(), nickSize))
+                size = nickSize;
+            if (!size)
+                continue;
+            if (size > bestSize) {
+                bestSize = size;
+                target = peer->id;
+                // A nickname two phones share names neither: the label with the end of the ID is needed.
+                tie = shared && size == nickSize && labelSize != nickSize;
+            } else if (size == bestSize && peer->id != target) {
+                tie = true;
+            }
         }
-        if (found)
+        if (bestSize && !tie) {
             text = afterName(rest, bestSize);
+            found = true;
+        }
+        if (tie)
+            return;
     }
     if (!found && runtime->privates)
         for (const auto &entry : runtime->privates->conversations)
-            if (entry.used && entry.node == from && Throttle::isWithinTimespanMsAt(entry.at, KEEP_DAY_MS, now)) {
+            if (entry.used && entry.node == from && Throttle::isWithinTimespanMsAt(entry.at, CONVERSATION_MS, now)) {
                 target = entry.peer;
                 found = true;
             }
     if (!found || !text.size)
         return;
-    char name[LABEL_LIMIT + 1];
-    const auto *node = nodeDB->getMeshNode(from);
-    size_t nameSize = 0;
-    if (node && node->has_user)
-        nameSize = cleanLabel({reinterpret_cast<const uint8_t *>(node->user.long_name),
-                               strnlen(node->user.long_name, sizeof(node->user.long_name))},
-                              name, sizeof(name));
-    if (!nameSize)
-        nameSize = snprintf(name, sizeof(name), "!%08lx", static_cast<unsigned long>(from));
+    // A retry of a message already passed on, under a new packet ID, is not passed on again.
+    if (!allocateBuffer(runtime->privates))
+        return;
+    const uint32_t hash = idHash(text);
+    for (auto &recent : runtime->privates->recentIn) {
+        if (recent.used && !Throttle::isWithinTimespanMsAt(recent.at, RETRY_MS, now))
+            recent = {};
+        if (recent.used && recent.from == from && recent.hash == hash)
+            return;
+    }
+    RecentDirect *slot = nullptr;
+    for (auto &recent : runtime->privates->recentIn)
+        if (!slot || (slot->used && (!recent.used || int32_t(recent.at - slot->at) < 0)))
+            slot = &recent;
+    *slot = {from, hash, now, true};
+    char name[LABEL_LIMIT + 8];
+    const size_t nameSize = nodeLabel(node, from, name, sizeof(name));
     char line[MAILBOX_TEXT + 1];
     const int head = snprintf(line, sizeof(line), "%s%.*s] ", IMPORT_PREFIX, int(nameSize), name);
     if (head < 0)
         return;
     const size_t body = utf8Fit(reinterpret_cast<const char *>(text.data), text.size, MAILBOX_TEXT - size_t(head));
     std::memcpy(line + head, text.data, body);
+    plainLine(line + head, body);
     ++importedRadio;
-    deliverToPhone(target, line, size_t(head) + body, now);
+    deliverToPhone(target, from, line, size_t(head) + body, now);
+    noiseWipe(line, sizeof(line));
 }
 
-void BitchatBridgeModule::deliverToPhone(const PeerId &peer, const char *text, size_t size, uint32_t now)
+bool BitchatBridgeModule::phonePresent(const PeerId &peer, uint32_t now)
+{
+    if (runtime->privates)
+        for (const auto &session : runtime->privates->slots)
+            if (session.used && session.ready && session.peer == peer && session.heardAt &&
+                Throttle::isWithinTimespanMsAt(session.heardAt, PRESENT_MS, now))
+                return true;
+    const Peer *known = runtime->peers->find(peer);
+    return known && !known->announcement.gateway && known->localAt &&
+           Throttle::isWithinTimespanMsAt(known->localAt, PRESENT_MS, now);
+}
+
+void BitchatBridgeModule::deliverToPhone(const PeerId &peer, uint32_t from, const char *text, size_t size, uint32_t now)
 {
     if (!allocateBuffer(runtime->privates))
         return;
-    if (PrivateSession *session = privateSession(peer, now, false)) {
-        if (session->ready) {
-            privateReply = session;
-            const bool sent = replyPrivately(text, size);
-            privateReply = nullptr;
-            if (sent)
-                return;
-        }
-    }
-    // Kept for when the phone is back: the oldest gives way.
     auto &mailbox = runtime->privates->mailbox;
-    MailboxEntry *slot = nullptr;
-    for (auto &entry : mailbox)
-        if (!slot || (slot->used && (!entry.used || int32_t(entry.at - slot->at) < 0)))
-            slot = &entry;
+    // Room for it: three per phone and three per sender at most, eight in all; the oldest of the full group gives
+    // way, so one sender cannot push out what others wrote.
+    MailboxEntry *oldestPhone = nullptr, *oldestSender = nullptr, *oldest = nullptr, *free = nullptr;
+    size_t forPhone = 0, fromSender = 0;
+    for (auto &entry : mailbox) {
+        if (entry.used && !Throttle::isWithinTimespanMsAt(entry.at, KEEP_DAY_MS, now))
+            noiseWipe(&entry, sizeof(entry));
+        if (!entry.used) {
+            if (!free)
+                free = &entry;
+            continue;
+        }
+        if (entry.peer == peer) {
+            ++forPhone;
+            if (!oldestPhone || int32_t(entry.at - oldestPhone->at) < 0)
+                oldestPhone = &entry;
+        }
+        if (entry.from == from) {
+            ++fromSender;
+            if (!oldestSender || int32_t(entry.at - oldestSender->at) < 0)
+                oldestSender = &entry;
+        }
+        if (!oldest || int32_t(entry.at - oldest->at) < 0)
+            oldest = &entry;
+    }
+    MailboxEntry *slot = forPhone >= MAILBOX_PER_PHONE      ? oldestPhone
+                         : fromSender >= MAILBOX_PER_SENDER ? oldestSender
+                         : free                             ? free
+                                                            : oldest;
+    noiseWipe(slot, sizeof(*slot));
+    if (!newMessageId(slot->id.data()))
+        return;
     slot->peer = peer;
-    slot->at = now;
+    slot->from = from;
+    slot->at = now ? now : 1;
     slot->size = uint16_t(std::min(size, slot->text.size()));
     std::memcpy(slot->text.data(), text, slot->size);
     slot->used = true;
-    phoneArrived(peer, now);
+    // Sent now only to a phone that is here; kept until it says it has it either way.
+    if (!phonePresent(peer, now))
+        return;
+    PrivateSession *session = privateSession(peer, now, false);
+    if (session && session->ready)
+        flushMailbox(*session, now);
+    else
+        phoneArrived(peer, now);
 }
 
 void BitchatBridgeModule::flushMailbox(PrivateSession &session, uint32_t now)
 {
-    if (!runtime->privates || !session.ready)
+    if (!runtime->privates || !session.ready || !directMessages())
         return;
-    for (auto &entry : runtime->privates->mailbox) {
-        if (!entry.used)
-            continue;
-        if (!Throttle::isWithinTimespanMsAt(entry.at, KEEP_DAY_MS, now)) {
-            noiseWipe(&entry, sizeof(entry));
-            continue;
+    // Oldest first; each waits for its delivery confirmation and is sent again after a while.
+    for (;;) {
+        MailboxEntry *next = nullptr;
+        for (auto &entry : runtime->privates->mailbox) {
+            if (!entry.used)
+                continue;
+            if (!Throttle::isWithinTimespanMsAt(entry.at, KEEP_DAY_MS, now)) {
+                noiseWipe(&entry, sizeof(entry));
+                continue;
+            }
+            if (entry.peer != session.peer || (entry.sentAt && Throttle::isWithinTimespanMsAt(entry.sentAt, RESEND_MS, now)))
+                continue;
+            if (!next || int32_t(entry.at - next->at) < 0)
+                next = &entry;
         }
-        if (entry.peer != session.peer)
-            continue;
-        privateReply = &session;
-        const bool sent = replyPrivately(entry.text.data(), entry.size);
-        privateReply = nullptr;
-        if (!sent)
+        if (!next || !sendPrivateMessage(session, next->id.data(), next->text.data(), next->size))
             return; // the rest waits for the next message or announce
-        noiseWipe(&entry, sizeof(entry));
+        next->sentAt = now ? now : 1;
     }
 }
 
 void BitchatBridgeModule::phoneArrived(const PeerId &peer, uint32_t now)
 {
-    if (!runtime || !runtime->privates)
+    if (!runtime || !runtime->privates || !directMessages())
         return;
     bool mail = false;
     for (const auto &entry : runtime->privates->mailbox)
@@ -706,5 +868,18 @@ void BitchatBridgeModule::phoneArrived(const PeerId &peer, uint32_t now)
         flushMailbox(*session, now);
     else
         initiatePrivate(*session, now);
+}
+
+// "dm off": nothing kept for phones and no conversation is remembered.
+void BitchatBridgeModule::forgetDirect()
+{
+    if (!runtime || !runtime->privates)
+        return;
+    for (auto &entry : runtime->privates->mailbox)
+        noiseWipe(&entry, sizeof(entry));
+    for (auto &entry : runtime->privates->conversations)
+        entry = {};
+    for (auto &entry : runtime->privates->recentIn)
+        entry = {};
 }
 #endif

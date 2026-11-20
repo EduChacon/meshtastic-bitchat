@@ -25,9 +25,11 @@ struct PrivateSession {
     PeerId peer{};
     bool used = false, ready = false, handshaking = false;
     uint8_t failures = 0;
-    // The link the phone talks to the bridge on directly, if any: answers go only there.
+    // The link the phone talks to the bridge on directly, if any: answers go only there. Set only by a frame that
+    // authenticated (a message that opened, a handshake that completed).
     uint16_t link = 0xffff;
-    uint32_t usedAt = 0, handshakeAt = 0, initiatedAt = 0, openedAt = 0;
+    // `heardAt`: the last authenticated frame from the phone.
+    uint32_t usedAt = 0, handshakeAt = 0, initiatedAt = 0, openedAt = 0, heardAt = 0;
     // Handshakes cost curve operations and anyone may claim a phone's ID: a few per phone, then slowly.
     RateBucket handshakes;
     // Acks and answers: ten at once (the guide is five), then one a second, so a flood is not echoed in full.
@@ -42,13 +44,24 @@ struct PrivateSession {
     uint8_t recentNext = 0;
 };
 
-// A LoRa message for a phone that was not in a chat with the bridge when it came.
+// A LoRa message for a phone. It stays until the phone says it was delivered (0x03 with this ID), so a phone that
+// went away still gets it; sent again under the same ID, which the app shows once.
 struct MailboxEntry {
     PeerId peer{};
-    uint32_t at = 0;
+    uint32_t from = 0;
+    uint32_t at = 0, sentAt = 0;
     uint16_t size = 0;
     bool used = false;
+    std::array<char, 37> id{};
     std::array<char, MAILBOX_TEXT> text{};
+};
+constexpr size_t MAILBOX_PER_PHONE = 3;
+constexpr size_t MAILBOX_PER_SENDER = 3;
+
+// A direct message from LoRa already passed on: the sender's retries are not passed on again.
+struct RecentDirect {
+    uint32_t from = 0, hash = 0, at = 0;
+    bool used = false;
 };
 
 // Which phone last wrote to a LoRa node through the bridge: that node's answers go back to it.
@@ -63,8 +76,11 @@ struct PrivateSessions {
     std::array<PrivateSession, BITCHAT_PRIVATE_SESSIONS> slots{};
     std::array<MailboxEntry, MAILBOX_ENTRIES> mailbox{};
     std::array<Conversation, CONVERSATIONS> conversations{};
+    std::array<RecentDirect, 4> recentIn{};
     // Direct messages from all phones to LoRa: five at once, then one every three minutes.
     RateBucket directOverall;
+    // Slots taken by phones the bridge does not know yet: six at once, then one every five seconds.
+    RateBucket openers;
     ~PrivateSessions()
     {
         // Keys and texts are not left behind in freed memory.

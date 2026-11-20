@@ -2,8 +2,8 @@
 #include "HeapModel.h"
 #include "PowerStatus.h"
 #include "bridge/BitchatBridgeModule.h"
-#include "bridge/BridgeNoise.h"
 #include "bridge/BridgeDefaults.h"
+#include "bridge/BridgeNoise.h"
 #include "cashu_vectors.h"
 #include "gcs_reference.h"
 #include <Curve25519.h>
@@ -408,7 +408,6 @@ static void cashuTunnel(const Phone &ana, const Phone &bia, const PeerId &bridge
     fakeSent.clear();
 }
 
-
 // A private chat as the apps hold one: Noise XX, the phone's side done with the same Noise code (checked against an
 // independent implementation in test_noise.cpp), unsigned packets addressed to the other side.
 struct PrivatePhone {
@@ -514,11 +513,22 @@ struct PrivatePhone {
             const size_t length = plain[3 + 37];
             CHECK(3 + 38 + length == size && length <= 255);
             said.emplace_back(plain.begin() + 41, plain.begin() + 41 + length);
+            ids.emplace_back(plain.begin() + 3, plain.begin() + 3 + 36);
         }
+    }
+    // The IDs of the texts read, in order: the phone confirms them with "delivered".
+    std::vector<std::string> ids;
+    void delivered(const std::string &id)
+    {
+        std::vector<uint8_t> plain{3};
+        plain.insert(plain.end(), id.begin(), id.end());
+        std::vector<uint8_t> sealed(plain.size() + NOISE_TRANSPORT_OVERHEAD);
+        CHECK(noiseEncrypt(send, {plain.data(), plain.size()}, sealed.data()));
+        phone.write(directed(0x11, {sealed.data(), sealed.size()}));
     }
 };
 
-static void directFromLoRa(NodeNum from, const std::string &message)
+static void directFromLoRa(NodeNum from, const std::string &message, bool pki = true, uint32_t emoji = 0)
 {
     static uint32_t id = 9000;
     meshtastic_MeshPacket packet;
@@ -526,7 +536,8 @@ static void directFromLoRa(NodeNum from, const std::string &message)
     packet.to = fakeNodeDB.number;
     packet.id = ++id;
     packet.channel = 0;
-    packet.pki_encrypted = true;
+    packet.pki_encrypted = pki;
+    packet.decoded.emoji = emoji;
     packet.decoded.payload.size = uint16_t(message.size());
     memcpy(packet.decoded.payload.bytes, message.data(), message.size());
     bridge->handleReceived(packet);
@@ -700,17 +711,23 @@ static void privateChat(const Phone &ana, const Phone &bia, const Phone &caio, c
             CHECK(line.find("nenhuma outra ponte respondeu") == std::string::npos);
     }
 
-    // Stage 2: "@name text" to a Meshtastic node, and its answer back to the phone.
+    // Stage 2: "@name text" to a Meshtastic node the owner marked as favourite, and its answer back to the phone.
     auto &norte = fakeNodeDB.nodes[0x7777];
     strcpy(norte.user.long_name, "Casa Norte");
     strcpy(norte.user.short_name, "CN");
     norte.user.public_key.size = 32;
+    norte.is_favorite = true;
     auto &semChave = fakeNodeDB.nodes[0x7778];
     strcpy(semChave.user.long_name, "Sem Chave");
+    semChave.is_favorite = true;
     for (NodeNum twin : {0x7781u, 0x7782u}) {
         strcpy(fakeNodeDB.nodes[twin].user.long_name, "Gemeo");
         fakeNodeDB.nodes[twin].user.public_key.size = 32;
+        fakeNodeDB.nodes[twin].is_favorite = true;
     }
+    auto &estranho = fakeNodeDB.nodes[0x7783];
+    strcpy(estranho.user.long_name, "Estranho");
+    estranho.user.public_key.size = 32;
     const auto lastDirect = [&]() -> const meshtastic_MeshPacket * {
         for (auto it = fakeRadio.rbegin(); it != fakeRadio.rend(); ++it)
             if (it->to != NODENUM_BROADCAST)
@@ -727,7 +744,7 @@ static void privateChat(const Phone &ana, const Phone &bia, const Phone &caio, c
     run(200);
     chatAna.read(delivered, said);
     CHECK(fakeRadio.size() == radioNow + 1 && lastDirect() && lastDirect()->to == 0x7777 && lastDirect()->channel == 0 &&
-          lastDirect()->want_ack && sentText(lastDirect()) == "[Bitchat ana] oi do bitchat");
+          lastDirect()->want_ack && lastDirect()->pki_encrypted && sentText(lastDirect()) == "[Bitchat ana] oi do bitchat");
     CHECK(said == std::vector<std::string>{"Enviado a Casa Norte pelo LoRa."});
     // The short name, with a colon; the second within 20 s is still allowed, the third is not.
     clear();
@@ -737,38 +754,109 @@ static void privateChat(const Phone &ana, const Phone &bia, const Phone &caio, c
     run(200);
     chatAna.read(delivered, said);
     CHECK(sentText(lastDirect()) == "[Bitchat ana] tudo bem?" && fakeRadio.size() == radioNow + 2);
-    CHECK((said == std::vector<std::string>{"Enviado a Casa Norte pelo LoRa.", "Aguarde um pouco: limite de mensagens pelo LoRa."}));
-    // Refusals, none of them on the air.
+    CHECK((said ==
+           std::vector<std::string>{"Enviado a Casa Norte pelo LoRa.",
+                                    "Aguarde um pouco: limite de mensagens pelo LoRa. / Please wait: LoRa message limit."}));
+    // Refusals, none of them on the air. A node that is not a favourite gets the same answer as an unknown name: the
+    // chat does not tell which nodes the radio knows.
     clear();
     run(25000);
-    for (const char *line : {"@Ninguem oi", "@Gemeo oi", "@Sem Chave oi", "@Casa Norte"}) {
+    for (const char *line : {"@Ninguem oi", "@Estranho oi", "@Gemeo oi", "@Sem Chave oi", "@Casa Norte"}) {
         chatAna.message(std::string("R-") + line, line);
-        run(100);
+        run(1000);
     }
     const std::string longText(190, 'x');
     chatAna.message("R-long", "@Casa Norte " + longText);
     run(200);
     chatAna.read(delivered, said);
-    CHECK(fakeRadio.size() == radioNow + 2 && said.size() == 5);
-    CHECK(said[0] == "Não conheço \"Ninguem\" entre os contatos deste rádio.");
-    CHECK(said[1] == "Há mais de um contato \"Gemeo\"; mensagem não enviada.");
-    CHECK(said[2] == "Sem Chave ainda não tem chave pública; mensagem não enviada.");
-    CHECK(said[3] == "Escreva o texto depois do nome: @contato texto.");
-    CHECK(said[4].rfind("Mensagem longa demais: até ", 0) == 0);
-    // The node answers by direct message: it comes to Ana's chat. The owner's app is not deprived of it.
+    CHECK(fakeRadio.size() == radioNow + 2 && said.size() == 6);
+    CHECK(said[0] == "N\xc3\xa3o \xc3\xa9 poss\xc3\xadvel mandar a \"Ninguem\": s\xc3\xb3 aos favoritos do r\xc3\xa1"
+                     "dio. / Only the radio's favourites.");
+    CHECK(said[1] == "N\xc3\xa3o \xc3\xa9 poss\xc3\xadvel mandar a \"Estranho\": s\xc3\xb3 aos favoritos do r\xc3\xa1"
+                     "dio. / Only the radio's favourites.");
+    CHECK(said[2].rfind("H\xc3\xa1 mais de um favorito \"Gemeo\"", 0) == 0);
+    CHECK(said[3].rfind("Sem Chave ainda n\xc3\xa3o tem chave p\xc3\xba"
+                        "blica",
+                        0) == 0);
+    CHECK(said[4].rfind("Escreva o texto depois do nome", 0) == 0);
+    CHECK(said[5].rfind("Mensagem longa demais: at\xc3\xa9 ", 0) == 0);
+    // Line breaks become spaces: the label stays in front.
+    clear();
+    run(25000);
+    chatAna.message("D-4", "@Casa Norte linha um\nlinha dois");
+    run(200);
+    CHECK(sentText(lastDirect()) == "[Bitchat ana] linha um linha dois");
+    // The node answers by direct message: it comes to Ana's chat, and stays kept until Ana says she has it.
     clear();
     run(15000);
-    directFromLoRa(0x7777, "tudo certo por aqui");
+    chatAna.message("P-1", "ponte");
+    run(200);
+    clear();
+    directFromLoRa(0x7777, "tudo certo\npor aqui");
     run(200);
     chatAna.read(delivered, said);
     CHECK(said == std::vector<std::string>{"[MT Casa Norte] tudo certo por aqui"});
-    // "@bia" from the node: Bia has no chat with the bridge yet, so it waits; when Bia announces herself, the
-    // bridge opens the chat and delivers it.
+    const std::string kept = chatAna.ids.back();
+    // Not confirmed: sent again, under the same ID, when the phone is next heard after half a minute.
+    clear();
+    run(31000);
+    chatAna.message("P-2", "ponte");
+    run(200);
+    chatAna.ids.clear();
+    chatAna.read(delivered, said);
+    CHECK(said.size() == 2 && said[1] == "[MT Casa Norte] tudo certo por aqui" && chatAna.ids[1] == kept);
+    // Confirmed: never again.
+    chatAna.delivered(kept);
+    run(200);
+    clear();
+    run(31000);
+    chatAna.message("P-3", "ponte");
+    run(200);
+    chatAna.read(delivered, said);
+    CHECK(said.size() == 1);
+    // A retry of the same text is passed on once; a tapback, a message not encrypted to this node, and anything
+    // from a node that is not a favourite are not passed on at all.
+    clear();
+    directFromLoRa(0x7777, "de novo?");
+    directFromLoRa(0x7777, "de novo?");
+    directFromLoRa(0x7777, "\xf0\x9f\x91\x8d", true, 1);
+    directFromLoRa(0x7777, "sem PKI", false);
+    directFromLoRa(0x7783, "@ana oi do estranho");
+    run(200);
+    chatAna.read(delivered, said);
+    CHECK(said == std::vector<std::string>{"[MT Casa Norte] de novo?"});
+    for (const auto &id : chatAna.ids)
+        chatAna.delivered(id);
+    run(200);
+
+    // Ana walks away, her session still open on the bridge: the answer waits, and goes when she is back.
+    clear();
+    run(35000);
+    directFromLoRa(0x7777, "voltou?");
+    run(200);
+    CHECK(chatAna.fromBridge(0x11).empty());
+    ana.write(ana.announce());
+    run(300);
+    chatAna.ids.clear();
+    chatAna.read(delivered, said);
+    CHECK(said == std::vector<std::string>{"[MT Casa Norte] voltou?"});
+    chatAna.delivered(chatAna.ids.back());
+    run(200);
+    // Half an hour after Ana last wrote to it, the node's messages are the owner's own again.
+    clear();
+    run(31 * 60 * 1000);
+    ana.write(ana.announce());
+    run(300);
+    directFromLoRa(0x7777, "e agora?");
+    run(200);
+    chatAna.read(delivered, said);
+    CHECK(said.empty());
+
+    // "@bia" from the node: Bia has no chat with the bridge now, so it waits; when Bia announces herself, the bridge
+    // opens the chat and delivers it.
     PrivatePhone mailBia{bia, bridgeId};
     {
-        // Bia's earlier chat is forgotten by the bridge: a new identity of the chat, as after a long pause.
         clear();
-        run(31 * 60 * 1000);
         directFromLoRa(0x7777, "@bia passa aqui depois");
         run(200);
         CHECK(mailBia.fromBridge(0x11).empty());
@@ -782,15 +870,112 @@ static void privateChat(const Phone &ana, const Phone &bia, const Phone &caio, c
         run(200);
         mailBia.read(delivered, said);
         CHECK(said == std::vector<std::string>{"[MT Casa Norte] passa aqui depois"});
+        mailBia.delivered(mailBia.ids.back());
+        run(200);
     }
-    // The owner's own mail stays the owner's: no conversation, no "@".
+    // A frame under Bia's ID on another link does not move her answers there.
     clear();
-    fakeNodeDB.nodes[0x7779].user.public_key.size = 32;
-    strcpy(fakeNodeDB.nodes[0x7779].user.long_name, "Amigo");
-    directFromLoRa(0x7779, "oi, dono do radio");
+    {
+        uint8_t junk[40] = {9, 9, 9};
+        caio.write(mailBia.directed(0x11, {junk, sizeof(junk)}));
+        run(200);
+        directFromLoRa(0x7777, "@bia ainda por a\xc3\xad?");
+        run(200);
+        size_t toCaio = 0;
+        for (const auto &frame : received(caio.handle)) {
+            Packet p;
+            CHECK(decode({frame.data(), frame.size()}, p) == Result::Ok);
+            toCaio += p.type == 0x11 && p.recipient == bia.id;
+        }
+        CHECK(toCaio == 0);
+        mailBia.read(delivered, said);
+        CHECK(said == std::vector<std::string>{"[MT Casa Norte] ainda por a\xc3\xad?"});
+        mailBia.delivered(mailBia.ids.back());
+        run(200);
+    }
+    // A phone announcing itself with Bia's nickname: "@bia" names neither, "@bia#xxxx" the right one.
+    {
+        Phone twin("bia", 77);
+        caio.write(twin.announce({}, 6), caio.handle);
+        run(300);
+        clear();
+        directFromLoRa(0x7777, "@bia qual das duas?");
+        run(200);
+        mailBia.read(delivered, said);
+        size_t toTwin = 0;
+        for (const auto &frame : received(caio.handle)) {
+            Packet p;
+            CHECK(decode({frame.data(), frame.size()}, p) == Result::Ok);
+            toTwin += (p.type == 0x10 || p.type == 0x11) && p.recipient == twin.id;
+        }
+        CHECK(said.empty());
+        CHECK(toTwin == 0);
+        char label[16];
+        snprintf(label, sizeof(label), "@bia#%02x%02x", bia.id[0], bia.id[1]);
+        directFromLoRa(0x7777, std::string(label) + " esta mesmo");
+        run(200);
+        mailBia.read(delivered, said);
+        CHECK(said == std::vector<std::string>{"[MT Casa Norte] esta mesmo"});
+        mailBia.delivered(mailBia.ids.back());
+        run(200);
+    }
+    // Phones heard through Bia's link (all three Bluetooth links are taken) try to take the chat slots: junk
+    // ciphertext, then a real opener. They get unfinished slots only, which give way to each other; Caio's chat, idle
+    // for over two minutes, stays.
+    {
+        PrivatePhone chatCaio{caio, bridgeId};
+        chatCaio.open(150);
+        clear();
+        run(130000);
+        bia.write(bia.announce());
+        run(200);
+        std::vector<Phone> strangers;
+        for (uint8_t i = 0; i < 3; ++i)
+            strangers.emplace_back("x", uint8_t(90 + i));
+        for (const auto &stranger : strangers)
+            bia.write(stranger.announce({}, 6), bia.handle);
+        run(300);
+        for (size_t i = 0; i < 2; ++i) {
+            PrivatePhone fake{strangers[i], bridgeId};
+            uint8_t junk[40] = {1, 2, 3};
+            bia.write(fake.directed(0x11, {junk, sizeof(junk)}), bia.handle);
+            run(4000);
+        }
+        clear();
+        {
+            PrivatePhone opener{strangers[2], bridgeId};
+            uint8_t e[32];
+            for (int i = 0; i < 32; ++i)
+                e[i] = uint8_t(7 + 3 * i);
+            opener.handshake.start(true, e);
+            uint8_t m1[NOISE_MESSAGE1];
+            CHECK(opener.handshake.writeMessage1(m1));
+            bia.write(opener.directed(0x10, {m1, sizeof(m1)}), bia.handle);
+            run(200);
+            size_t answered = 0;
+            for (const auto &frame : received(bia.handle)) {
+                Packet p;
+                CHECK(decode({frame.data(), frame.size()}, p) == Result::Ok);
+                answered += p.type == 0x10 && p.recipient == strangers[2].id && p.payload.size == NOISE_MESSAGE2;
+            }
+            CHECK(answered == 1);
+        }
+        clear();
+        chatCaio.message("C-1", "ponte");
+        run(200);
+        chatCaio.read(delivered, said);
+        CHECK(delivered == std::vector<std::string>{"C-1"} && said.size() == 1);
+        // Bia's chat, in use, stayed as well.
+        mailBia.message("C-2", "ponte");
+        run(200);
+        mailBia.read(delivered, said);
+        CHECK(said.size() == 2);
+    }
+    // The owner turns it off: nothing goes, nothing comes, nothing kept is delivered later; then on again.
+    clear();
+    run(10000);
+    directFromLoRa(0x7777, "@bia guardada");
     run(200);
-    CHECK(mailBia.fromBridge(0x11).empty() && chatAna.fromBridge(0x11).empty());
-    // The owner turns it off: nothing goes, nothing comes; then on again.
     fakeApp.clear();
     fromLoRa(0, "!ponte privado off", 1);
     run(1100);
@@ -801,11 +986,30 @@ static void privateChat(const Phone &ana, const Phone &bia, const Phone &caio, c
     directFromLoRa(0x7777, "@bia ainda?");
     run(200);
     mailBia.read(delivered, said);
-    CHECK(said == std::vector<std::string>{"Mensagens privadas pelo LoRa estão desligadas neste rádio."});
-    CHECK(fakeRadio.size() == radioNow + 2);
+    CHECK(said == std::vector<std::string>{"Mensagens privadas pelo LoRa est\xc3\xa3o desligadas neste r\xc3\xa1"
+                                           "dio. / Direct messages over LoRa are off here."});
     fromLoRa(0, "!bridge dm on", 1);
     run(1100);
     CHECK(fakeApp.size() == 2 && app(1).rfind("[bridge] Direct messages on", 0) == 0);
+    clear();
+    run(31000);
+    bia.write(bia.announce());
+    mailBia.message("M-2", "ponte");
+    run(300);
+    mailBia.read(delivered, said);
+    for (const auto &line : said)
+        CHECK(line.find("guardada") == std::string::npos && line.find("ainda?") == std::string::npos);
+    // In ham mode nothing goes over LoRa encrypted, so nothing goes.
+    owner.is_licensed = true;
+    clear();
+    run(25000);
+    mailBia.message("H-1", "@Casa Norte oi");
+    run(200);
+    mailBia.read(delivered, said);
+    CHECK(said.size() == 1 && said[0].rfind("R\xc3\xa1"
+                                            "dio em modo radioamador",
+                                            0) == 0);
+    owner.is_licensed = false;
     // Nothing of stage 2 reached the public chat.
     for (const auto &line : chat(ana.handle, &bridgeId))
         CHECK(line.find("Casa Norte") == std::string::npos && line.find("Bitchat ana") == std::string::npos);

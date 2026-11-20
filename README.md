@@ -47,8 +47,13 @@ sem tocar no canal primário nem nos canais existentes. A chave desse canal é p
 no [guia](docs/bridge/DEFAULTS.md): **o texto desse canal aparece no `#mesh` do Bitchat, e todo
 texto público do `#mesh` ao alcance da ponte é publicado nesse canal LoRa.**
 
-B não traduz DMs, sessões Noise, grupos privados, posição, telemetria, arquivos, voz nem
-comandos administrativos.
+B não traduz DMs entre telefones, grupos privados, posição, telemetria, arquivos, voz nem
+comandos administrativos. A partir da `1.0.0-beta.17` (experimental), a ponte tem a sua própria
+conversa privada no Bitchat e, por ela, `@nome texto` vai como mensagem direta cifrada a um nó
+Meshtastic **que o dono marcou como favorito**; a resposta desse nó volta à conversa quando começa com
+`@apelido` do telefone ou chega nos 30 minutos seguintes. A ponte lê esse texto (não é ponta a ponta),
+e o aplicativo Meshtastic do dono continua vendo todas as mensagens diretas do rádio. O dono desliga
+com `!bridge dm off`. [Guia](docs/bridge/PRIVATE.md).
 
 ## Aparelhos
 

@@ -45,8 +45,13 @@ slot, without touching the primary or any existing channel. That channel's key i
 listed in the [guide](docs/bridge/DEFAULTS.md#english): **its text appears in Bitchat `#mesh`,
 and every public `#mesh` message within reach of the bridge is published on that LoRa channel.**
 
-B does not translate DMs, Noise sessions, private groups, position, telemetry, files, voice or
-administrative commands.
+B does not translate DMs between phones, private groups, position, telemetry, files, voice or
+administrative commands. From `1.0.0-beta.17` (experimental), the bridge has its own private chat in
+Bitchat, and through it `@name text` goes as an encrypted direct message to a Meshtastic node **the
+owner marked as a favourite**; that node's answer comes back to the chat when it starts with the phone's
+`@nickname` or arrives within the next 30 minutes. The bridge reads that text (it is not end-to-end),
+and the owner's Meshtastic app still shows every direct message of the radio. The owner turns it off
+with `!bridge dm off`. [Guide (Portuguese)](docs/bridge/PRIVATE.md).
 
 ## Devices
 

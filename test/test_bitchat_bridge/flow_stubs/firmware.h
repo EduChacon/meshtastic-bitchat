@@ -28,6 +28,7 @@ struct meshtastic_MeshPacket {
             uint16_t size = 0;
             uint8_t bytes[233]{};
         } payload;
+        uint32_t emoji = 0;
     } decoded;
     uint32_t id = 0;
     bool want_ack = false, via_mqtt = false, pki_encrypted = false;
@@ -106,7 +107,7 @@ struct meshtastic_NodeInfoLite {
     } user;
     float snr = 0;
     uint32_t last_heard = 0;
-    bool via_mqtt = false, has_hops_away = false;
+    bool via_mqtt = false, has_hops_away = false, is_favorite = false;
     uint8_t hops_away = 0;
     bool has_position = false;
     struct {

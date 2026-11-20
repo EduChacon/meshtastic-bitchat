@@ -58,15 +58,23 @@ No sentido do LoRa, texto com mais de 200 bytes é dividido em até três partes
 Bitchat, texto com 100 bytes ou mais chega em até cinco partes curtas. Mensagens privadas entre
 telefones, grupos privados, posição, credenciais, telemetria, arquivos e voz não são traduzidos. A
 partir da `1.0.0-beta.17`, a conversa privada com a própria ponte e o `@nome texto` dentro dela levam
-mensagens diretas a nós Meshtastic e trazem as respostas ([guia](PRIVATE.md)). O túnel de laboratório
+mensagens diretas aos nós Meshtastic que o dono marcou como favoritos e trazem as respostas
+([guia](PRIVATE.md)). O túnel de laboratório
 exige ativação separada e não é necessário para a conversa entre Bitchat e Meshtastic.
 
 ## Mensagens privadas pelo LoRa
 
-Ligadas por padrão. No aplicativo Meshtastic do rádio da ponte: `!bridge dm off` (ou
-`!ponte privado off`) desliga, `!bridge dm on` religa; a escolha fica gravada. Desligadas, a conversa
-privada com a ponte continua respondendo aos comandos, mas `@nome texto` é recusado e as mensagens
-diretas recebidas ficam só com o dono do rádio. Detalhes em [PRIVATE.md](PRIVATE.md).
+Ligadas por padrão, mas só alcançam os nós que o dono marcou como favoritos no aplicativo Meshtastic
+do rádio da ponte: sem favoritos, nenhuma mensagem sai nem volta por esse caminho. Uma resposta só vai
+ao telefone quando começa com `@apelido` dele ou chega nos 30 minutos seguintes à última mensagem que
+ele mandou àquele nó; as demais mensagens diretas ficam só com o dono. A ponte lê o texto nos dois
+sentidos, e o dono continua vendo todas as mensagens diretas do rádio no aplicativo Meshtastic. Em modo
+radioamador, nada vai.
+
+No aplicativo Meshtastic do rádio da ponte: `!bridge dm off` (ou `!ponte privado off`) desliga e apaga
+as mensagens guardadas para telefones; `!bridge dm on` religa; a escolha fica gravada. Desligadas, a
+conversa privada com a ponte continua respondendo aos comandos, mas `@nome texto` é recusado e as
+mensagens diretas recebidas ficam só com o dono do rádio. Detalhes em [PRIVATE.md](PRIVATE.md).
 
 ## Canal comum e canal próprio
 

@@ -126,6 +126,8 @@ class BitchatBridgeModule : MeshModule, OSThread
     bool storageReady = false, identityReady = false, advertisingChanged = true;
     bool defaultsPending = false, defaultChannelUnavailable = false, clockWindow = false;
     bool memoryOk = true, identityOk = true, textReady = false, link = true;
+    int8_t directSetting = -1;
+    int8_t readDirectSetting();
     unsigned publicIndex = 1;
     uint32_t bootId = 0, textGuardAt = 0;
     uint64_t time = 0, clockFloor = 0;
@@ -340,6 +342,21 @@ int main()
         BitchatBridgeModule corrupt;
         corrupt.applyDefaults();
         assert(!corrupt.storageReady && channels.mutations == 0);
+    }
+    // The direct messages switch is read at startup: on when never stored, off when stored off or unreadable.
+    reset();
+    {
+        BitchatBridgeModule fresh;
+        assert(fresh.storageReady && fresh.directSetting == 1);
+        const uint8_t off = 0;
+        fresh.storage.putBytes("dm", &off, 1);
+        BitchatBridgeModule restarted;
+        assert(restarted.storageReady && restarted.directSetting == 0);
+        // Stored, but not readable: off, never on by mistake.
+        Preferences::readable = false;
+        BitchatBridgeModule unreadable;
+        assert(unreadable.directSetting == 0);
+        Preferences::readable = true;
     }
     auto wipe = [](unsigned slot) {
         channels.items[slot] = {};

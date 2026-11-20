@@ -47,6 +47,11 @@ int main()
     assert(newTotal < 25 * 1024);
     assert(fakeFree >= 24 * 1024);
     assert(module.ensureRuntime() && liveBytes == newTotal);
+    // The private chats and the LoRa mailbox, taken when a phone first opens a chat: within the same reserve, and
+    // given back with the rest.
+    assert(allocateBuffer(module.runtime->privates));
+    assert(fakeFree >= 24 * 1024 && liveBytes < newTotal + sizeof(PrivateSessions) + 512);
+    const size_t withPrivates = liveBytes;
     module.releaseRuntime();
     assert(liveBytes == 0 && fakeFree == 64 * 1024);
 
@@ -97,7 +102,7 @@ int main()
     }
     bleDetach();
     printf("Memory host model: legacy startup=%zu largest=%zu; new startup=%zu "
-           "(including modeled heap overhead), peak=%zu. PASS; not device "
+           "(including modeled heap overhead), with private chats=%zu, peak=%zu. PASS; not device "
            "measurements.\n",
-           oldTotal, oldLargest, newTotal, peakBytes);
+           oldTotal, oldLargest, newTotal, withPrivates, peakBytes);
 }

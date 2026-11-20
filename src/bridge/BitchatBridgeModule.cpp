@@ -63,6 +63,8 @@ BitchatBridgeModule::BitchatBridgeModule() : MeshModule("bitchat"), OSThread("bi
     uint8_t stored = 1;
     if (storageReady && storage.isKey("link") && storage.getBytesLength("link") == 1 && storage.getBytes("link", &stored, 1) == 1)
         link = stored != 0;
+    // The direct messages switch, read once here: a later read could miss a stored "off".
+    directSetting = storageReady ? readDirectSetting() : int8_t(-1);
     if (storageReady && storage.isKey("note") && storage.getBytesLength("note") == sizeof(note) &&
         storage.getBytes("note", &note, sizeof(note)) == sizeof(note)) {
         note.author[sizeof(note.author) - 1] = 0;
@@ -383,14 +385,21 @@ bool BitchatBridgeModule::setLink(bool value)
     link = value;
     return true;
 }
+// On when never stored; a stored value that cannot be read counts as off.
+int8_t BitchatBridgeModule::readDirectSetting()
+{
+    if (!storage.isKey("dm"))
+        return 1;
+    uint8_t stored = 0;
+    if (storage.getBytesLength("dm") != 1 || storage.getBytes("dm", &stored, 1) != 1)
+        return 0;
+    return int8_t(stored != 0);
+}
+
 bool BitchatBridgeModule::directMessages()
 {
-    if (directSetting < 0) {
-        uint8_t stored = 1;
-        if (storageReady && storage.isKey("dm") && storage.getBytesLength("dm") == 1)
-            storage.getBytes("dm", &stored, 1);
-        directSetting = stored != 0;
-    }
+    if (directSetting < 0)
+        directSetting = storageReady ? readDirectSetting() : int8_t(1);
     return directSetting != 0;
 }
 
@@ -400,6 +409,9 @@ bool BitchatBridgeModule::setDirectMessages(bool value)
     if (!storageReady || storage.putBytes("dm", &stored, 1) != 1)
         return false;
     directSetting = value;
+    // Off: nothing kept for the phones, no conversation remembered.
+    if (!value)
+        forgetDirect();
     return true;
 }
 
@@ -629,7 +641,7 @@ void BitchatBridgeModule::answerApp()
         replyToApp("[bridge] Also: prefix on, prefix off (only text starting with !lora goes to LoRa), note <text>, note off, "
                    "battery, radios, sos <text>, test. Portuguese: !ponte recado, bateria, radios, sos, teste.");
         replyToApp("[bridge] dm on, dm off (!ponte privado on/off): Bitchat private chat with the bridge, @name text to a "
-                   "node and its answer back.");
+                   "favourite node and its answer back.");
         return;
     }
     if (command == Command::Guide || command == Command::GuidePt) {
@@ -723,11 +735,11 @@ void BitchatBridgeModule::answerApp()
             replyToApp(appPortuguese ? "[bridge] Não mudou: erro de memória." : "[bridge] Not changed: Storage error");
         else if (appPortuguese)
             replyToApp(value ? "[bridge] Mensagens privadas pelo LoRa ligadas: no chat privado com a ponte, @nome texto "
-                               "vai a esse nó, e a resposta volta ao telefone."
+                               "vai a esse nó, se for favorito do rádio, e a resposta volta ao telefone."
                              : "[bridge] Mensagens privadas pelo LoRa desligadas.");
         else
             replyToApp(value ? "[bridge] Direct messages on: in the private chat with the bridge, @name text goes to "
-                               "that node, and the answer comes back to the phone."
+                               "that node if it is one of this radio's favourites, and the answer comes back to the phone."
                              : "[bridge] Direct messages off.");
         return;
     }
@@ -1695,6 +1707,8 @@ bool BitchatBridgeModule::handleFrame(Bytes frame, uint16_t source, bool fromTun
         return true;
     if (packet.type == 1 && !peer->announcement.gateway) {
         rememberAnnounce(packet, frame);
+        // Here, on this radio's Bluetooth side (tunneled frames returned above).
+        peer->localAt = now ? now : 1;
         // A phone with LoRa mail waiting: the bridge opens the private chat to deliver it.
         phoneArrived(packet.sender, now);
     }
@@ -1824,7 +1838,7 @@ ProcessMessage BitchatBridgeModule::accept(const meshtastic_MeshPacket &packet)
     if (packet.to == nodeDB->getNodeNum() && packet.from != 0 && !isFromUs(&packet) &&
         packet.decoded.portnum == meshtastic_PortNum_TEXT_MESSAGE_APP) {
         if (settings.enabled && runtime && wasActive && identityReady && utc())
-            directFromLoRa(getFrom(&packet), payload);
+            directFromLoRa(getFrom(&packet), payload, packet.pki_encrypted, packet.decoded.emoji != 0);
         return ProcessMessage::CONTINUE;
     }
     if (packet.to != NODENUM_BROADCAST)

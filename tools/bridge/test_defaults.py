@@ -40,13 +40,17 @@ with tempfile.TemporaryDirectory(prefix="bridge-defaults-") as directory:
     source = (root / "src/bridge/BitchatBridgeModule.cpp").read_text()
     header = (root / "src/bridge/BitchatBridgeModule.h").read_text()
     (work / "settings-under-test.inc").write_text(
-        block(header, "struct Settings {") + " settings;\n" + block(header, "struct Note {") + " note;\n"
+        block(header, "struct Settings {")
+        + " settings;\n"
+        + block(header, "struct Note {")
+        + " note;\n"
     )
     (work / "defaults-under-test.inc").write_text(
         "\n".join(
             block(source, signature)
             for signature in (
                 "BitchatBridgeModule::BitchatBridgeModule()",
+                "int8_t BitchatBridgeModule::readDirectSetting()",
                 "bool BitchatBridgeModule::persist()",
                 "uint8_t BitchatBridgeModule::provisionPublicChannel()",
                 "void BitchatBridgeModule::applyDefaults()",

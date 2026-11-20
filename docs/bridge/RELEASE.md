@@ -14,13 +14,22 @@ instalar. Não há garantia de risco zero.
   privada com ela basta a palavra (`bateria`, `quem`, `guia`, `teste`, `recado`, `sos`, ou `ponte` para
   o estado), e a resposta sai só ali. As regras são as do chat público. Criptografia Noise, a mesma das
   conversas entre telefones, conferida byte a byte com uma implementação independente.
-- **Mensagens privadas pelo LoRa.** Na conversa com a ponte, `@nome texto` vai como mensagem direta
-  cifrada (PKI) ao nó Meshtastic desse nome, como `[Bitchat apelido] texto`, e a resposta do nó volta
-  à conversa como `[MT nome] texto`; se o telefone estiver longe, a ponte guarda a resposta por até
-  24 horas e a entrega quando ele voltar. A ponte lê o texto (não é ponta a ponta), e o aplicativo
-  Meshtastic do dono continua vendo todas as mensagens diretas do rádio. O dono desliga com
-  `!bridge dm off`. [Guia](https://github.com/EduChacon/meshtastic-bitchat/blob/v1.0.0-beta.17/docs/bridge/PRIVATE.md).
-- **Só simulado e compilado:** 223 verificações da criptografia e 2612 do fluxo completo.
+- **Mensagens privadas pelo LoRa, só com os favoritos do rádio.** Na conversa com a ponte,
+  `@nome texto` vai como mensagem direta cifrada (PKI) ao nó Meshtastic desse nome, como
+  `[Bitchat apelido] texto`, desde que o dono o tenha marcado como favorito; qualquer outro nome recebe
+  a mesma recusa, sem revelar quais nós o rádio conhece. A resposta do nó volta à conversa como
+  `[MT nome] texto` quando começa com `@apelido` do telefone ou chega nos 30 minutos seguintes; as
+  demais mensagens diretas são do dono. Se o telefone estiver longe, a ponte guarda a resposta até ele
+  confirmar que a recebeu (no máximo 24 horas). A ponte lê o texto (não é ponta a ponta), e o
+  aplicativo Meshtastic do dono continua vendo todas as mensagens diretas do rádio. Nada vai em modo
+  radioamador. O dono desliga com `!bridge dm off`, que também apaga o que estiver guardado.
+  [Guia](https://github.com/EduChacon/meshtastic-bitchat/blob/v1.0.0-beta.17/docs/bridge/PRIVATE.md).
+- **Revisão independente do código antes da publicação,** com o que achou já corrigido: a ligação
+  Bluetooth de uma conversa só muda com um pacote autenticado; telefones desconhecidos não tomam o
+  lugar de uma conversa em uso; dois telefones com o mesmo apelido exigem `@apelido#xxxx`; mensagens
+  sem PKI e reações não passam; a escolha `dm` fica gravada também no nRF52, num arquivo próprio.
+- **Só simulado e compilado:** 223 verificações da criptografia, 2850 do fluxo completo e 26 da
+  gravação do nRF52.
 
 **O que a `1.0.0-beta.16` mudou em relação à `1.0.0-beta.15`:** pagamentos Cashu pelo LoRa,
 experimentais.

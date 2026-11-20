@@ -1,4 +1,5 @@
-// nRF52 only: the ESP32 key-value calls the bridge uses, kept in one small file on the internal filesystem.
+// nRF52 only: the ESP32 key-value calls the bridge uses, kept in small files on the internal filesystem
+// (BridgeNrf52Prefs.cpp).
 #pragma once
 #include <cstddef>
 #include <cstdint>

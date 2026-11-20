@@ -117,7 +117,9 @@ class BitchatBridgeModule : public MeshModule, private concurrency::OSThread
         bool waiting = false, answered = false, holding = false, trusted = false;
         // The best answer so far: a delivery a known node sent by direct message ends the wait at once.
         bitchat::PayOutcome outcome = bitchat::PayOutcome::Delivered;
-        uint8_t phones = 0, rank = 0;
+        uint8_t phones = 0, rank = 0, channel = 255;
+        // The channel the parts go on: if it changes meanwhile, the rest is not sent.
+        bitchat::Digest binding{};
         uint32_t node = 0;
         char bridge[15]{};
         bitchat::PeerId sender{};

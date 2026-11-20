@@ -155,6 +155,12 @@ static void tokens()
     CHECK(!tokenLike(utf8("ab3Fg-_9ab3Fg-_9ab3Fg-_9ab3Fg-_9ab3Fg-_ e mais")));
     CHECK(!tokenLike(utf8("https://exemplo.com.br/caminho/longo/de/verdade?x=1&y=2")));
     CHECK(tokenLike(utf8("veja cashuB")));
+    // Common text with long runs that are no token: laughter, lines, hex, addresses.
+    CHECK(!tokenLike(utf8("kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk")));
+    CHECK(!tokenLike(utf8("--------------------------------------------------")));
+    CHECK(!tokenLike(utf8("3b5f0c9a7e21d4c8b6f0e1a2d3c4b5a69788796a5b4c3d2e1f00112233445566")));
+    CHECK(!tokenLike(utf8("bc1qar0srrr7xfkvy5l643lydnw9re59gtzzwf5mdq0000000000")));
+    CHECK(!tokenLike(utf8("KKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKK2025")));
     // Secrets read by themselves.
     CHECK(!lockedSecret(utf8("abc")));
     CHECK(!lockedSecret(utf8("[\"P2PK\",{\"data\":\"02aa\"}]")));

@@ -361,6 +361,8 @@ void BitchatBridgeModule::releaseRuntime()
 {
     bleReleaseBuffers();
     runtime.reset();
+    // A payment on its way goes with the runtime that carried it.
+    payment = {};
 }
 bool BitchatBridgeModule::setEconomy(bool value)
 {

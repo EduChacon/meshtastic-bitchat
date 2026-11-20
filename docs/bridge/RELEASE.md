@@ -20,7 +20,8 @@ experimentais.
   direta cifrada com as chaves dos dois rádios (PKI), o que prova quem respondeu.
   [Guia](https://github.com/EduChacon/meshtastic-bitchat/blob/v1.0.0-beta.16/docs/bridge/CASHU.md).
 - As duas pontes precisam desta versão. Pontes MeshCore e Meshtastic não trocam pagamentos entre
-  si. **Só simulado e compilado:** 8104 verificações novas e 1715 do fluxo completo.
+  si. **Só simulado e compilado:** 8109 verificações novas e 1804 do fluxo completo; duas revisões
+  independentes do código, com o que acharam já corrigido.
 
 **O que a `1.0.0-beta.15` mudou em relação à `1.0.0-beta.14`:** só o T1000-E (experimental).
 

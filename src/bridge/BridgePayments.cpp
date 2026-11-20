@@ -205,6 +205,8 @@ void BitchatBridgeModule::startPayment(Bytes announce, Bytes message)
     // Remembered across a restart, so the same message is never carried twice.
     record(payment.messageId);
     payment.at = payment.signedAt;
+    payment.channel = settings.textChannel;
+    payment.binding = settings.textBinding;
     payment.waiting = true;
     char amount[32], line[160];
     amountText(payment.amount, payment.unit, amount, sizeof(amount));
@@ -232,7 +234,7 @@ void BitchatBridgeModule::reportPayment()
     else if (payment.outcome == PayOutcome::Delivered)
         snprintf(line, sizeof(line), "✓? %s entregue, diz a ponte %s (não conferida). Confirme com quem recebe.", amount, who);
     else if (payment.outcome == PayOutcome::NoPhones)
-        snprintf(line, sizeof(line), "✗ %s não entregue: ponte %s sem celular perto. O token segue com você.", amount, who);
+        snprintf(line, sizeof(line), "✗ %s: ponte %s sem celular perto. O token segue com você.", amount, who);
     else if (payment.outcome == PayOutcome::Late)
         snprintf(line, sizeof(line), "✗ %s chegou tarde à ponte %s. O token segue com você.", amount, who);
     else
@@ -261,9 +263,10 @@ void BitchatBridgeModule::paymentAnswered(const PayHeard &heard, uint32_t from, 
         snprintf(name, sizeof(name), "%s", node->user.long_name);
     if (!name[0])
         snprintf(name, sizeof(name), "!%08lx", static_cast<unsigned long>(from));
-    // Delivered beats refused, from a known node beats unproven.
+    // A checked answer beats an unchecked one, which anyone on the channel could write; then delivered
+    // beats refused.
     const bool delivered = heard.outcome == PayOutcome::Delivered;
-    const uint8_t rank = uint8_t((delivered ? 2 : 0) + (trusted ? 1 : 0) + 1);
+    const uint8_t rank = uint8_t((trusted ? 2 : 0) + (delivered ? 1 : 0) + 1);
     if (rank > payment.rank) {
         payment.rank = rank;
         payment.outcome = heard.outcome;
@@ -307,6 +310,14 @@ void BitchatBridgeModule::watchPayment(uint32_t now)
         return;
     if (!runtime || !runtime->payOut || !runtime->payOut->active()) {
         payment.waiting = false;
+        return;
+    }
+    // The bridge was moved to another channel, perhaps one anyone may read: what is left stays here.
+    if (runtime->payOut->hasPending() &&
+        (settings.textChannel != payment.channel || settings.textBinding != payment.binding || !textReady)) {
+        runtime->payOut->finish();
+        payment.waiting = false;
+        say("✗ O canal da ponte mudou: o pagamento não foi levado inteiro. O token segue com você.");
         return;
     }
     if ((payment.answered && !Throttle::isWithinTimespanMsAt(payment.answeredAt, REFUSAL_GRACE_MS, now)) ||
@@ -460,8 +471,19 @@ void BitchatBridgeModule::deliverPayment(const PayHeard &heard, uint32_t from)
     write32(key, nodeDB->getNodeNum());
     Runtime::PayItem ack;
     makePayAck(heard.id, outcome, phones, key, nullptr, ack.datagram);
-    ack.to = direct ? from : NODENUM_BROADCAST;
-    if (!allocateBuffer(runtime->pay) || !runtime->pay->control.push(ack))
+    if (!allocateBuffer(runtime->pay)) {
+        reject(Result::Full);
+        return;
+    }
+    // The payer's bridge may not know this node's key yet and then cannot read the direct message: the
+    // broadcast goes too, and the checked answer wins when both arrive.
+    if (direct) {
+        ack.to = from;
+        if (!runtime->pay->control.push(ack))
+            reject(Result::Full);
+    }
+    ack.to = NODENUM_BROADCAST;
+    if (!runtime->pay->control.push(ack))
         reject(Result::Full);
 }
 

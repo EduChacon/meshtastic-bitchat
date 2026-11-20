@@ -32,8 +32,11 @@ bytes (o MeshCore usa 160).
 b) **Confirmação.** A ponte de destino responde com uma mensagem direta à ponte de quem paga. O
 Meshtastic a cifra com as chaves dos dois rádios (PKI) quando conhece a do outro, e isso prova
 quem respondeu: só então a ponte de quem paga mostra `✓` com o nome do rádio. Sem a chave, a
-resposta vai a todos no canal e chega como `✓?` (`não conferida`); confirme com quem recebe. As
-chaves vêm das informações de nó ("NodeInfo") que os rádios trocam sozinhos.
+resposta vai a todos no canal e chega como `✓?` (`não conferida`); confirme com quem recebe. A
+ponte de destino manda as duas, a direta e a geral, porque a de quem paga pode ainda não conhecer a
+chave dela; a conferida vale mais. As chaves vêm das informações de nó ("NodeInfo") que os rádios
+trocam sozinhos. A conferência prova qual nó respondeu, não que ele seja a ponte certa: confira se
+o nome é o da ponte de quem recebe.
 
 c) **Pontes MeshCore e Meshtastic não trocam pagamentos entre si**: são redes de rádio
 diferentes. Duas pontes Meshtastic, ou duas MeshCore, sim.

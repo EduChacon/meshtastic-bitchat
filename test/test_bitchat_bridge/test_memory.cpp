@@ -2,9 +2,9 @@
 #include "bridge/BridgeBle.h"
 #include "bridge/BridgeDiagnostics.h"
 #include "bridge/BridgeHistory.h"
+#include "bridge/BridgePayTunnel.h"
 #include "bridge/BridgeState.h"
 #include "bridge/BridgeText.h"
-#include "bridge/BridgePayTunnel.h"
 #include "bridge/BridgeTunnel.h"
 #include <NimBLEDevice.h>
 #include <cstdio>
@@ -20,6 +20,9 @@ class BitchatBridgeModule
   public:
 #include "runtime-layout.inc"
     std::unique_ptr<Runtime> runtime;
+    // releaseRuntime() also forgets a payment on its way; its contents do not matter here.
+    struct Payment {
+    } payment;
     bool resourceError = false;
     bool ensureRuntime();
     void releaseRuntime();

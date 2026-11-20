@@ -601,12 +601,23 @@ bool tokenLike(Bytes text)
 {
     if (mentionsCashu(text))
         return true;
+    // Base64 of a token mixes capitals, small letters and digits within a few characters; laughter
+    // ("kkkk..."), separator lines, hex fingerprints, addresses and invoices (one letter case) do not.
     size_t run = 0;
+    bool upper = false, lower = false, digit = false;
     for (size_t i = 0; i < text.size; ++i) {
         const uint8_t c = text.data[i];
-        const bool b64 = (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '-' || c == '_';
-        run = b64 ? run + 1 : 0;
-        if (run >= 40)
+        const bool u = c >= 'A' && c <= 'Z', l = c >= 'a' && c <= 'z', d = c >= '0' && c <= '9';
+        if (!(u || l || d || c == '-' || c == '_')) {
+            run = 0;
+            upper = lower = digit = false;
+            continue;
+        }
+        ++run;
+        upper |= u;
+        lower |= l;
+        digit |= d;
+        if (run >= 40 && upper && lower && digit)
             return true;
     }
     return false;

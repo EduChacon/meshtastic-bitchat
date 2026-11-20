@@ -305,6 +305,27 @@ static void cashuTunnel(const Phone &ana, const Phone &bia, const PeerId &bridge
     CHECK(payPackets().empty() && radio().empty());
     CHECK(lastSaid() == "[bridge] Token sem trava P2PK: num canal aberto outros poderiam gastá-lo. Não foi pela LoRa.");
 
+    // A refusal a known node sent directly is not undone by an unchecked "delivered" from anyone else.
+    fakeRadio.clear();
+    run(30000);
+    ana.write(ana.announce());
+    run(200);
+    ana.write(ana.sayCompressed(locked));
+    run(30000);
+    parts = payPackets();
+    CHECK(!parts.empty());
+    {
+        const uint32_t id = read32(parts[0].decoded.payload.bytes + 3);
+        write32(key, 0x00005ead);
+        makePayAck(id, PayOutcome::NoPhones, 0, key, nullptr, ack);
+        payFrom(0x00005ead, ack, fakeNodeDB.number, true);
+        write32(key, 0x0000beef);
+        makePayAck(id, PayOutcome::Delivered, 3, key, nullptr, ack);
+        payFrom(0x0000beef, ack);
+        run(16000);
+        CHECK(lastSaid() == "[bridge] ✗ 10 sat: ponte Casa do Pai sem celular perto. O token segue com você.");
+    }
+
     // Only an unchecked answer: told so after the wait.
     fakeRadio.clear();
     run(30000);
@@ -360,7 +381,8 @@ static void cashuTunnel(const Phone &ana, const Phone &bia, const PeerId &bridge
     CHECK(lastSaid() == "[bridge] 10 sat de rui chegaram pela LoRa. Toque no token para resgatar.");
     // The answer goes to the payer's bridge as a direct message, which Meshtastic encrypts with PKI.
     parts = payPackets();
-    CHECK(parts.size() == 1 && parts[0].to == 0x4444);
+    // and also to everyone, in case the payer's bridge does not know this node's key yet.
+    CHECK(parts.size() == 2 && parts[0].to == 0x4444 && parts[1].to == NODENUM_BROADCAST);
     PayHeard told;
     CHECK(readPayAnswer({parts[0].decoded.payload.bytes, parts[0].decoded.payload.size}, told) && told.kind == PayKind::Ack &&
           told.id == 0x55667788 && told.outcome == PayOutcome::Delivered && told.node == fakeNodeDB.number);

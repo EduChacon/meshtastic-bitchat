@@ -27,7 +27,7 @@ bool PeerTable::nicknameShared(const Peer &peer) const
     return false;
 }
 
-Result PeerTable::announce(Crypto &crypto, Bytes frame, uint64_t nowUtc, uint32_t now, Peer *&peer, bool direct)
+Result PeerTable::announce(Crypto &crypto, Bytes frame, uint64_t nowUtc, uint32_t now, Peer *&peer, uint16_t link)
 {
     peer = nullptr;
     Packet p;
@@ -54,12 +54,13 @@ Result PeerTable::announce(Crypto &crypto, Bytes frame, uint64_t nowUtc, uint32_
     if (result != Result::Ok || !crypto.verify(canonical.bytes(), p.signature, announcement.signingKey.data()))
         return Result::Unauthenticated;
     // The ID comes from the public noise key, so anyone may announce it with a signing key of their own. A phone
-    // announcing itself over its own link takes the place back, instead of being locked out by whoever came
-    // first; from anywhere else (LoRa, other phones) a phone heard here lately keeps its keys. (Private chats stay
-    // safe either way: they prove the noise key itself.)
+    // heard here directly in the last minutes keeps its keys against any other link, LoRa and relays: no one takes
+    // the place, and the name, of a phone that is here. Once that phone has been silent for those minutes, the
+    // place goes to the latest valid announce, so a device that took an ID first does not lock the real phone out
+    // for longer than it stays. (Private chats stay safe either way: they prove the noise key itself.)
     if (existing && (existing->announcement.signingKey != announcement.signingKey ||
                      existing->announcement.noiseKey != announcement.noiseKey)) {
-        if (!direct && existing->localAt && now - existing->localAt < DIRECT_MS)
+        if (existing->localAt && now - existing->localAt < DIRECT_MS && !(link != 0xffff && link == existing->link))
             return Result::Unauthenticated;
         *existing = {};
     }
@@ -98,7 +99,7 @@ Result PeerTable::announce(Crypto &crypto, Bytes frame, uint64_t nowUtc, uint32_
     return Result::Ok;
 }
 
-Result PeerTable::authenticate(Crypto &crypto, Bytes frame, uint64_t nowUtc, uint32_t now, Peer *&peer, bool direct)
+Result PeerTable::authenticate(Crypto &crypto, Bytes frame, uint64_t nowUtc, uint32_t now, Peer *&peer, uint16_t link)
 {
     peer = nullptr;
     Packet p;
@@ -106,7 +107,7 @@ Result PeerTable::authenticate(Crypto &crypto, Bytes frame, uint64_t nowUtc, uin
     if (result != Result::Ok)
         return result;
     if (p.type == 1)
-        return announce(crypto, frame, nowUtc, now, peer, direct);
+        return announce(crypto, frame, nowUtc, now, peer, link);
     if (nowUtc == 0)
         return Result::NoClock;
     if (!fresh(p.timestamp, nowUtc))

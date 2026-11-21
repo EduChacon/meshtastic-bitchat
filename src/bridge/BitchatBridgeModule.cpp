@@ -150,7 +150,7 @@ void BitchatBridgeModule::adoptPeerClock(Bytes frame, const Packet &packet, uint
         chosen = earliest;
     }
     Peer *peer = nullptr;
-    if (runtime->peers->announce(crypto, frame, packet.timestamp, now, peer, true) != Result::Ok)
+    if (runtime->peers->announce(crypto, frame, packet.timestamp, now, peer, source) != Result::Ok)
         return;
     peerClockUtc = chosen;
     peerClockAt = now;
@@ -1410,8 +1410,9 @@ bool BitchatBridgeModule::seen(const Digest &id) const
 {
     const uint64_t now = utc();
     for (const auto &entry : journal)
+        // (An entry from a clock that was ahead, then corrected, counts only while within the freshness window.)
         if (entry.utc && std::equal(entry.id.begin(), entry.id.end(), id.begin()) &&
-            (entry.utc > now || now - entry.utc < JOURNAL_MS))
+            (entry.utc > now ? entry.utc - now <= FRESHNESS_MS : now - entry.utc < JOURNAL_MS))
             return true;
     return false;
 }
@@ -1421,10 +1422,12 @@ bool BitchatBridgeModule::record(const Digest &id, bool persist)
     const uint64_t now = utc();
     if (!storageReady || !now || seen(id))
         return false;
-    // A full journal gives up its oldest entry: refusing new messages would silence the bridge.
+    // A full journal gives up its oldest entry (first one dated ahead of the clock, from a time later corrected):
+    // refusing new messages would silence the bridge.
+    const auto age = [now](uint64_t at) { return at > now + FRESHNESS_MS ? UINT64_MAX : at > now ? 0 : now - at; };
     size_t slot = 0;
     for (size_t i = 1; i < journal.size(); ++i)
-        if (journal[i].utc < journal[slot].utc)
+        if (age(journal[i].utc) > age(journal[slot].utc))
             slot = i;
     auto &entry = journal[slot];
     std::copy_n(id.begin(), entry.id.size(), entry.id.begin());
@@ -1708,7 +1711,7 @@ bool BitchatBridgeModule::handleFrame(Bytes frame, uint16_t source, bool fromTun
         return false;
     }
     Peer *peer = nullptr;
-    result = runtime->peers->authenticate(crypto, frame, utc(), now, peer, !fromTunnel && packet.ttl == 7 && source != NO_LINK);
+    result = runtime->peers->authenticate(crypto, frame, utc(), now, peer, !fromTunnel && packet.ttl == 7 ? source : NO_LINK);
     if (result == Result::Ok && !peer)
         result = Result::Unauthenticated;
     if (result == Result::Ok)
@@ -1753,6 +1756,8 @@ bool BitchatBridgeModule::handleFrame(Bytes frame, uint16_t source, bool fromTun
         rememberAnnounce(packet, frame);
         // Here, on this radio's Bluetooth side (tunneled frames returned above).
         peer->localAt = now ? now : 1;
+        if (packet.ttl == 7 && source != NO_LINK)
+            peer->link = source;
         // A phone with LoRa mail waiting: the bridge opens the private chat to deliver it.
         phoneArrived(packet.sender, now);
     }
@@ -1808,9 +1813,15 @@ void BitchatBridgeModule::exportText(const Packet &packet, Peer &peer, const Dig
     } else {
         result = publicTextForLoRa(packet, body);
     }
+    // A token never goes to LoRa as text, whoever brought it: only whole, by the payment tunnel.
+    if (result == Result::Ok && mentionsCashu(packet.payload))
+        result = Result::Policy;
+    if (result == Result::Ok && seen(id))
+        result = Result::Duplicate;
+    // Only text that would go, from a phone right here (which the other bridge hears too): the other bridge
+    // should carry it, so its start must show up on LoRa soon (see accept()).
     if (result == Result::Ok && textConflict) {
-        // The other bridge should carry it: its start must show up on LoRa soon (see accept()).
-        if (!standbyCheck && body.size) {
+        if (!standbyCheck && body.size && packet.ttl == 7 && !peer.announcement.gateway) {
             standbyBodySize = uint8_t(std::min(body.size, standbyBody.size()));
             std::copy_n(body.data, standbyBodySize, standbyBody.begin());
             standbyCheck = true;
@@ -1818,11 +1829,6 @@ void BitchatBridgeModule::exportText(const Packet &packet, Peer &peer, const Dig
         }
         result = Result::Policy;
     }
-    // A token never goes to LoRa as text, whoever brought it: only whole, by the payment tunnel.
-    if (result == Result::Ok && mentionsCashu(packet.payload))
-        result = Result::Policy;
-    if (result == Result::Ok && seen(id))
-        result = Result::Duplicate;
     if (result != Result::Ok) {
         reject(result);
         return;

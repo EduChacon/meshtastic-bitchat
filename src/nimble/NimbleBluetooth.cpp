@@ -660,6 +660,15 @@ class NimbleBluetoothServerCallback : public NimBLEServerCallbacks
         if (config.bluetooth.mode != meshtastic_Config_BluetoothConfig_PairingMode_NO_PIN &&
             !(desc->sec_state.encrypted && desc->sec_state.authenticated)) {
             LOG_WARN("BLE link %u paired without the PIN, disconnecting", desc->conn_handle);
+            // The PIN on screen goes away, and the state says so when no app link is held.
+            clearPairingDisplay();
+            if (nimbleBluetoothConnHandle.load() == BLE_HS_CONN_HANDLE_NONE) {
+                meshtastic::BluetoothStatus newStatus(meshtastic::BluetoothStatus::ConnectionState::DISCONNECTED);
+                bluetoothStatus->updateStatus(&newStatus);
+            }
+            // A bond made without the PIN is not kept: the store holds few, and would push out the app's.
+            if (desc->sec_state.encrypted)
+                NimBLEDevice::deleteBond(NimBLEAddress(desc->peer_id_addr));
             if (bleServer)
                 bleServer->disconnect(desc->conn_handle);
             return;

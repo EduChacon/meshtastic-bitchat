@@ -1759,12 +1759,23 @@ int main()
         fakeRadio.erase(fakeRadio.begin() + radioMark, fakeRadio.end());
     }
     // A phone's ID is the hash of its public noise key, so a device may announce that ID with a signing key of its
-    // own. The real phone, announcing itself again over its own link, takes the place back, and its text goes.
+    // own. It never takes the place, nor the name, of a phone that is here (Dora); a device that took an ID first
+    // (Gil's, before Gil arrived) holds it only while it stays: three minutes after it goes silent, Gil takes it.
     {
-        Phone gil("gil", 12, 17), squat("gil", 13, 16);
+        Phone gil("gil", 12, 17), squat("gil", 13, 16), fakeDora("dora", 14, 16);
         squat.noiseKey = gil.noiseKey;
         squat.noisePublic = gil.noisePublic;
         squat.id = gil.id;
+        fakeDora.noiseKey = dora.noiseKey;
+        fakeDora.noisePublic = dora.noisePublic;
+        fakeDora.id = dora.id;
+        fakeDora.write(fakeDora.announce());
+        fakeDora.write(fakeDora.say("sou a dora de mentira"));
+        run(3000);
+        CHECK(radio().size() == 1);
+        dora.write(dora.say("a dora de verdade"));
+        run(3000);
+        CHECK(radio().size() == 2 && radio()[1].find("a dora de verdade") != std::string::npos);
         // (Three Bluetooth links at most: Eco leaves.)
         bleDisconnect(eco.handle);
         gil.connect();
@@ -1774,7 +1785,12 @@ int main()
         gil.write(gil.announce());
         gil.write(gil.say("sou o gil"));
         run(3000);
-        CHECK(radio().size() == 2 && radio()[1].find("sou o gil") != std::string::npos);
+        CHECK(radio().size() == 2);
+        run(181000);
+        gil.write(gil.announce());
+        gil.write(gil.say("agora sim"));
+        run(13000);
+        CHECK(radio().size() == 3 && radio()[2].find("agora sim") != std::string::npos);
         fakeRadio.erase(fakeRadio.begin() + radioMark, fakeRadio.end());
     }
     // When the Meshtastic app sets the time again, that source takes over.

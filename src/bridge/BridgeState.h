@@ -120,6 +120,8 @@ struct Peer {
     bool used = false;
     // When it last announced itself on this radio's Bluetooth side (not through the tunnel); 0 never.
     uint32_t localAt = 0;
+    // The Bluetooth link it last announced itself on directly.
+    uint16_t link = 0xffff;
     RateGate traffic;
     RateBucket lora;
     RateGate presence;
@@ -132,9 +134,9 @@ class PeerTable
     static constexpr uint32_t STALE_MS = 300000;
     // A phone heard directly in this time keeps its keys against an announce that does not come over its link.
     static constexpr uint32_t DIRECT_MS = 180000;
-    // `direct`: announced to this radio by the phone itself, over its own Bluetooth link.
-    Result announce(Crypto &crypto, Bytes frame, uint64_t nowUtc, uint32_t now, Peer *&peer, bool direct = false);
-    Result authenticate(Crypto &crypto, Bytes frame, uint64_t nowUtc, uint32_t now, Peer *&peer, bool direct = false);
+    // `link`: the Bluetooth link a phone announced itself on directly, else NO_LINK (LoRa, relayed by phones).
+    Result announce(Crypto &crypto, Bytes frame, uint64_t nowUtc, uint32_t now, Peer *&peer, uint16_t link = 0xffff);
+    Result authenticate(Crypto &crypto, Bytes frame, uint64_t nowUtc, uint32_t now, Peer *&peer, uint16_t link = 0xffff);
     Peer *find(const PeerId &id);
     size_t size() const;
     bool nicknameShared(const Peer &peer) const;

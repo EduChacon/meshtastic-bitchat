@@ -372,7 +372,8 @@ Bluefruit, dimensionado para o pior evento com MTU 247, comporta uma escrita de 
 
 Vigésimo sexto passo. Revisão geral de segurança, em comum com a ponte MeshCore: aparelho pareado sem
 PIN desconectado; hora por voto de conexão Bluetooth; espera diante de outra ponte conferida pelo texto
-no LoRa; telefone que retoma o próprio ID; telefones próximos à frente na tabela cheia. Versão
+no LoRa; telefone presente que mantém o próprio ID; telefones próximos à frente na tabela cheia; diário sem
+registros da hora corrigida. Versão
 `1.0.0-beta.19`. Não ligado em aparelho.
 
 ## Investigação de boot — 2026-11-13

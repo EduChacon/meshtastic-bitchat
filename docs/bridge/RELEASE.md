@@ -11,16 +11,19 @@ instalar. Não há garantia de risco zero.
 **O que a `1.0.0-beta.19` muda em relação à `1.0.0-beta.18`:** correções de segurança de uma
 revisão geral, as mesmas da ponte MeshCore `bitchat1.2`.
 
-- **Bluetooth:** um aparelho que pareia sem o PIN ("Just Works") é desconectado e não toma o lugar
-  do aplicativo Meshtastic, nem recebe as notificações dele.
-- **Hora:** sem hora confiável, um voto por conexão Bluetooth; um aparelho só, perto do rádio, não
-  leva mais a hora para longe da dos telefones (antes, um anúncio com data adiantada travava a
-  ponte até reiniciar).
+- **Bluetooth (ESP32):** um aparelho que pareia sem o PIN ("Just Works") é desconectado, o vínculo
+  dele é apagado, e ele não toma o lugar do aplicativo Meshtastic nem recebe as notificações dele. No
+  T1000-E experimental, o serviço do aplicativo segue a configuração de origem do Meshtastic.
+- **Hora:** sem hora confiável, um voto por conexão Bluetooth; uma conexão só não leva mais a hora
+  para longe da dos telefones (antes, um anúncio com data adiantada travava a ponte até reiniciar).
+  Quem abrir mais conexões que os telefones presentes ainda consegue mudá-la enquanto estiver perto.
 - **Espera diante de outra ponte:** num canal público qualquer um calcula a prova; a espera só se
   mantém se o texto de um telefone daqui aparecer no LoRa em até 60 s.
-- **Identidade:** o telefone verdadeiro retoma o próprio lugar quando outro aparelho anuncia o ID
-  dele; os telefones próximos sempre têm lugar na tabela, à frente dos conhecidos só pelo LoRa.
-- **Só simulado e compilado:** 2891 verificações do fluxo completo.
+- **Identidade:** outro aparelho não toma o ID (e o nome) de um telefone presente; um aparelho que o
+  tomou antes de o telefone chegar o perde 3 minutos depois de parar de se anunciar (antes, ficava
+  com ele). Os telefones próximos sempre têm lugar na tabela, à frente dos conhecidos só pelo LoRa.
+- **Diário de mensagens:** registros feitos com a hora adiantada, depois corrigida, deixam de valer.
+- **Só simulado e compilado:** 2912 verificações do fluxo completo.
 
 **O que a `1.0.0-beta.18` muda em relação à `1.0.0-beta.17`:** só o arquivo experimental do
 T1000-E. Na ponte MeshCore, a conversa privada com um T1000-E não abriu em aparelho, e a causa vale

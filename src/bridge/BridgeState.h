@@ -130,8 +130,11 @@ class PeerTable
   public:
     static constexpr size_t CAPACITY = 24;
     static constexpr uint32_t STALE_MS = 300000;
-    Result announce(Crypto &crypto, Bytes frame, uint64_t nowUtc, uint32_t now, Peer *&peer);
-    Result authenticate(Crypto &crypto, Bytes frame, uint64_t nowUtc, uint32_t now, Peer *&peer);
+    // A phone heard directly in this time keeps its keys against an announce that does not come over its link.
+    static constexpr uint32_t DIRECT_MS = 180000;
+    // `direct`: announced to this radio by the phone itself, over its own Bluetooth link.
+    Result announce(Crypto &crypto, Bytes frame, uint64_t nowUtc, uint32_t now, Peer *&peer, bool direct = false);
+    Result authenticate(Crypto &crypto, Bytes frame, uint64_t nowUtc, uint32_t now, Peer *&peer, bool direct = false);
     Peer *find(const PeerId &id);
     size_t size() const;
     bool nicknameShared(const Peer &peer) const;

@@ -370,6 +370,11 @@ maiores que o limite, que não chegam. ATT MTU do T1000-E de 247 para 260; o buf
 Bluefruit, dimensionado para o pior evento com MTU 247, comporta uma escrita de 257 bytes. Versão
 `1.0.0-beta.18`. Não ligado em aparelho.
 
+Vigésimo sexto passo. Revisão geral de segurança, em comum com a ponte MeshCore: aparelho pareado sem
+PIN desconectado; hora por voto de conexão Bluetooth; espera diante de outra ponte conferida pelo texto
+no LoRa; telefone que retoma o próprio ID; telefones próximos à frente na tabela cheia. Versão
+`1.0.0-beta.19`. Não ligado em aparelho.
+
 ## Investigação de boot — 2026-11-13
 
 As instalações foram suspensas nos dois READMEs e nas pré-releases, preservando os arquivos

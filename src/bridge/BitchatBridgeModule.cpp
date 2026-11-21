@@ -23,6 +23,8 @@ static constexpr uint32_t DEDUP_MS = 125000;
 static constexpr uint64_t JOURNAL_MS = 600000;
 static constexpr uint32_t GUARD_MS = 30000;
 static constexpr uint32_t CONFLICT_MS = 90000;
+static constexpr uint32_t STANDBY_CHECK_MS = 60000;
+static constexpr uint32_t STANDBY_REFUSED_MS = 30UL * 60 * 1000;
 static constexpr uint32_t RADIO_DEADLINE_MS = 120000;
 static constexpr uint32_t BUDGET_MS = 12000;
 static constexpr uint32_t NOTE_EVERY_MS = 12UL * 3600 * 1000;
@@ -99,20 +101,59 @@ uint64_t BitchatBridgeModule::utc() const
     return peerClockUtc + uint32_t(millis() - peerClockAt);
 }
 
-// A radio without RTC forgets the time when power is cut. Until a trusted source returns, a phone that
-// announces itself directly supplies it: never before the last trusted time, and afterwards only forward.
-void BitchatBridgeModule::adoptPeerClock(Bytes frame, const Packet &packet)
+// A radio without RTC forgets the time when power is cut. Until a trusted source returns, the phones that announce
+// themselves directly supply it, one vote per Bluetooth link: never before the last trusted time. The time moves
+// only when more links agree on another time than on the one held, so one device cannot carry it off against the
+// phones next to it, and the phones correct it once that device is gone (a vote lasts five minutes).
+void BitchatBridgeModule::adoptPeerClock(Bytes frame, const Packet &packet, uint16_t source)
 {
-    if (trustedUtc() || packet.type != 1 || packet.ttl != 7 || packet.timestamp < clockFloor)
+    static constexpr uint32_t VOTE_MS = 5UL * 60 * 1000;
+    static constexpr uint64_t AGREE_MS = 60000;
+    if (trustedUtc() || packet.type != 1 || packet.ttl != 7 || source == NO_LINK || packet.timestamp < clockFloor)
         return;
+    const uint32_t now = millis();
+    PhoneTime *slot = nullptr;
+    for (auto &entry : phoneTimes) {
+        if (entry.used && !Throttle::isWithinTimespanMsAt(entry.at, VOTE_MS, now))
+            entry.used = false;
+        if (entry.used && entry.link == source)
+            slot = &entry;
+    }
+    if (!slot)
+        for (auto &entry : phoneTimes)
+            if (!slot || (slot->used && (!entry.used || now - entry.at > now - slot->at)))
+                slot = &entry;
+    slot->link = source;
+    slot->utc = packet.timestamp;
+    slot->at = now;
+    slot->used = true;
     const uint64_t current = utc();
-    if (current && packet.timestamp <= current + FRESHNESS_MS)
-        return;
+    const auto carried = [now](const PhoneTime &entry) { return entry.utc + uint32_t(now - entry.at); };
+    const auto near = [](uint64_t a, uint64_t b, uint64_t within) { return (a > b ? a - b : b - a) <= within; };
+    uint64_t chosen = packet.timestamp;
+    if (current) {
+        if (near(packet.timestamp, current, FRESHNESS_MS))
+            return;
+        size_t support = 0, count = 0;
+        uint64_t earliest = packet.timestamp;
+        for (const auto &entry : phoneTimes) {
+            if (!entry.used)
+                continue;
+            support += near(carried(entry), current, FRESHNESS_MS);
+            if (near(carried(entry), packet.timestamp, AGREE_MS)) {
+                ++count;
+                earliest = std::min(earliest, carried(entry));
+            }
+        }
+        if (count <= support)
+            return;
+        chosen = earliest;
+    }
     Peer *peer = nullptr;
-    if (runtime->peers->announce(crypto, frame, packet.timestamp, millis(), peer) != Result::Ok)
+    if (runtime->peers->announce(crypto, frame, packet.timestamp, now, peer, true) != Result::Ok)
         return;
-    peerClockUtc = packet.timestamp;
-    peerClockAt = millis();
+    peerClockUtc = chosen;
+    peerClockAt = now;
     announcedAt = peerClockAt - 60000;
 }
 
@@ -1656,7 +1697,7 @@ bool BitchatBridgeModule::handleFrame(Bytes frame, uint16_t source, bool fromTun
         return false;
     }
     if (!fromTunnel)
-        adoptPeerClock(frame, packet);
+        adoptPeerClock(frame, packet, source);
     Digest id;
     result = packetDigest(crypto, frame, id);
     // Every phone relays what it hears, so most arrivals are copies: drop them before the signature check.
@@ -1667,7 +1708,7 @@ bool BitchatBridgeModule::handleFrame(Bytes frame, uint16_t source, bool fromTun
         return false;
     }
     Peer *peer = nullptr;
-    result = runtime->peers->authenticate(crypto, frame, utc(), now, peer);
+    result = runtime->peers->authenticate(crypto, frame, utc(), now, peer, !fromTunnel && packet.ttl == 7 && source != NO_LINK);
     if (result == Result::Ok && !peer)
         result = Result::Unauthenticated;
     if (result == Result::Ok)
@@ -1679,8 +1720,11 @@ bool BitchatBridgeModule::handleFrame(Bytes frame, uint16_t source, bool fromTun
     ++acceptedBle;
     uint32_t other = 0;
     // Two bridges on one channel would duplicate every text: the higher node number stands by.
+    // (Not again for half an hour after a standby whose other bridge never carried the text: anyone with the key
+    // of a public channel can write the proof.)
     if (!fromTunnel && textReady && packet.type == 1 &&
-        gatewayProofNode(crypto, packet, nodeDB->getNodeNum(), textKey.data(), other) && other < nodeDB->getNodeNum()) {
+        gatewayProofNode(crypto, packet, nodeDB->getNodeNum(), textKey.data(), other) && other < nodeDB->getNodeNum() &&
+        !(conflictRefusedAt && Throttle::isWithinTimespanMsAt(conflictRefusedAt, STANDBY_REFUSED_MS, now))) {
         textConflict = true;
         conflictAt = now;
     }
@@ -1764,8 +1808,16 @@ void BitchatBridgeModule::exportText(const Packet &packet, Peer &peer, const Dig
     } else {
         result = publicTextForLoRa(packet, body);
     }
-    if (result == Result::Ok && textConflict)
+    if (result == Result::Ok && textConflict) {
+        // The other bridge should carry it: its start must show up on LoRa soon (see accept()).
+        if (!standbyCheck && body.size) {
+            standbyBodySize = uint8_t(std::min(body.size, standbyBody.size()));
+            std::copy_n(body.data, standbyBodySize, standbyBody.begin());
+            standbyCheck = true;
+            standbyCheckAt = millis();
+        }
         result = Result::Policy;
+    }
     // A token never goes to LoRa as text, whoever brought it: only whole, by the payment tunnel.
     if (result == Result::Ok && mentionsCashu(packet.payload))
         result = Result::Policy;
@@ -1868,6 +1920,12 @@ ProcessMessage BitchatBridgeModule::accept(const meshtastic_MeshPacket &packet)
     if (!settings.enabled || !runtime || !wasActive || !storageReady || !identityReady || !utc())
         return ProcessMessage::CONTINUE;
     refreshChannels();
+    // The other bridge carried the text of a phone here: the standby is real.
+    if (standbyCheck && textReady && packet.channel == settings.textChannel &&
+        packet.decoded.portnum == meshtastic_PortNum_TEXT_MESSAGE_APP && standbyBodySize &&
+        std::search(payload.data, payload.data + payload.size, standbyBody.begin(), standbyBody.begin() + standbyBodySize) !=
+            payload.data + payload.size)
+        standbyCheck = false;
     if (textReady && !textConflict && !textGuard() && packet.channel == settings.textChannel &&
         packet.decoded.portnum == meshtastic_PortNum_TEXT_MESSAGE_APP) {
         const NodeNum from = getFrom(&packet);
@@ -2116,8 +2174,15 @@ int32_t BitchatBridgeModule::work()
     }
     if (!Throttle::isWithinTimespanMsAt(channelsAt, 1000, now))
         refreshChannels();
+    if (textConflict && standbyCheck && !Throttle::isWithinTimespanMsAt(standbyCheckAt, STANDBY_CHECK_MS, now)) {
+        // No other bridge carried a phone's text: whoever claimed to be one is not, or cannot reach LoRa. This
+        // bridge takes the text back, and believes no such claim for half an hour.
+        textConflict = standbyCheck = false;
+        conflictRefusedAt = now ? now : 1;
+        ++lost;
+    }
     if (textConflict && !Throttle::isWithinTimespanMsAt(conflictAt, CONFLICT_MS, now)) {
-        textConflict = false;
+        textConflict = standbyCheck = false;
         textGuardAt = now;
     }
     const uint32_t elapsed = now - lastBudget;

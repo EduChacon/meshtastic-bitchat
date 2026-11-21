@@ -653,6 +653,18 @@ class NimbleBluetoothServerCallback : public NimBLEServerCallbacks
 #endif
     {
         LOG_INFO("BLE authentication complete");
+#if defined(MESHTASTIC_ENABLE_BITCHAT) && !defined(NIMBLE_TWO)
+        // With the bridge, other phones may be connected too. A link that paired without the PIN ("Just Works": a
+        // device with no keyboard or screen) is encrypted but not authenticated: it is dropped, so it never takes
+        // the app's place nor receives its notifications. The app's link is the one that writes (see onWrite).
+        if (config.bluetooth.mode != meshtastic_Config_BluetoothConfig_PairingMode_NO_PIN &&
+            !(desc->sec_state.encrypted && desc->sec_state.authenticated)) {
+            LOG_WARN("BLE link %u paired without the PIN, disconnecting", desc->conn_handle);
+            if (bleServer)
+                bleServer->disconnect(desc->conn_handle);
+            return;
+        }
+#endif
 
         meshtastic::BluetoothStatus newStatus(meshtastic::BluetoothStatus::ConnectionState::CONNECTED);
         bluetoothStatus->updateStatus(&newStatus);
@@ -661,6 +673,10 @@ class NimbleBluetoothServerCallback : public NimBLEServerCallbacks
         // Store the connection handle for future use
 #ifdef NIMBLE_TWO
         nimbleBluetoothConnHandle = connInfo.getConnHandle();
+#elif defined(MESHTASTIC_ENABLE_BITCHAT)
+        // Another phone that pairs does not take the place of the app already connected.
+        uint16_t none = BLE_HS_CONN_HANDLE_NONE;
+        nimbleBluetoothConnHandle.compare_exchange_strong(none, desc->conn_handle);
 #else
         nimbleBluetoothConnHandle = desc->conn_handle;
 #endif

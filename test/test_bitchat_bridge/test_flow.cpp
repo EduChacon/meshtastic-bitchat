@@ -1272,11 +1272,15 @@ int main()
     run(200);
     CHECK(std::string(bridge->status()) == "Standby: other bridge");
     ana.write(ana.say("em espera"));
+    run(200);
+    // The other bridge carries Ana's text: the standby is real, and holds.
     fromLoRa(0x1234, "em espera");
     fakeSent.clear();
     run(3000);
     CHECK(radio().empty() && chat(bia.handle, &bridgeId).empty());
-    run(90000);
+    run(60000);
+    CHECK(std::string(bridge->status()) == "Standby: other bridge");
+    run(30000);
     CHECK(std::string(bridge->status()).rfind("Starting LoRa: ", 0) == 0);
     run(31000);
     CHECK(std::string(bridge->status()) == "Ready: Bitchat + LoRa");
@@ -1285,6 +1289,24 @@ int main()
     ana.write(ana.say("voltou"));
     run(3000);
     CHECK(radio().size() == 1 && radio()[0].find("voltou") != std::string::npos);
+    fakeRadio.clear();
+    // Anyone with the key of a public channel can write the proof. A "bridge" that never carries the text holds
+    // this one back a minute at most: then it takes the text back, and believes no such claim for half an hour.
+    caio.write(other.announce({lower.data(), lower.size()}, 6), caio.handle);
+    run(200);
+    CHECK(std::string(bridge->status()) == "Standby: other bridge");
+    ana.write(ana.say("ninguem leva"));
+    run(3000);
+    CHECK(radio().empty());
+    run(60000);
+    CHECK(std::string(bridge->status()) == "Ready: Bitchat + LoRa");
+    ana.write(ana.say("agora vai"));
+    run(3000);
+    CHECK(radio().size() == 1 && radio()[0].find("agora vai") != std::string::npos);
+    caio.write(other.announce({lower.data(), lower.size()}, 6), caio.handle);
+    run(200);
+    CHECK(std::string(bridge->status()) == "Ready: Bitchat + LoRa");
+    fakeRadio.clear();
 
     // A crowded place: the table is full of people who left minutes ago; newcomers still get in.
     std::vector<Phone> crowd;
@@ -1706,14 +1728,55 @@ int main()
     run(3000);
     CHECK(radio() == std::vector<std::string>{"dora: voltei sozinha"});
     CHECK(chat(dora.handle).size() == 1 && chat(dora.handle)[0].find("bem-vinda") != std::string::npos);
-    // Once set, the time only moves forward: an older announcement is ignored, a replayed message is stale.
+    // Once set, one link is one vote: an older announcement replayed by another device does not take the time
+    // back against Dora's, and a replayed message is stale.
+    Phone eco("eco", 10, 15);
+    eco.connect();
+    run(200);
     forcedStamp = nowUtc() - 600000;
     const Frame old = dora.say("mensagem antiga");
-    dora.write(dora.announce());
-    dora.write(old);
+    const Frame oldAnnounce = dora.announce();
     forcedStamp = 0;
+    dora.write(oldAnnounce, eco.handle);
+    dora.write(old, eco.handle);
     run(3000);
     CHECK(radio().size() == 1 && std::string(bridge->status()) == "Ready: Bitchat + LoRa");
+    // A device on another link announcing a year ahead does not carry the time off against Dora's either.
+    const size_t radioMark = fakeRadio.size();
+    {
+        Phone far("far", 11, 16);
+        far.connect();
+        run(200);
+        forcedStamp = nowUtc() + (365ULL * 86400 + 3 * 3600) * 1000;
+        far.write(far.announce());
+        forcedStamp = 0;
+        stamp = 0; // the phones' own clocks again
+        run(200);
+        dora.write(dora.announce());
+        dora.write(dora.say("hora de sempre"));
+        run(3000);
+        CHECK(radio().size() == 2 && radio()[1].find("hora de sempre") != std::string::npos);
+        fakeRadio.erase(fakeRadio.begin() + radioMark, fakeRadio.end());
+    }
+    // A phone's ID is the hash of its public noise key, so a device may announce that ID with a signing key of its
+    // own. The real phone, announcing itself again over its own link, takes the place back, and its text goes.
+    {
+        Phone gil("gil", 12, 17), squat("gil", 13, 16);
+        squat.noiseKey = gil.noiseKey;
+        squat.noisePublic = gil.noisePublic;
+        squat.id = gil.id;
+        // (Three Bluetooth links at most: Eco leaves.)
+        bleDisconnect(eco.handle);
+        gil.connect();
+        run(200);
+        squat.write(squat.announce());
+        run(200);
+        gil.write(gil.announce());
+        gil.write(gil.say("sou o gil"));
+        run(3000);
+        CHECK(radio().size() == 2 && radio()[1].find("sou o gil") != std::string::npos);
+        fakeRadio.erase(fakeRadio.begin() + radioMark, fakeRadio.end());
+    }
     // When the Meshtastic app sets the time again, that source takes over.
     lastSetFromPhoneNtpOrGps = true;
     dora.write(dora.say("hora confiavel"));

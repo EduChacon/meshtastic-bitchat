@@ -144,6 +144,20 @@ class BitchatBridgeModule : public MeshModule, private concurrency::OSThread
     uint64_t lastOriginTimestamp = 0, peerClockUtc = 0, clockFloor = 0;
     uint32_t peerClockAt = 0, clockSavedAt = 0;
     bool clockSaved = false;
+    // The time each Bluetooth link's phone gave lately: one link, one vote, so one device cannot carry the clock
+    // off against the phones next to it.
+    struct PhoneTime {
+        uint16_t link = 0xffff;
+        uint64_t utc = 0;
+        uint32_t at = 0;
+        bool used = false;
+    };
+    std::array<PhoneTime, 4> phoneTimes{};
+    // A standby for another bridge holds only while the text it should carry shows up on LoRa.
+    bool standbyCheck = false;
+    uint8_t standbyBodySize = 0;
+    std::array<uint8_t, 20> standbyBody{};
+    uint32_t standbyCheckAt = 0, conflictRefusedAt = 0;
     uint32_t forwardedBle = 0, submittedRadio = 0, importedRadio = 0, lost = 0;
     uint32_t receivedBle = 0, acceptedBle = 0, originatedBle = 0;
     std::array<uint32_t, 12> rejected{};
@@ -298,7 +312,7 @@ class BitchatBridgeModule : public MeshModule, private concurrency::OSThread
     void reject(bitchat::Result result);
     uint64_t utc() const;
     uint64_t trustedUtc() const;
-    void adoptPeerClock(bitchat::Bytes frame, const bitchat::Packet &packet);
+    void adoptPeerClock(bitchat::Bytes frame, const bitchat::Packet &packet, uint16_t source);
     void keepClock(uint32_t now);
     // The time for a packet this bridge sends: never the same twice.
     uint64_t nextTimestamp();

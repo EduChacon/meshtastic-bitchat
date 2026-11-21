@@ -71,8 +71,9 @@ anuncia o UUID Meshtastic por cinco minutos. Não presume dois UUIDs de 128 bits
 legado. Serviços simultâneos não comprovam descoberta/operação simultânea dos apps.
 O código separa a desconexão Bitchat da sessão nativa de outro identificador de conexão.
 Sem hora, o anúncio alterna a cada 20 s entre Meshtastic e Bitchat. A hora confiável vem do
-aplicativo Meshtastic, do GPS ou do RTC; na falta dela, vale a do primeiro anúncio Bitchat
-assinado e direto, nunca anterior à última hora confiável gravada, e depois só para a frente.
+aplicativo Meshtastic, do GPS ou do RTC; na falta dela, vale a dos anúncios Bitchat assinados e
+diretos, nunca anterior à última hora confiável gravada: um voto por conexão Bluetooth (válido por
+5 minutos), e a hora só muda quando mais conexões concordam com outra hora do que com a atual.
 O [padrão de instalação](DEFAULTS.md) habilita BLE/texto dedicado uma vez, preservando
 escolhas posteriores e canais existentes. Não depende de display, mas exige pareamento.
 
@@ -142,7 +143,9 @@ uma entrega se a energia cair entre journal e transmissão. Não há fila persis
 Só um exportador B por malha Bluetooth sobreposta fica ativo. A prova no TLV do anúncio,
 assinada e autenticada pela chave de canal, identifica a outra ponte: a de maior número de nó
 entra em espera (`Standby: other bridge`) e retoma sozinha 90 s depois de deixar de ver a prova,
-mais 30 s de observação. **Isso não é consenso distribuído:** pontes que não se ouvem por
+mais 30 s de observação. Como num canal público qualquer um calcula a prova, a espera só se mantém
+se o texto de um telefone daqui aparecer no LoRa em até 60 s; se não aparecer, a ponte retoma o texto
+e ignora novas provas por 30 minutos. **Isso não é consenso distribuído:** pontes que não se ouvem por
 Bluetooth podem duplicar texto no LoRa, sem laço. A configuração sobreposta não foi ensaiada.
 
 C leva versão, domínio de canal, origem, boot, sequência, hash do frame, índice, quantidade,

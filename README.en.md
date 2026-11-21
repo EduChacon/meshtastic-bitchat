@@ -6,7 +6,7 @@ An embedded bridge derived from the official Meshtastic firmware. It is designed
 for the unmodified Bitchat and Meshtastic apps, with no computer, MQTT, Nostr or internet in the
 operating path. A computer is used to build, install and diagnose the firmware.
 
-**Current version (beta): [v1.0.0-beta.18](https://github.com/EduChacon/meshtastic-bitchat/releases/tag/v1.0.0-beta.18).** Adds
+**Current version (beta): [v1.0.0-beta.19](https://github.com/EduChacon/meshtastic-bitchat/releases/tag/v1.0.0-beta.19).** Adds
 experimental private chats: with the bridge itself and, through it, with the radio's favourite
 nodes ([guide](docs/bridge/PRIVATE.md), in Portuguese). [What changed and why](docs/bridge/CHANGES.md#english).
 
@@ -79,8 +79,8 @@ compiles, but it has never run on a device and is outside the release checks.
 
 ## Install
 
-1. From [v1.0.0-beta.18](https://github.com/EduChacon/meshtastic-bitchat/releases/tag/v1.0.0-beta.18), download
-   **`meshtastic-bitchat-1.0.0-beta.18.zip`**. It is a single file for all ten devices. For a radio
+1. From [v1.0.0-beta.19](https://github.com/EduChacon/meshtastic-bitchat/releases/tag/v1.0.0-beta.19), download
+   **`meshtastic-bitchat-1.0.0-beta.19.zip`**. It is a single file for all ten devices. For a radio
    that never had a region set there is also one file per country (`…-Brasil.zip`, `…-EUA.zip`,
    `…-Europa-e-Reino-Unido.zip`), which makes the Meshtastic app unnecessary.
 2. In the [official Web Flasher](https://flasher.meshtastic.org/), select the board, load the
@@ -141,8 +141,8 @@ Base: Meshtastic **2.7.26.54e0d8d**, commit `54e0d8d0ab2ff56b3a9ce967e53f79e49af
 Bitchat reference: iOS **1.8.0**, commit `30c58eee349e172b37f69faa2113c9d5f2c76c23`.
 
 ```sh
-git fetch origin tag v1.0.0-beta.18
-git checkout --detach v1.0.0-beta.18
+git fetch origin tag v1.0.0-beta.19
+git checkout --detach v1.0.0-beta.19
 python3 -m venv .venv
 .venv/bin/python -m pip install platformio==6.2.0 intelhex==2.3.0
 git submodule update --init protobufs

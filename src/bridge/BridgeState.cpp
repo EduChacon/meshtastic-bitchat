@@ -54,13 +54,15 @@ Result PeerTable::announce(Crypto &crypto, Bytes frame, uint64_t nowUtc, uint32_
     if (result != Result::Ok || !crypto.verify(canonical.bytes(), p.signature, announcement.signingKey.data()))
         return Result::Unauthenticated;
     // The ID comes from the public noise key, so anyone may announce it with a signing key of their own. A phone
-    // heard here directly in the last minutes keeps its keys against any other link, LoRa and relays: no one takes
-    // the place, and the name, of a phone that is here. Once that phone has been silent for those minutes, the
-    // place goes to the latest valid announce, so a device that took an ID first does not lock the real phone out
-    // for longer than it stays. (Private chats stay safe either way: they prove the noise key itself.)
+    // heard here directly in the last minutes keeps its keys against every other announce, over any link (a link
+    // number is reused once a phone leaves), LoRa or relays: no one takes the place, and the name, of a phone that
+    // is here. Once that phone has been silent for those minutes, the place goes to the latest valid announce, so
+    // a device that took an ID first does not lock the real phone out for longer than it stays. (Private chats
+    // stay safe either way: they prove the noise key itself.)
+    (void)link;
     if (existing && (existing->announcement.signingKey != announcement.signingKey ||
                      existing->announcement.noiseKey != announcement.noiseKey)) {
-        if (existing->localAt && now - existing->localAt < DIRECT_MS && !(link != 0xffff && link == existing->link))
+        if (existing->localAt && now - existing->localAt < DIRECT_MS)
             return Result::Unauthenticated;
         *existing = {};
     }
